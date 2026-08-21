@@ -1,4 +1,5 @@
-"use client";\n// Safety workflow revision 2
+"use client";
+// Safety workflow revision 2
 import {useEffect,useMemo,useState,type ReactNode} from "react";
 type Step="drug"|"reason"|"age"|"weight"|"safety"|"vial"|"review";
 const PROTOCOL_DATE="July 2026",REVIEW_DATE=new Date("2027-01-01T00:00:00-07:00");
