@@ -1,0 +1,19 @@
+{
+  "name": "Metro Med Dose",
+  "short_name": "Med Dose",
+  "description": "Safety-first Denver Metro EMS medication cross-check.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#edf2f5",
+  "theme_color": "#10263b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
