@@ -1,7 +1,7 @@
 import type { IScannerControls } from "@zxing/browser";
 import {useEffect,useRef,useState} from "react";
 type Info={brand_name?:string;generic_name?:string;labeler_name?:string;dosage_form?:string;route?:string[];product_ndc?:string;active_ingredients?:{name:string;strength:string}[];packaging?:{package_ndc:string;description:string}[]};
-export type StockVial={drug:"fentanyl"|"midazolam";amount:string;volume:string;unit:"mcg"|"mg";label:string;barcode:string};
+export type StockVial={drug:"fentanyl"|"midazolam";amount:string;volume:string;unit:"mcg"|"mg";label:string;barcode:string;photo?:string};
 export default function MedScanner({onUse}:{onUse:(v:StockVial)=>void}){
  const [open,setOpen]=useState(false),[scanning,setScanning]=useState(false),[raw,setRaw]=useState(""),[lookup,setLookup]=useState(""),[status,setStatus]=useState("Ready to scan."),[info,setInfo]=useState<Info|null>(null),[saved,setSaved]=useState<StockVial|null>(null),[med,setMed]=useState<StockVial["drug"]>("fentanyl"),[amount,setAmount]=useState(""),[volume,setVolume]=useState(""),[label,setLabel]=useState(""),[verified,setVerified]=useState(false),video=useRef<HTMLVideoElement>(null),controls=useRef<IScannerControls|null>(null);
  const stop=()=>{controls.current?.stop();controls.current=null;setScanning(false)};useEffect(()=>()=>stop(),[]);
