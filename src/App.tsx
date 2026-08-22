@@ -387,15 +387,6 @@ export default function App() {
             t="Which medication was requested?"
             h="Only advisor-review pathways are selectable."
           >
-            <label className="drug-search">
-              <span>Search generic or brand name</span>
-              <input
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Fentanyl, Versed…"
-              />
-            </label>
             <MedScanner
               onUse={(vial) => {
                 setScannedVial(vial);
@@ -412,7 +403,17 @@ export default function App() {
                 setStep("scanConfirm");
               }}
             />
-            <div className="choice-grid">
+            <div className="or-divider"><span>OR SELECT MEDICATION</span></div>
+            <label className="drug-search">
+              <span>Search generic or brand name</span>
+              <input
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Fentanyl, Versed…"
+              />
+            </label>
+            <div className="choice-grid medication-order">
               {meds
                 .filter((m) =>
                   (m.name + " " + m.brand)
@@ -427,17 +428,20 @@ export default function App() {
                       disabled={!active}
                       className="choice"
                       onClick={() => {
-                        setDrug(m.id as Drug);
+                        const selectedDrug = m.id as Drug;
+                        setDrug(selectedDrug);
                         setReason(
                           m.id === "fentanyl" ? reasons.fentanyl[0] : "",
                         );
-                        setTimeout(
-                          () => setStep(m.id === "fentanyl" ? "age" : "reason"),
-                          60,
-                        );
+                        setAmt("");
+                        setMl("");
+                        setScanMedOk(false);
+                        setScanConcOk(false);
+                        setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="fentanyl"?"mcg":"mg",label:m.brand,barcode:""});
+                        setTimeout(() => setStep("scanConfirm"), 60);
                       }}
                     >
-                      <span className="rx">Rx</span>
+                      <span className="rx">{meds.findIndex(x=>x.id===m.id)+1}</span>
                       <span>
                         <b>{m.name}</b>
                         <small>
@@ -455,11 +459,12 @@ export default function App() {
           <Screen e="SCANNED VIAL" t="Confirm the medication in your hand" h="Compare the physical vial with the scanned stock information.">
             <div className="scan-confirm-card">
               <div className="scan-med-photo">{scannedVial.photo ? <img src={scannedVial.photo} alt={`${scannedVial.label} reference vial`}/> : <div className="reference-vial"><small>{medName(scannedVial.drug).toUpperCase()}</small><b>VIAL</b><span>Reference photo not saved</span></div>}</div>
-              <div className="scan-med-identity"><small>BARCODE MATCH</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>
+              <div className="scan-med-identity"><small>{scannedVial.barcode?"BARCODE MATCH":"MANUAL SELECTION"}</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p>{scannedVial.barcode?<><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></>:<span className="manual-vial-note">Enter the concentration from the physical vial below.</span>}</div>
             </div>
+            {!scannedVial.barcode&&<><h3 className="label-heading">Enter exactly what the physical vial says</h3><div className="vial-entry"><label><span>Total drug</span><div><input inputMode="decimal" value={scannedVial.amount} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,amount:value});setAmt(value);setScanConcOk(false)}} placeholder="0"/><b>{scannedVial.unit}</b></div></label><label><span>Total volume</span><div><input inputMode="decimal" value={scannedVial.volume} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,volume:value});setMl(value);setScanConcOk(false)}} placeholder="0"/><b>mL</b></div></label></div>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0&&<div className="manual-concentration-result"><span>Calculated concentration</span><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>}</>}
             <div className="scan-confirm-checks">
               <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Correct medication</b>Physical vial says {medName(scannedVial.drug)}</span></label>
-              <label className={scanConcOk?"checked":""}><input type="checkbox" checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Correct concentration</b>Physical vial says {scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</span></label>
+              <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Correct concentration</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`Physical vial says ${scannedVial.amount} ${scannedVial.unit} in ${scannedVial.volume} mL`:"Enter the vial amount and volume above first"}</span></label>
             </div>
             <Next ok={scanMedOk&&scanConcOk} go={()=>setStep(scannedVial.drug==="fentanyl"?"age":"reason")} text="Continue to patient information"/>
           </Screen>
