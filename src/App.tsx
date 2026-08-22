@@ -388,7 +388,19 @@ export default function App() {
                 placeholder="Fentanyl, Versed…"
               />
             </label>
-            <MedScanner />
+            <MedScanner
+              onUse={(vial) => {
+                setDrug(vial.drug);
+                setReason(
+                  vial.drug === "fentanyl" ? reasons.fentanyl[0] : "",
+                );
+                setAmt(vial.amount);
+                setMl(vial.volume);
+                setMedConfirmed(false);
+                setConfirmed(false);
+                setStep(vial.drug === "fentanyl" ? "age" : "reason");
+              }}
+            />
             <div className="choice-grid">
               {meds
                 .filter((m) =>
