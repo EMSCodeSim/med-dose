@@ -3,14 +3,15 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
 import MedScanner, { type StockVial } from "./MedScanner";
-type Drug = "fentanyl" | "midazolam";
-type Route = "IV/IO" | "IM" | "IN";
+type Drug = "fentanyl" | "midazolam" | "adenosine";
+type Route = "IV" | "IV/IO" | "IM" | "IN";
 type AgeUnit = "years" | "months" | "days";
 type Step =
   "drug" | "scanConfirm" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
 const URL =
   "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
 const meds = [
+  {id:"adenosine" as Drug,name:"Adenosine",brand:"Adenocard",sub:"Antiarrhythmic"},
   {
     id: "fentanyl" as Drug,
     name: "Fentanyl",
@@ -37,6 +38,7 @@ const meds = [
   },
 ];
 const reasons: Record<Drug, string[]> = {
+  adenosine: ["Regular narrow-complex AV nodal reentrant tachycardia"],
   fentanyl: ["Moderate to severe pain"],
   midazolam: [
     "Seizure",
@@ -45,6 +47,7 @@ const reasons: Record<Drug, string[]> = {
   ],
 };
 const routes: Record<Drug, Route[]> = {
+  adenosine: ["IV"],
   fentanyl: ["IV/IO", "IM", "IN"],
   midazolam: ["IV/IO", "IM", "IN"],
 };
@@ -61,6 +64,7 @@ const tapeBands = [
 ];
 function rules(drug: Drug, reason: string, age: number, route: Route | null) {
   const adult = age >= 12;
+  if(drug==="adenosine")return{weight:false,rates:[12],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"One additional 12 mg rapid IV dose; contact medical control for further considerations.",maxCumulative:null,maxDoses:2,note:"Administer rapid IV bolus followed immediately by a normal saline flush. Continuous ECG monitoring required."};
   if (drug === "fentanyl") {
     const rate = route === "IN" && !adult ? [2] : [1, 2];
     return {
@@ -120,7 +124,7 @@ function rules(drug: Drug, reason: string, age: number, route: Route | null) {
   };
 }
 function checksFor(drug: Drug, age: number) {
-  const base =
+  const base = drug==="adenosine"?["Rhythm is REGULAR and narrow-complex","12-lead ECG obtained and documented when available","Patient has NO heart transplant history","Continuous ECG monitoring is in place","Patient warned about brief, unpleasant chest discomfort"]:
     drug === "fentanyl"
       ? [
           "Patient is hemodynamically stable with NO signs of shock",
@@ -194,7 +198,7 @@ export default function App() {
     needWeight = !!r?.weight,
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
     items = drug ? checksFor(drug, an) : [],
-    ageBlocked = drug === "fentanyl" && underOne,
+    ageBlocked = (drug === "fentanyl" && underOne)||(drug==="adenosine"&&age!==""&&!adult),
     ageWithinRange =
       au === "years"
         ? av >= 0 && av < 130
@@ -421,7 +425,7 @@ export default function App() {
                     .includes(search.toLowerCase()),
                 )
                 .map((m) => {
-                  const active = m.id === "fentanyl" || m.id === "midazolam";
+                        const active = m.id === "fentanyl" || m.id === "midazolam" || m.id === "adenosine";
                   return (
                     <button
                       key={m.id}
@@ -430,9 +434,7 @@ export default function App() {
                       onClick={() => {
                         const selectedDrug = m.id as Drug;
                         setDrug(selectedDrug);
-                        setReason(
-                          m.id === "fentanyl" ? reasons.fentanyl[0] : "",
-                        );
+                        setReason(reasons[selectedDrug].length===1?reasons[selectedDrug][0]:"");
                         setAmt("");
                         setMl("");
                         setScanMedOk(false);
@@ -466,7 +468,7 @@ export default function App() {
               <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Correct medication</b>Physical vial says {medName(scannedVial.drug)}</span></label>
               <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Correct concentration</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`Physical vial says ${scannedVial.amount} ${scannedVial.unit} in ${scannedVial.volume} mL`:"Enter the vial amount and volume above first"}</span></label>
             </div>
-            <Next ok={scanMedOk&&scanConcOk} go={()=>setStep(scannedVial.drug==="fentanyl"?"age":"reason")} text="Continue to patient information"/>
+            <Next ok={scanMedOk&&scanConcOk} go={()=>setStep(reasons[scannedVial.drug].length===1?"age":"reason")} text="Continue to patient information"/>
           </Screen>
         )}
         {step === "reason" && drug && (
@@ -536,9 +538,9 @@ export default function App() {
             ) : ageBlocked ? (
               <HardStop
                 title="BASE CONTACT REQUIRED"
-                reason="DMP 9230 does not provide a standing-order Fentanyl dose for patients younger than 1 year."
-                source="DMP 9230 Opioids"
-                action="If the age was entered incorrectly, correct it above. If the patient is confirmed younger than 1 year, stop and contact Base for a direct order."
+                reason={drug==="adenosine"?"DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration.":"DMP 9230 does not provide a standing-order Fentanyl dose for patients younger than 1 year."}
+                source={drug==="adenosine"?"DMP 9010 Adenosine":"DMP 9230 Opioids"}
+                action="Correct the age if entered incorrectly. Otherwise stop and contact Base for a direct order."
               />
             ) : (
               ageOk && (
@@ -770,7 +772,7 @@ export default function App() {
                 {route} • {reason}
               </b>
               <span>
-                Repeat after {r.repeat} minutes • {r.repeatText}
+                {r.repeat>0?`Repeat after ${r.repeat} minutes`:"Repeat per protocol"} • {r.repeatText}
               </span>
               {r.note && <small>{r.note}</small>}
             </div>
@@ -972,11 +974,7 @@ export default function App() {
                     ? `${tapeColor} length-based band`
                     : ws
               }
-              protocol={
-                drug === "fentanyl"
-                  ? "DMP 9230 • July 2026"
-                  : "DMP 9070 • July 2026"
-              }
+              protocol={drug==="fentanyl"?"DMP 9230 • July 2026":drug==="adenosine"?"DMP 9010 • July 2026":"DMP 9070 • July 2026"}
               doseRule={
                 r.perKg
                   ? `${fmt(kg)} kg × ${rate} ${unit}/kg`
@@ -1303,5 +1301,5 @@ function fmt(n: number) {
   return Number.isFinite(n) ? Number(n.toFixed(2)).toString() : "—";
 }
 function medName(d: Drug) {
-  return d === "fentanyl" ? "Fentanyl" : "Midazolam (Versed)";
+  return d === "fentanyl" ? "Fentanyl" : d==="adenosine"?"Adenosine (Adenocard)":"Midazolam (Versed)";
 }
