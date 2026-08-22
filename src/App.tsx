@@ -167,8 +167,6 @@ export default function App() {
     [amt, setAmt] = useState(""),
     [ml, setMl] = useState(""),
     [checks, setChecks] = useState<boolean[]>([]),
-    [medConfirmed, setMedConfirmed] = useState(false),
-    [confirmed, setConfirmed] = useState(false),
     [online, setOnline] = useState(true),
     [install, setInstall] = useState(false),
     [dosesGiven, setDosesGiven] = useState<
@@ -237,9 +235,7 @@ export default function App() {
   useEffect(() => setChecks(Array(items.length).fill(false)), [drug, an >= 65]);
   useEffect(() => {
     setRate(r?.rates.length === 1 ? r.rates[0] : null);
-    setConfirmed(false);
   }, [drug, reason, route, adult]);
-  useEffect(() => setMedConfirmed(false), [drug]);
   useEffect(() => setDosesGiven([]), [drug, reason, route, dose, conc]);
   useEffect(() => {
     if (!dosesGiven.length || !repeatsLeft) return;
@@ -269,8 +265,7 @@ export default function App() {
         route: !!route,
         weight: weightOk,
         safety: checks.length === items.length && checks.every(Boolean),
-        vial:
-          rate !== null && medConfirmed && conc > 0 && confirmed && !inTooHigh,
+        vial: rate !== null && conc > 0 && !inTooHigh,
         review: true,
       }),
       [
@@ -282,9 +277,7 @@ export default function App() {
         checks,
         items.length,
         rate,
-        medConfirmed,
         conc,
-        confirmed,
         inTooHigh,
       ],
     );
@@ -306,8 +299,6 @@ export default function App() {
       setRate(null);
       setAmt("");
       setMl("");
-      setMedConfirmed(false);
-      setConfirmed(false);
       setDosesGiven([]);
       setScannedVial(null);
       setScanMedOk(false);
@@ -404,8 +395,6 @@ export default function App() {
                 );
                 setAmt(vial.amount);
                 setMl(vial.volume);
-                setMedConfirmed(false);
-                setConfirmed(false);
                 setStep("scanConfirm");
               }}
             />
@@ -825,19 +814,10 @@ export default function App() {
                       <small>PHOTO REQUIRED</small>
                     </div>
                     <span>Department photo pending</span></>}
-                    <label
-                      className={`correct-med ${medConfirmed ? "checked" : ""}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={medConfirmed}
-                        onChange={(e) => setMedConfirmed(e.target.checked)}
-                      />
-                      <span>
-                        <b>Correct medication</b>Physical vial label says{" "}
-                        {medName(drug)}
-                      </span>
-                    </label>
+                    <div className="verified-medication">
+                      <b>✓ Medication confirmed</b>
+                      <span>{medName(drug)}</span>
+                    </div>
                   </div>
                   <div className="dose-card">
                     <small>CALCULATED INITIAL DOSE</small>
@@ -854,61 +834,12 @@ export default function App() {
                     </p>
                   </div>
                 </div>
-                <h3 className="label-heading">
-                  2. Enter exactly what the physical vial says
-                </h3>
-                <div className="vial-entry">
-                  <label>
-                    <span>Total drug</span>
-                    <div>
-                      <input
-                        inputMode="decimal"
-                        value={amt}
-                        onChange={(e) => {
-                          setAmt(e.target.value);
-                          setConfirmed(false);
-                        }}
-                        placeholder="0"
-                      />
-                      <b>{unit}</b>
-                    </div>
-                  </label>
-                  <label>
-                    <span>Total volume</span>
-                    <div>
-                      <input
-                        inputMode="decimal"
-                        value={ml}
-                        onChange={(e) => {
-                          setMl(e.target.value);
-                          setConfirmed(false);
-                        }}
-                        placeholder="0"
-                      />
-                      <b>mL</b>
-                    </div>
-                  </label>
+                <div className="confirmed-source">
+                  <small>CONFIRMED VIAL CONCENTRATION</small>
+                  <strong>{amt} {unit} in {ml} mL</strong>
+                  <b>{fmt(conc)} {unit}/mL</b>
+                  <span>Confirmed before patient dosing information was entered.</span>
                 </div>
-                {conc > 0 && (
-                  <button
-                    className={`confirm-concentration ${confirmed ? "confirmed" : ""}`}
-                    onClick={() => setConfirmed(!confirmed)}
-                  >
-                    <small>
-                      {confirmed
-                        ? "CONFIRMED"
-                        : "3. TAP TO CONFIRM CONCENTRATION"}
-                    </small>
-                    <strong>
-                      {fmt(conc)} {unit}/mL
-                    </strong>
-                    <span>
-                      {confirmed
-                        ? "Matches physical vial ✓"
-                        : "Compare with the vial in your hand"}
-                    </span>
-                  </button>
-                )}
                 {inTooHigh && (
                   <HardStop
                     title="IN VOLUME EXCEEDS LIMIT"
