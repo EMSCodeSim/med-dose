@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
+import MedScanner from "./MedScanner";
 type Drug = "fentanyl" | "midazolam";
 type Route = "IV/IO" | "IM" | "IN";
 type AgeUnit = "years" | "months" | "days";
@@ -387,6 +388,7 @@ export default function App() {
                 placeholder="Fentanyl, Versed…"
               />
             </label>
+            <MedScanner />
             <div className="choice-grid">
               {meds
                 .filter((m) =>
