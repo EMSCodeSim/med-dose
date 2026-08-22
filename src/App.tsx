@@ -10,6 +10,8 @@ type Step =
   "drug" | "scanConfirm" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
 const URL =
   "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
+const medicationPhoto = (drug: Drug) =>
+  drug === "adenosine" ? "/medications/adenosine-vial.webp" : undefined;
 const meds = [
   {id:"adenosine" as Drug,name:"Adenosine",brand:"Adenocard",sub:"Antiarrhythmic"},
   {
@@ -393,7 +395,7 @@ export default function App() {
           >
             <MedScanner
               onUse={(vial) => {
-                setScannedVial(vial);
+                setScannedVial({...vial, photo:vial.photo || medicationPhoto(vial.drug)});
                 setScanMedOk(false);
                 setScanConcOk(false);
                 setDrug(vial.drug);
@@ -439,7 +441,7 @@ export default function App() {
                         setMl("");
                         setScanMedOk(false);
                         setScanConcOk(false);
-                        setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="fentanyl"?"mcg":"mg",label:m.brand,barcode:""});
+                        setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="fentanyl"?"mcg":"mg",label:m.brand,barcode:"",photo:medicationPhoto(selectedDrug)});
                         setTimeout(() => setStep("scanConfirm"), 60);
                       }}
                     >
@@ -816,13 +818,13 @@ export default function App() {
             ) : (
               <>
                 <div className="med-verify">
-                  <div className="photo-placeholder">
-                    <div className="drawn-vial">
+                  <div className={`photo-placeholder ${medicationPhoto(drug)?"has-med-photo":""}`}>
+                    {medicationPhoto(drug)?<img className="medication-vial-photo" src={medicationPhoto(drug)} alt={`${medName(drug)} 12 mg per 4 mL vial reference`}/>:<><div className="drawn-vial">
                       <small>{medName(drug).toUpperCase()}</small>
                       <b>VIAL</b>
                       <small>PHOTO REQUIRED</small>
                     </div>
-                    <span>Department photo pending</span>
+                    <span>Department photo pending</span></>}
                     <label
                       className={`correct-med ${medConfirmed ? "checked" : ""}`}
                     >
