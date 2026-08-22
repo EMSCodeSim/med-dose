@@ -1,6 +1,6 @@
 import {useEffect,useState} from "react";
 
-type Drug = "fentanyl" | "midazolam";
+type Drug = "fentanyl" | "midazolam" | "adenosine";
 type Entry = { dose: number; volume: number; time: number };
 
 export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,repeatsLeft,repeatMinutes,secondsLeft,nextDose,concentration,drug,reason,record}:{entries:Entry[];unit:string;total:number;totalVolume:number;maxTotal:number;repeatsLeft:number;repeatMinutes:number;secondsLeft:number;nextDose:number;concentration:number;drug:Drug;reason:string;record:(dose:number)=>void}) {
