@@ -1,28 +1,1266 @@
 "use client";
-import {useEffect,useMemo,useState,type ReactNode} from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
-type Drug="fentanyl"|"midazolam"; type Route="IV/IO"|"IM"|"IN"; type AgeUnit="years"|"months"|"days"; type Step="drug"|"reason"|"age"|"route"|"weight"|"safety"|"vial"|"review";
-const URL="https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
-const meds=[{id:"fentanyl" as Drug,name:"Fentanyl",brand:"Sublimaze",sub:"Opioid analgesic"},{id:"midazolam" as Drug,name:"Midazolam",brand:"Versed",sub:"Benzodiazepine"},{id:"ketorolac",name:"Ketorolac",brand:"Toradol",sub:"Pending review"},{id:"epinephrine",name:"Epinephrine",brand:"Adrenalin",sub:"Pending review"}];
-const reasons:Record<Drug,string[]>={fentanyl:["Moderate to severe pain"],midazolam:["Seizure","Sedation for cardioversion","Sedation for transcutaneous pacing"]};
-const routes:Record<Drug,Route[]>={fentanyl:["IV/IO","IM","IN"],midazolam:["IV/IO","IM","IN"]};
-const tapeBands=[{name:"Grey",kg:4,color:"#7b8790",text:"#fff"},{name:"Pink",kg:6.5,color:"#f49bbb",text:"#4c1830"},{name:"Red",kg:8.5,color:"#d84040",text:"#fff"},{name:"Purple",kg:10.5,color:"#8b5bb5",text:"#fff"},{name:"Yellow",kg:13,color:"#f2d34f",text:"#3e3500"},{name:"White",kg:16.5,color:"#fff",text:"#263946"},{name:"Blue",kg:21,color:"#3f86d9",text:"#fff"},{name:"Orange",kg:26.5,color:"#ef9338",text:"#3f2500"},{name:"Green",kg:33,color:"#3a9a62",text:"#fff"}];
-function rules(drug:Drug,reason:string,age:number,route:Route|null){const adult=age>=12;if(drug==="fentanyl"){const rate=route==="IN"&&!adult?[2]:[1,2];return{weight:true,rates:rate,unit:"mcg",perKg:true,maxSingle:null,repeat:route==="IN"?10:5,repeatText:`Maximum cumulative ${route==="IN"?4:3} mcg/kg`,maxCumulative:route==="IN"?4:3,maxDoses:null,note:route==="IN"?"Maximum 1 mL per nostril; IV preferred for repeat dosing.":route==="IM"?"IV is preferred for accurate titration; IM is an acceptable alternative.":""}}const seizure=reason==="Seizure",inim=route==="IN"||route==="IM";if(adult)return{weight:false,rates:[seizure?(inim?10:5):(inim?5:2)],unit:"mg",perKg:false,maxSingle:null,repeat:5,repeatText:"May repeat once; Base Contact for more than 2 doses.",maxCumulative:null,maxDoses:2,note:route==="IN"?"IN has slower, less predictable onset than IV; IN is preferred over IM when no IV.":route==="IM"?"IM has the slowest onset.":""};return{weight:true,rates:[inim?.2:.1],unit:"mg",perKg:true,maxSingle:seizure?(inim?10:5):(inim?5:2),repeat:5,repeatText:"May repeat once; Base Contact for more than 2 doses.",maxCumulative:null,maxDoses:2,note:route==="IN"?"IN is preferred over IM when IV cannot be safely or rapidly obtained.":route==="IM"?"IM has the slowest onset.":""}}
-function checksFor(drug:Drug,age:number){const base=drug==="fentanyl"?["Patient is hemodynamically stable with NO signs of shock","Patient has NO respiratory depression","No benzodiazepine coadministration OR direct physician verbal order obtained"]:["Patient is NOT hypotensive","Patient has NO respiratory depression"];return age>=65?[...base,"Strongly considered ½ dosing because patient is over 65 or a small/frail adult"]:base}
-function suggestedWeight(ageYears:number){if(ageYears<.5||ageYears>=12)return null;if(ageYears<1)return 6.5;if(ageYears<2)return 10;if(ageYears<4)return 14;if(ageYears<6)return 19;if(ageYears<9)return 25;if(ageYears<11)return 31;return 38}
-export default function App(){const [step,setStep]=useState<Step>("drug"),[drug,setDrug]=useState<Drug|null>(null),[search,setSearch]=useState(""),[reason,setReason]=useState(""),[age,setAge]=useState(""),[au,setAu]=useState<AgeUnit>("years"),[route,setRoute]=useState<Route|null>(null),[weight,setWeight]=useState(""),[wu,setWu]=useState("kg"),[ws,setWs]=useState("actual"),[tapeColor,setTapeColor]=useState(""),[rate,setRate]=useState<number|null>(null),[amt,setAmt]=useState(""),[ml,setMl]=useState(""),[checks,setChecks]=useState<boolean[]>([]),[medConfirmed,setMedConfirmed]=useState(false),[confirmed,setConfirmed]=useState(false),[online,setOnline]=useState(true),[install,setInstall]=useState(false),[dosesGiven,setDosesGiven]=useState<{dose:number;volume:number;time:number}[]>([]),[now,setNow]=useState(Date.now());
- useEffect(()=>{setOnline(navigator.onLine);setWu(localStorage.getItem("preferredWeightUnit")||"kg");const a=()=>setOnline(true),b=()=>setOnline(false);addEventListener("online",a);addEventListener("offline",b);return()=>{removeEventListener("online",a);removeEventListener("offline",b)}},[]);
- const av=Number(age),an=au==="years"?av:au==="months"?av/12:av/365.25,adult=an>=12,underOne=age!==""&&an<1,ageText=`${age} ${au}`,weightSuggestion=suggestedWeight(an),r=drug&&reason&&route?rules(drug,reason,an,route):null,needWeight=!!r?.weight,kg=wu==="lb"?Number(weight)/2.20462:Number(weight),items=drug?checksFor(drug,an):[],ageBlocked=drug==="fentanyl"&&underOne,ageWithinRange=au==="years"?av>=0&&av<130:au==="months"?av>=0&&av<144:av>=0&&av<366,ageOk=age!==""&&ageWithinRange&&!ageBlocked,weightOk=!needWeight||(kg>0&&kg<350),baseDose=r&&rate!==null?(r.perKg?kg*rate:rate):0,dose=r?.maxSingle?Math.min(baseDose,r.maxSingle):baseDose,conc=Number(amt)>0&&Number(ml)>0?Number(amt)/Number(ml):0,vol=conc?dose/conc:0,inTooHigh=drug==="fentanyl"&&route==="IN"&&vol>2,unit=drug==="fentanyl"?"mcg":"mg",maxTotal=r?.maxCumulative?r.maxCumulative*kg:r?.maxDoses?r.maxDoses*dose:dose,totalGiven=dosesGiven.reduce((s,x)=>s+x.dose,0),totalVolume=dosesGiven.reduce((s,x)=>s+x.volume,0),remaining=Math.max(0,maxTotal-totalGiven),nextRepeat=Math.min(dose,remaining),repeatsLeft=r?.maxDoses?Math.max(0,r.maxDoses-dosesGiven.length):dose>0?Math.ceil((remaining-.000001)/dose):0,lastTime=dosesGiven.at(-1)?.time||0,secondsLeft=Math.max(0,Math.ceil((lastTime+(r?.repeat||0)*60000-now)/1000));
- useEffect(()=>setChecks(Array(items.length).fill(false)),[drug,an>=65]);useEffect(()=>{setRate(r?.rates.length===1?r.rates[0]:null);setConfirmed(false)},[drug,reason,route,adult]);useEffect(()=>setMedConfirmed(false),[drug]);useEffect(()=>setDosesGiven([]),[drug,reason,route,dose,conc]);useEffect(()=>{if(!dosesGiven.length||!repeatsLeft)return;const id=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(id)},[dosesGiven.length,repeatsLeft]);
- const capped=!!r?.maxSingle&&baseDose>r.maxSingle,singleReason=!!drug&&reasons[drug].length===1,visible:Step[]=["drug",...(!singleReason?["reason" as Step]:[]),"age","route",...(needWeight?["weight" as Step]:[]),"safety","vial","review"],pos=visible.indexOf(step),valid=useMemo(()=>({drug:!!drug,reason:!!reason,age:ageOk,route:!!route,weight:weightOk,safety:checks.length===items.length&&checks.every(Boolean),vial:rate!==null&&medConfirmed&&conc>0&&confirmed&&!inTooHigh,review:true}),[drug,reason,ageOk,route,weightOk,checks,items.length,rate,medConfirmed,conc,confirmed,inTooHigh]);
- const next=()=>{if(valid[step])setStep(visible[Math.min(pos+1,visible.length-1)])},back=()=>setStep(visible[Math.max(pos-1,0)]),reset=()=>{setStep("drug");setDrug(null);setSearch("");setReason("");setAge("");setAu("years");setRoute(null);setWeight("");setWs("actual");setTapeColor("");setRate(null);setAmt("");setMl("");setMedConfirmed(false);setConfirmed(false);setDosesGiven([])},setUnit=(x:string)=>{setWu(x);setWeight("");setTapeColor("");localStorage.setItem("preferredWeightUnit",x)},useSuggestedWeight=()=>{if(weightSuggestion!==null){setWs("age");setWu("kg");setTapeColor("");setWeight(String(weightSuggestion))}},selectTapeBand=(name:string,bandKg:number)=>{setWs("tape");setWu("kg");setTapeColor(name);setWeight(String(bandKg))},recordDose=(amount:number)=>{const time=Date.now();setNow(time);setDosesGiven(x=>[...x,{dose:amount,volume:amount/conc,time}])};
- return <main className="wizard-app"><header><div className="brand"><b>M</b><span><strong>Metro Med Dose</strong><small>DMP medication cross-check</small></span></div><div className="header-actions"><span className={`connection ${online?"online":"offline"}`}>{online?"Online":"Offline ready"}</span><button onClick={()=>setInstall(true)}>Install</button></div></header><section className="wizard-shell">{ageOk&&step!=="drug"&&step!=="reason"&&<div className="patient-strip"><b>{adult?"Adult":"Pediatric"}</b><span>Age {ageText}</span>{needWeight&&weightOk&&<span>{fmt(kg)} kg</span>}<small>{drug?medName(drug):""}</small></div>}<div className="wizard-top"><button className="back" onClick={back} disabled={step==="drug"}>‹ Back</button><span>Step {pos+1} of {visible.length}</span><button className="start-over" onClick={reset}>Start over</button></div><div className="progress"><i style={{width:`${((pos+1)/visible.length)*100}%`}}/></div><div className="clinical-banner"><b>DMP verified</b><span>July 2026 • Approved July 1, 2026 • Next review January 2027</span></div>
- {step==="drug"&&<Screen e="START" t="Which medication was requested?" h="Only advisor-review pathways are selectable."><label className="drug-search"><span>Search generic or brand name</span><input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Fentanyl, Versed…"/></label><div className="choice-grid">{meds.filter(m=>(m.name+" "+m.brand).toLowerCase().includes(search.toLowerCase())).map(m=>{const active=m.id==="fentanyl"||m.id==="midazolam";return <button key={m.id} disabled={!active} className="choice" onClick={()=>{setDrug(m.id as Drug);setReason(m.id==="fentanyl"?reasons.fentanyl[0]:"");setTimeout(()=>setStep(m.id==="fentanyl"?"age":"reason"),60)}}><span className="rx">Rx</span><span><b>{m.name}</b><small>{m.brand} • {m.sub}</small></span>{active?<i>›</i>:<em>Pending review</em>}</button>})}</div></Screen>}
- {step==="reason"&&drug&&<Screen e="INDICATION" t={`Why is ${medName(drug)} being given?`} h="Only indications mapped from the medication protocol are shown."><div className="stack">{reasons[drug].map(x=><button className="big-choice" key={x} onClick={()=>{setReason(x);setTimeout(()=>setStep("age"),60)}}><span>{x}</span><i>›</i></button>)}</div></Screen>}
- {step==="age"&&drug&&<Screen e="PATIENT" t="Enter the patient’s age" h="Choose the unit first. DMP defines adult as 12 years or older."><div className="age-unit-toggle">{(["years","months","days"] as AgeUnit[]).map(x=><button key={x} className={au===x?"selected":""} onClick={()=>{setAu(x);setAge("")}}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div><label className="giant-input"><span>Age in {au}</span><input autoFocus inputMode="decimal" value={age} onChange={e=>setAge(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&ageOk)next()}} placeholder="0"/></label>{age!==""&&!ageWithinRange?<div className="input-guidance"><b>Check the age entry</b><span>Use days through 365, months through 143, or years for older patients.</span></div>:ageBlocked?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9230 does not provide a standing-order Fentanyl dose for patients younger than 1 year." source="DMP 9230 Opioids" action="If the age was entered incorrectly, correct it above. If the patient is confirmed younger than 1 year, stop and contact Base for a direct order."/>:ageOk&&<div className="classification"><span>DMP category</span><b>{adult?"Adult":"Pediatric"} • {ageText}</b></div>}<Next ok={valid.age} go={next}/></Screen>}
- {step==="route"&&drug&&<Screen e="ROUTE" t="Which route will be used?" h="Only routes listed for this drug and indication are offered."><div className="route-grid">{routes[drug].map(x=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setTimeout(()=>setStep(rules(drug,reason,an,x).weight?"weight":"safety"),60)}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Seizure"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}</Screen>}
- {step==="weight"&&<Screen e="WEIGHT-BASED DOSE" t="Enter the calculation weight" h="Use an actual or length-based weight whenever available."><div className="source-grid">{[["actual","Actual"],["estimated","Estimated"],["tape","Length-based tape"]].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>{weightSuggestion!==null&&ws!=="tape"&&<div className="age-weight-suggestion"><span><small>DMP CHART AGE-BAND MIDPOINT</small><b>{weightSuggestion} kg suggested for {ageText}</b><em>Use only when an actual or length-based weight is unavailable.</em></span><button className={ws==="age"?"used":""} onClick={useSuggestedWeight}>{ws==="age"?"Using estimate ✓":"Use estimate"}</button></div>}{an<.5&&<div className="input-guidance"><b>No age-based suggestion</b><span>DMP does not provide an age-band weight for patients younger than 6 months. Use an actual, estimated, or length-based weight.</span></div>}{ws!=="tape"&&ws!=="age"&&<div className="unit-toggle"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>Kilograms</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>Pounds</button></div>}{ws==="tape"?<><div className="tape-heading"><b>Select the tape color</b><span>DMP average weight will be used automatically.</span></div><div className="tape-grid">{tapeBands.map(b=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div>{tapeColor&&<div className="tape-selected"><span>Selected length-based band</span><b>{tapeColor} • {fmt(kg)} kg</b></div>}</>:<label className="giant-input"><span>{ws==="age"?"Accepted age-based estimate (kg)":`Patient weight ()`}</span><input autoFocus inputMode="decimal" value={weight} onChange={e=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} onKeyDown={e=>{if(e.key==="Enter"&&weightOk)next()}} placeholder="0"/></label>}{ws==="age"&&<div className="estimate-warning"><b>Age-based estimate accepted</b><span>Replace it if a better weight becomes available before medication administration.</span></div>}<Next ok={valid.weight} go={next}/></Screen>}
- {step==="safety"&&drug&&<Screen e="CONTRAINDICATIONS" t="Confirm applicable safety checks" h={`Only checks applicable to ${medName(drug)} are shown.`}><div className="safety-list">{items.map((x,i)=><label key={x} className={checks[i]?"checked":""}><input type="checkbox" checked={!!checks[i]} onChange={e=>setChecks(checks.map((v,n)=>n===i?e.target.checked:v))}/><span><b>{i+1}</b>{x}</span></label>)}</div><a className="protocol-link" href={URL} target="_blank" rel="noreferrer">Open current DMP medication protocol ↗</a><Next ok={valid.safety} go={next}/></Screen>}
- {step==="vial"&&drug&&r&&<Screen e="DOSE & CONCENTRATION" t={`Build the ${medName(drug)} dose`} h="Complete each section from top to bottom."><div className="route-rule"><b>{route} • {reason}</b><span>Repeat after {r.repeat} minutes • {r.repeatText}</span>{r.note&&<small>{r.note}</small>}</div><div className="route-label">1. Select the ordered DMP initial dose</div>{r.rates.length===1?<div className="locked-dose"><b>{r.rates[0]} {unit}{r.perKg?"/kg":""}</b><span>Automatically selected for this age, indication and route</span></div>:<div className="dose-rate-grid">{r.rates.map(x=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div>}{rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above before entering the vial concentration.</span></div>:<><div className="med-verify"><div className="photo-placeholder"><div className="drawn-vial"><small>{medName(drug).toUpperCase()}</small><b>VIAL</b><small>PHOTO REQUIRED</small></div><span>Department photo pending</span><label className={`correct-med ${medConfirmed?"checked":""}`}><input type="checkbox" checked={medConfirmed} onChange={e=>setMedConfirmed(e.target.checked)}/><span><b>Correct medication</b>Physical vial label says {medName(drug)}</span></label></div><div className="dose-card"><small>CALCULATED INITIAL DOSE</small><h3>{fmt(dose)} {unit}</h3><p><span>Patient</span><b>{needWeight?`${fmt(kg)} kg`:"Adult fixed dose"}</b></p><p><span>Route</span><b>{route}</b></p></div></div><h3 className="label-heading">2. Enter exactly what the physical vial says</h3><div className="vial-entry"><label><span>Total drug</span><div><input inputMode="decimal" value={amt} onChange={e=>{setAmt(e.target.value);setConfirmed(false)}} placeholder="0"/><b>{unit}</b></div></label><label><span>Total volume</span><div><input inputMode="decimal" value={ml} onChange={e=>{setMl(e.target.value);setConfirmed(false)}} placeholder="0"/><b>mL</b></div></label></div>{conc>0&&<button className={`confirm-concentration ${confirmed?"confirmed":""}`} onClick={()=>setConfirmed(!confirmed)}><small>{confirmed?"CONFIRMED":"3. TAP TO CONFIRM CONCENTRATION"}</small><strong>{fmt(conc)} {unit}/mL</strong><span>{confirmed?"Matches physical vial ✓":"Compare with the vial in your hand"}</span></button>}{inTooHigh&&<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Use an appropriate higher concentration or select another DMP-approved route, then recalculate."/>}<Next ok={valid.vial} go={next} text="Review final dose"/></>}</Screen>}
- {step==="review"&&drug&&r&&<Screen e="FINAL CROSS-CHECK" t="Confirm the medication plan" h="Read the action line aloud and verify the protocol rules."><div className="action-line"><small>INITIAL DOSE</small><strong>GIVE {fmt(dose)} {unit} = DRAW {fmt(vol)} mL</strong><b>{route}</b></div><MathPicture perKg={r.perKg} kg={kg} rate={rate||0} dose={dose} amount={Number(amt)} vialMl={Number(ml)} concentration={conc} volume={vol} unit={unit}/><SyringeDiagram volume={vol}/><DoseTracker entries={dosesGiven} unit={unit} total={totalGiven} totalVolume={totalVolume} maxTotal={maxTotal} repeatsLeft={repeatsLeft} repeatMinutes={r.repeat} secondsLeft={secondsLeft} nextDose={nextRepeat} concentration={conc} drug={drug} reason={reason} record={recordDose}/><div className="final-card"><div className="final-drug"><span>Medication</span><b>{medName(drug)}</b><small>{reason} • {route}</small></div><Review l="Patient" v={`${adult?"Adult":"Pediatric"} • age ${ageText}${needWeight?` • ${fmt(kg)} kg${ws==="age"?" (age-based estimate)":ws==="tape"?` ( length-based band)`:""}`:""}`}/><Review l="Medication check" v={`Physical vial confirmed as ${medName(drug)}`}/><Review l="DMP dose" v={r.perKg?`${fmt(kg)} kg × ${rate} ${unit}/kg = ${fmt(baseDose)} ${unit}`:`${rate} ${unit} fixed dose`}/>{capped&&<Review l="Maximum applied" v={`${fmt(baseDose)} ${unit} capped at ${r.maxSingle} ${unit}`}/>}<Review l="Repeat rule" v={`After ${r.repeat} min • ${r.repeatText}`}/>{drug==="fentanyl"&&route==="IN"&&<Review l="IN volume split" v={`${fmt(vol/2)} mL per nostril (${fmt(vol)} mL total)`}/>}<Review l="Vial" v={`${amt} ${unit} in ${ml} mL = ${fmt(conc)} ${unit}/mL`}/><Review l="Volume calculation" v={`${fmt(dose)} ${unit} ÷ ${fmt(conc)} ${unit}/mL = ${fmt(vol)} mL`}/><Review l="Protocol" v={drug==="fentanyl"?"DMP 9230 • July 2026":"DMP 9070 • July 2026"}/></div><div className="final-warning"><b>DMP cross-check required</b><span>The syringe diagram is a visual cross-check, not an actual-size measuring tool. Verify the physical syringe markings, Six Rights and verbal repeat-back. Obtain repeat vital signs after administration.</span></div><button className="new-calc" onClick={reset}>Start a new calculation</button></Screen>}</section>{install&&<div className="modal-backdrop" onClick={()=>setInstall(false)}><section className="install-modal"><button className="close" onClick={()=>setInstall(false)}>×</button><h2>Install for offline use</h2><ol><li>Open in Safari and tap Share.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Open once online after protocol updates.</li></ol></section></div>}</main>}
-function Screen({e,t,h,children}:{e:string,t:string,h:string,children:ReactNode}){return <section className="wizard-card"><small className="eyebrow">{e}</small><h1>{t}</h1><p className="screen-help">{h}</p>{children}</section>}function HardStop({title,reason,source,action}:{title:string,reason:string,source:string,action:string}){return <div className="hard-stop" role="alert"><b>{title}</b><span><strong>Why:</strong> {reason}</span><span><strong>Protocol:</strong> {source}</span><span><strong>Next:</strong> {action}</span></div>}function Next({ok,go,text="Continue"}:{ok:boolean,go:()=>void,text?:string}){return <button className="continue" disabled={!ok} onClick={go}>{text}<span>→</span></button>}function Review({l,v}:{l:string,v:string}){return <div className="review-row"><span>{l}</span><b>{v}</b></div>}function MathPicture({perKg,kg,rate,dose,amount,vialMl,concentration,volume,unit}:{perKg:boolean,kg:number,rate:number,dose:number,amount:number,vialMl:number,concentration:number,volume:number,unit:string}){return <section className="math-picture" aria-label="Dose calculation picture"><h2>Calculation picture</h2><div><span><small>1 • DOSE</small><b>{perKg?`${fmt(kg)} kg × ${fmt(rate)} ${unit}/kg`:`Fixed DMP dose`}</b><strong>{fmt(dose)} {unit}</strong></span><i>→</i><span><small>2 • CONCENTRATION</small><b>{fmt(amount)} {unit} ÷ {fmt(vialMl)} mL</b><strong>{fmt(concentration)} {unit}/mL</strong></span><i>→</i><span className="math-answer"><small>3 • DRAW</small><b>{fmt(dose)} ÷ {fmt(concentration)}</b><strong>{fmt(volume)} mL</strong></span></div></section>}function SyringeDiagram({volume}:{volume:number}){const size=syringeSize(volume),fill=Math.min(volume/size,1)*190,marker=20+fill;return <section className="syringe-card" aria-label={`${size} mL syringe drawn to ${fmt(volume)} mL`}><div className="syringe-heading"><span><small>SUGGESTED SYRINGE</small><b>{size} mL syringe</b></span><strong>DRAW TO {fmt(volume)} mL</strong></div><svg viewBox="0 0 300 135" role="img" aria-label={`Diagram of medication drawn to ${fmt(volume)} mL in a ${size} mL syringe`}><path d="M4 68h16M4 61v14M210 55h29v26h-29M239 68h49M288 55v26" fill="none" stroke="#193447" strokeWidth="4"/><rect x="20" y="40" width="190" height="55" rx="8" fill="#fff" stroke="#193447" strokeWidth="4"/><rect x="22" y="42" width={Math.max(fill-2,0)} height="51" rx="5" fill="#75c9df"/><line x1={marker} y1="36" x2={marker} y2="100" stroke="#08745f" strokeWidth="4"/>{Array.from({length:11},(_,i)=><line key={i} x1={20+i*19} y1="40" x2={20+i*19} y2={i%5===0?55:49} stroke="#193447" strokeWidth="2"/>)}<text x="20" y="118" fontSize="12" fill="#435b6b">0</text><text x="195" y="118" fontSize="12" fill="#435b6b">{size} mL</text><text x={Math.min(Math.max(marker-20,55),220)} y="28" textAnchor="middle" fontSize="13" fontWeight="800" fill="#08745f">{fmt(volume)} mL</text></svg><p>Use the smallest stocked syringe that safely accommodates the volume. Diagram is not actual size; verify the physical graduations.</p></section>}function syringeSize(volume:number){return [1,3,5,10,20,30,60].find(x=>volume<=x)||60}function fmt(n:number){return Number.isFinite(n)?Number(n.toFixed(2)).toString():"—"}function medName(d:Drug){return d==="fentanyl"?"Fentanyl":"Midazolam (Versed)"}
+import MedicationReport from "./MedicationReport";
+import MedScanner from "./MedScanner";
+type Drug = "fentanyl" | "midazolam";
+type Route = "IV/IO" | "IM" | "IN";
+type AgeUnit = "years" | "months" | "days";
+type Step =
+  "drug" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
+const URL =
+  "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
+const meds = [
+  {
+    id: "fentanyl" as Drug,
+    name: "Fentanyl",
+    brand: "Sublimaze",
+    sub: "Opioid analgesic",
+  },
+  {
+    id: "midazolam" as Drug,
+    name: "Midazolam",
+    brand: "Versed",
+    sub: "Benzodiazepine",
+  },
+  {
+    id: "ketorolac",
+    name: "Ketorolac",
+    brand: "Toradol",
+    sub: "Pending review",
+  },
+  {
+    id: "epinephrine",
+    name: "Epinephrine",
+    brand: "Adrenalin",
+    sub: "Pending review",
+  },
+];
+const reasons: Record<Drug, string[]> = {
+  fentanyl: ["Moderate to severe pain"],
+  midazolam: [
+    "Seizure",
+    "Sedation for cardioversion",
+    "Sedation for transcutaneous pacing",
+  ],
+};
+const routes: Record<Drug, Route[]> = {
+  fentanyl: ["IV/IO", "IM", "IN"],
+  midazolam: ["IV/IO", "IM", "IN"],
+};
+const tapeBands = [
+  { name: "Grey", kg: 4, color: "#7b8790", text: "#fff" },
+  { name: "Pink", kg: 6.5, color: "#f49bbb", text: "#4c1830" },
+  { name: "Red", kg: 8.5, color: "#d84040", text: "#fff" },
+  { name: "Purple", kg: 10.5, color: "#8b5bb5", text: "#fff" },
+  { name: "Yellow", kg: 13, color: "#f2d34f", text: "#3e3500" },
+  { name: "White", kg: 16.5, color: "#fff", text: "#263946" },
+  { name: "Blue", kg: 21, color: "#3f86d9", text: "#fff" },
+  { name: "Orange", kg: 26.5, color: "#ef9338", text: "#3f2500" },
+  { name: "Green", kg: 33, color: "#3a9a62", text: "#fff" },
+];
+function rules(drug: Drug, reason: string, age: number, route: Route | null) {
+  const adult = age >= 12;
+  if (drug === "fentanyl") {
+    const rate = route === "IN" && !adult ? [2] : [1, 2];
+    return {
+      weight: true,
+      rates: rate,
+      unit: "mcg",
+      perKg: true,
+      maxSingle: null,
+      repeat: route === "IN" ? 10 : 5,
+      repeatText: `Maximum cumulative ${route === "IN" ? 4 : 3} mcg/kg`,
+      maxCumulative: route === "IN" ? 4 : 3,
+      maxDoses: null,
+      note:
+        route === "IN"
+          ? "Maximum 1 mL per nostril; IV preferred for repeat dosing."
+          : route === "IM"
+            ? "IV is preferred for accurate titration; IM is an acceptable alternative."
+            : "",
+    };
+  }
+  const seizure = reason === "Seizure",
+    inim = route === "IN" || route === "IM";
+  if (adult)
+    return {
+      weight: false,
+      rates: [seizure ? (inim ? 10 : 5) : inim ? 5 : 2],
+      unit: "mg",
+      perKg: false,
+      maxSingle: null,
+      repeat: 5,
+      repeatText: "May repeat once; Base Contact for more than 2 doses.",
+      maxCumulative: null,
+      maxDoses: 2,
+      note:
+        route === "IN"
+          ? "IN has slower, less predictable onset than IV; IN is preferred over IM when no IV."
+          : route === "IM"
+            ? "IM has the slowest onset."
+            : "",
+    };
+  return {
+    weight: true,
+    rates: [inim ? 0.2 : 0.1],
+    unit: "mg",
+    perKg: true,
+    maxSingle: seizure ? (inim ? 10 : 5) : inim ? 5 : 2,
+    repeat: 5,
+    repeatText: "May repeat once; Base Contact for more than 2 doses.",
+    maxCumulative: null,
+    maxDoses: 2,
+    note:
+      route === "IN"
+        ? "IN is preferred over IM when IV cannot be safely or rapidly obtained."
+        : route === "IM"
+          ? "IM has the slowest onset."
+          : "",
+  };
+}
+function checksFor(drug: Drug, age: number) {
+  const base =
+    drug === "fentanyl"
+      ? [
+          "Patient is hemodynamically stable with NO signs of shock",
+          "Patient has NO respiratory depression",
+          "No benzodiazepine coadministration OR direct physician verbal order obtained",
+        ]
+      : ["Patient is NOT hypotensive", "Patient has NO respiratory depression"];
+  return age >= 65
+    ? [
+        ...base,
+        "Strongly considered ½ dosing because patient is over 65 or a small/frail adult",
+      ]
+    : base;
+}
+function suggestedWeight(ageYears: number) {
+  if (ageYears < 0.5 || ageYears >= 12) return null;
+  if (ageYears < 1) return 6.5;
+  if (ageYears < 2) return 10;
+  if (ageYears < 4) return 14;
+  if (ageYears < 6) return 19;
+  if (ageYears < 9) return 25;
+  if (ageYears < 11) return 31;
+  return 38;
+}
+export default function App() {
+  const [step, setStep] = useState<Step>("drug"),
+    [drug, setDrug] = useState<Drug | null>(null),
+    [search, setSearch] = useState(""),
+    [reason, setReason] = useState(""),
+    [age, setAge] = useState(""),
+    [au, setAu] = useState<AgeUnit>("years"),
+    [route, setRoute] = useState<Route | null>(null),
+    [weight, setWeight] = useState(""),
+    [wu, setWu] = useState("kg"),
+    [ws, setWs] = useState("actual"),
+    [tapeColor, setTapeColor] = useState(""),
+    [rate, setRate] = useState<number | null>(null),
+    [amt, setAmt] = useState(""),
+    [ml, setMl] = useState(""),
+    [checks, setChecks] = useState<boolean[]>([]),
+    [medConfirmed, setMedConfirmed] = useState(false),
+    [confirmed, setConfirmed] = useState(false),
+    [online, setOnline] = useState(true),
+    [install, setInstall] = useState(false),
+    [dosesGiven, setDosesGiven] = useState<
+      { dose: number; volume: number; time: number }[]
+    >([]),
+    [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    setWu(localStorage.getItem("preferredWeightUnit") || "kg");
+    const a = () => setOnline(true),
+      b = () => setOnline(false);
+    addEventListener("online", a);
+    addEventListener("offline", b);
+    return () => {
+      removeEventListener("online", a);
+      removeEventListener("offline", b);
+    };
+  }, []);
+  const av = Number(age),
+    an = au === "years" ? av : au === "months" ? av / 12 : av / 365.25,
+    adult = an >= 12,
+    underOne = age !== "" && an < 1,
+    ageText = `${age} ${au}`,
+    weightSuggestion = suggestedWeight(an),
+    r = drug && reason && route ? rules(drug, reason, an, route) : null,
+    needWeight = !!r?.weight,
+    kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
+    items = drug ? checksFor(drug, an) : [],
+    ageBlocked = drug === "fentanyl" && underOne,
+    ageWithinRange =
+      au === "years"
+        ? av >= 0 && av < 130
+        : au === "months"
+          ? av >= 0 && av < 144
+          : av >= 0 && av < 366,
+    ageOk = age !== "" && ageWithinRange && !ageBlocked,
+    weightOk = !needWeight || (kg > 0 && kg < 350),
+    baseDose = r && rate !== null ? (r.perKg ? kg * rate : rate) : 0,
+    dose = r?.maxSingle ? Math.min(baseDose, r.maxSingle) : baseDose,
+    conc = Number(amt) > 0 && Number(ml) > 0 ? Number(amt) / Number(ml) : 0,
+    vol = conc ? dose / conc : 0,
+    inTooHigh = drug === "fentanyl" && route === "IN" && vol > 2,
+    unit = drug === "fentanyl" ? "mcg" : "mg",
+    maxTotal = r?.maxCumulative
+      ? r.maxCumulative * kg
+      : r?.maxDoses
+        ? r.maxDoses * dose
+        : dose,
+    totalGiven = dosesGiven.reduce((s, x) => s + x.dose, 0),
+    totalVolume = dosesGiven.reduce((s, x) => s + x.volume, 0),
+    remaining = Math.max(0, maxTotal - totalGiven),
+    nextRepeat = Math.min(dose, remaining),
+    repeatsLeft = r?.maxDoses
+      ? Math.max(0, r.maxDoses - dosesGiven.length)
+      : dose > 0
+        ? Math.ceil((remaining - 0.000001) / dose)
+        : 0,
+    lastTime = dosesGiven.at(-1)?.time || 0,
+    secondsLeft = Math.max(
+      0,
+      Math.ceil((lastTime + (r?.repeat || 0) * 60000 - now) / 1000),
+    );
+  useEffect(() => setChecks(Array(items.length).fill(false)), [drug, an >= 65]);
+  useEffect(() => {
+    setRate(r?.rates.length === 1 ? r.rates[0] : null);
+    setConfirmed(false);
+  }, [drug, reason, route, adult]);
+  useEffect(() => setMedConfirmed(false), [drug]);
+  useEffect(() => setDosesGiven([]), [drug, reason, route, dose, conc]);
+  useEffect(() => {
+    if (!dosesGiven.length || !repeatsLeft) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [dosesGiven.length, repeatsLeft]);
+  const capped = !!r?.maxSingle && baseDose > r.maxSingle,
+    singleReason = !!drug && reasons[drug].length === 1,
+    visible: Step[] = [
+      "drug",
+      ...(!singleReason ? ["reason" as Step] : []),
+      "age",
+      "route",
+      ...(needWeight ? ["weight" as Step] : []),
+      "safety",
+      "vial",
+      "review",
+    ],
+    pos = visible.indexOf(step),
+    valid = useMemo(
+      () => ({
+        drug: !!drug,
+        reason: !!reason,
+        age: ageOk,
+        route: !!route,
+        weight: weightOk,
+        safety: checks.length === items.length && checks.every(Boolean),
+        vial:
+          rate !== null && medConfirmed && conc > 0 && confirmed && !inTooHigh,
+        review: true,
+      }),
+      [
+        drug,
+        reason,
+        ageOk,
+        route,
+        weightOk,
+        checks,
+        items.length,
+        rate,
+        medConfirmed,
+        conc,
+        confirmed,
+        inTooHigh,
+      ],
+    );
+  const next = () => {
+      if (valid[step]) setStep(visible[Math.min(pos + 1, visible.length - 1)]);
+    },
+    back = () => setStep(visible[Math.max(pos - 1, 0)]),
+    reset = () => {
+      setStep("drug");
+      setDrug(null);
+      setSearch("");
+      setReason("");
+      setAge("");
+      setAu("years");
+      setRoute(null);
+      setWeight("");
+      setWs("actual");
+      setTapeColor("");
+      setRate(null);
+      setAmt("");
+      setMl("");
+      setMedConfirmed(false);
+      setConfirmed(false);
+      setDosesGiven([]);
+    },
+    setUnit = (x: string) => {
+      setWu(x);
+      setWeight("");
+      setTapeColor("");
+      localStorage.setItem("preferredWeightUnit", x);
+    },
+    useSuggestedWeight = () => {
+      if (weightSuggestion !== null) {
+        setWs("age");
+        setWu("kg");
+        setTapeColor("");
+        setWeight(String(weightSuggestion));
+      }
+    },
+    selectTapeBand = (name: string, bandKg: number) => {
+      setWs("tape");
+      setWu("kg");
+      setTapeColor(name);
+      setWeight(String(bandKg));
+    },
+    recordDose = (amount: number) => {
+      const time = Date.now();
+      setNow(time);
+      setDosesGiven((x) => [
+        ...x,
+        { dose: amount, volume: amount / conc, time },
+      ]);
+    };
+  return (
+    <main className="wizard-app">
+      <header>
+        <div className="brand">
+          <b>M</b>
+          <span>
+            <strong>Metro Med Dose</strong>
+            <small>DMP medication cross-check</small>
+          </span>
+        </div>
+        <div className="header-actions">
+          <span className={`connection ${online ? "online" : "offline"}`}>
+            {online ? "Online" : "Offline ready"}
+          </span>
+          <button onClick={() => setInstall(true)}>Install</button>
+        </div>
+      </header>
+      <section className="wizard-shell">
+        {ageOk && step !== "drug" && step !== "reason" && (
+          <div className="patient-strip">
+            <b>{adult ? "Adult" : "Pediatric"}</b>
+            <span>Age {ageText}</span>
+            {needWeight && weightOk && <span>{fmt(kg)} kg</span>}
+            <small>{drug ? medName(drug) : ""}</small>
+          </div>
+        )}
+        <div className="wizard-top">
+          <button className="back" onClick={back} disabled={step === "drug"}>
+            ‹ Back
+          </button>
+          <span>
+            Step {pos + 1} of {visible.length}
+          </span>
+          <button className="start-over" onClick={reset}>
+            Start over
+          </button>
+        </div>
+        <div className="progress">
+          <i style={{ width: `${((pos + 1) / visible.length) * 100}%` }} />
+        </div>
+        <div className="clinical-banner">
+          <b>DMP verified</b>
+          <span>
+            July 2026 • Approved July 1, 2026 • Next review January 2027
+          </span>
+        </div>
+        {step === "drug" && (
+          <Screen
+            e="START"
+            t="Which medication was requested?"
+            h="Only advisor-review pathways are selectable."
+          >
+            <label className="drug-search">
+              <span>Search generic or brand name</span>
+              <input
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Fentanyl, Versed…"
+              />
+            </label>
+            <MedScanner />
+            <div className="choice-grid">
+              {meds
+                .filter((m) =>
+                  (m.name + " " + m.brand)
+                    .toLowerCase()
+                    .includes(search.toLowerCase()),
+                )
+                .map((m) => {
+                  const active = m.id === "fentanyl" || m.id === "midazolam";
+                  return (
+                    <button
+                      key={m.id}
+                      disabled={!active}
+                      className="choice"
+                      onClick={() => {
+                        setDrug(m.id as Drug);
+                        setReason(
+                          m.id === "fentanyl" ? reasons.fentanyl[0] : "",
+                        );
+                        setTimeout(
+                          () => setStep(m.id === "fentanyl" ? "age" : "reason"),
+                          60,
+                        );
+                      }}
+                    >
+                      <span className="rx">Rx</span>
+                      <span>
+                        <b>{m.name}</b>
+                        <small>
+                          {m.brand} • {m.sub}
+                        </small>
+                      </span>
+                      {active ? <i>›</i> : <em>Pending review</em>}
+                    </button>
+                  );
+                })}
+            </div>
+          </Screen>
+        )}
+        {step === "reason" && drug && (
+          <Screen
+            e="INDICATION"
+            t={`Why is ${medName(drug)} being given?`}
+            h="Only indications mapped from the medication protocol are shown."
+          >
+            <div className="stack">
+              {reasons[drug].map((x) => (
+                <button
+                  className="big-choice"
+                  key={x}
+                  onClick={() => {
+                    setReason(x);
+                    setTimeout(() => setStep("age"), 60);
+                  }}
+                >
+                  <span>{x}</span>
+                  <i>›</i>
+                </button>
+              ))}
+            </div>
+          </Screen>
+        )}
+        {step === "age" && drug && (
+          <Screen
+            e="PATIENT"
+            t="Enter the patient’s age"
+            h="Choose the unit first. DMP defines adult as 12 years or older."
+          >
+            <div className="age-unit-toggle">
+              {(["years", "months", "days"] as AgeUnit[]).map((x) => (
+                <button
+                  key={x}
+                  className={au === x ? "selected" : ""}
+                  onClick={() => {
+                    setAu(x);
+                    setAge("");
+                  }}
+                >
+                  {x[0].toUpperCase() + x.slice(1)}
+                </button>
+              ))}
+            </div>
+            <label className="giant-input">
+              <span>Age in {au}</span>
+              <input
+                autoFocus
+                inputMode="decimal"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && ageOk) next();
+                }}
+                placeholder="0"
+              />
+            </label>
+            {age !== "" && !ageWithinRange ? (
+              <div className="input-guidance">
+                <b>Check the age entry</b>
+                <span>
+                  Use days through 365, months through 143, or years for older
+                  patients.
+                </span>
+              </div>
+            ) : ageBlocked ? (
+              <HardStop
+                title="BASE CONTACT REQUIRED"
+                reason="DMP 9230 does not provide a standing-order Fentanyl dose for patients younger than 1 year."
+                source="DMP 9230 Opioids"
+                action="If the age was entered incorrectly, correct it above. If the patient is confirmed younger than 1 year, stop and contact Base for a direct order."
+              />
+            ) : (
+              ageOk && (
+                <div className="classification">
+                  <span>DMP category</span>
+                  <b>
+                    {adult ? "Adult" : "Pediatric"} • {ageText}
+                  </b>
+                </div>
+              )
+            )}
+            <Next ok={valid.age} go={next} />
+          </Screen>
+        )}
+        {step === "route" && drug && (
+          <Screen
+            e="ROUTE"
+            t="Which route will be used?"
+            h="Only routes listed for this drug and indication are offered."
+          >
+            <div className="route-grid">
+              {routes[drug].map((x) => (
+                <button
+                  key={x}
+                  className={route === x ? "selected" : ""}
+                  onClick={() => {
+                    setRoute(x);
+                    setTimeout(
+                      () =>
+                        setStep(
+                          rules(drug, reason, an, x).weight
+                            ? "weight"
+                            : "safety",
+                        ),
+                      60,
+                    );
+                  }}
+                >
+                  {x}
+                </button>
+              ))}
+            </div>
+            {drug === "midazolam" && reason === "Seizure" && (
+              <div className="source-note">
+                IN is preferred over IM when IV cannot be safely or rapidly
+                obtained.
+              </div>
+            )}
+          </Screen>
+        )}
+        {step === "weight" && (
+          <Screen
+            e="WEIGHT-BASED DOSE"
+            t="Enter the calculation weight"
+            h="Use an actual or length-based weight whenever available."
+          >
+            <div className="source-grid">
+              {[
+                ["actual", "Actual"],
+                ["estimated", "Estimated"],
+                ["tape", "Length-based tape"],
+              ].map(([id, x]) => (
+                <button
+                  key={id}
+                  className={ws === id ? "selected" : ""}
+                  onClick={() => {
+                    setWs(id);
+                    setWeight("");
+                    setTapeColor("");
+                    if (id === "tape") setWu("kg");
+                  }}
+                >
+                  {x}
+                </button>
+              ))}
+            </div>
+            {weightSuggestion !== null && ws !== "tape" && (
+              <div className="age-weight-suggestion">
+                <span>
+                  <small>DMP CHART AGE-BAND MIDPOINT</small>
+                  <b>
+                    {weightSuggestion} kg suggested for {ageText}
+                  </b>
+                  <em>
+                    Use only when an actual or length-based weight is
+                    unavailable.
+                  </em>
+                </span>
+                <button
+                  className={ws === "age" ? "used" : ""}
+                  onClick={useSuggestedWeight}
+                >
+                  {ws === "age" ? "Using estimate ✓" : "Use estimate"}
+                </button>
+              </div>
+            )}
+            {an < 0.5 && (
+              <div className="input-guidance">
+                <b>No age-based suggestion</b>
+                <span>
+                  DMP does not provide an age-band weight for patients younger
+                  than 6 months. Use an actual, estimated, or length-based
+                  weight.
+                </span>
+              </div>
+            )}
+            {ws !== "tape" && ws !== "age" && (
+              <div className="unit-toggle">
+                <button
+                  className={wu === "kg" ? "selected" : ""}
+                  onClick={() => setUnit("kg")}
+                >
+                  Kilograms
+                </button>
+                <button
+                  className={wu === "lb" ? "selected" : ""}
+                  onClick={() => setUnit("lb")}
+                >
+                  Pounds
+                </button>
+              </div>
+            )}
+            {ws === "tape" ? (
+              <>
+                <div className="tape-heading">
+                  <b>Select the tape color</b>
+                  <span>DMP average weight will be used automatically.</span>
+                </div>
+                <div className="tape-grid">
+                  {tapeBands.map((b) => (
+                    <button
+                      key={b.name}
+                      className={tapeColor === b.name ? "selected" : ""}
+                      style={{ background: b.color, color: b.text }}
+                      onClick={() => selectTapeBand(b.name, b.kg)}
+                    >
+                      <b>{b.name}</b>
+                      <span>{b.kg} kg</span>
+                    </button>
+                  ))}
+                </div>
+                {tapeColor && (
+                  <div className="tape-selected">
+                    <span>Selected length-based band</span>
+                    <b>
+                      {tapeColor} • {fmt(kg)} kg
+                    </b>
+                  </div>
+                )}
+              </>
+            ) : (
+              <label className="giant-input">
+                <span>
+                  {ws === "age"
+                    ? "Accepted age-based estimate (kg)"
+                    : `Patient weight ()`}
+                </span>
+                <input
+                  autoFocus
+                  inputMode="decimal"
+                  value={weight}
+                  onChange={(e) => {
+                    setWeight(e.target.value);
+                    if (ws === "age") setWs("estimated");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && weightOk) next();
+                  }}
+                  placeholder="0"
+                />
+              </label>
+            )}
+            {ws === "age" && (
+              <div className="estimate-warning">
+                <b>Age-based estimate accepted</b>
+                <span>
+                  Replace it if a better weight becomes available before
+                  medication administration.
+                </span>
+              </div>
+            )}
+            <Next ok={valid.weight} go={next} />
+          </Screen>
+        )}
+        {step === "safety" && drug && (
+          <Screen
+            e="CONTRAINDICATIONS"
+            t="Confirm applicable safety checks"
+            h={`Only checks applicable to ${medName(drug)} are shown.`}
+          >
+            <div className="safety-list">
+              {items.map((x, i) => (
+                <label key={x} className={checks[i] ? "checked" : ""}>
+                  <input
+                    type="checkbox"
+                    checked={!!checks[i]}
+                    onChange={(e) =>
+                      setChecks(
+                        checks.map((v, n) => (n === i ? e.target.checked : v)),
+                      )
+                    }
+                  />
+                  <span>
+                    <b>{i + 1}</b>
+                    {x}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <a
+              className="protocol-link"
+              href={URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open current DMP medication protocol ↗
+            </a>
+            <Next ok={valid.safety} go={next} />
+          </Screen>
+        )}
+        {step === "vial" && drug && r && (
+          <Screen
+            e="DOSE & CONCENTRATION"
+            t={`Build the ${medName(drug)} dose`}
+            h="Complete each section from top to bottom."
+          >
+            <div className="route-rule">
+              <b>
+                {route} • {reason}
+              </b>
+              <span>
+                Repeat after {r.repeat} minutes • {r.repeatText}
+              </span>
+              {r.note && <small>{r.note}</small>}
+            </div>
+            <div className="route-label">
+              1. Select the ordered DMP initial dose
+            </div>
+            {r.rates.length === 1 ? (
+              <div className="locked-dose">
+                <b>
+                  {r.rates[0]} {unit}
+                  {r.perKg ? "/kg" : ""}
+                </b>
+                <span>
+                  Automatically selected for this age, indication and route
+                </span>
+              </div>
+            ) : (
+              <div className="dose-rate-grid">
+                {r.rates.map((x) => (
+                  <button
+                    key={x}
+                    className={rate === x ? "selected" : ""}
+                    onClick={() => setRate(x)}
+                  >
+                    <b>
+                      {x} {unit}/kg
+                    </b>
+                    <span>DMP option</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {rate === null ? (
+              <div className="completion-prompt">
+                <b>Dose selection required</b>
+                <span>
+                  Select the ordered DMP dose above before entering the vial
+                  concentration.
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className="med-verify">
+                  <div className="photo-placeholder">
+                    <div className="drawn-vial">
+                      <small>{medName(drug).toUpperCase()}</small>
+                      <b>VIAL</b>
+                      <small>PHOTO REQUIRED</small>
+                    </div>
+                    <span>Department photo pending</span>
+                    <label
+                      className={`correct-med ${medConfirmed ? "checked" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={medConfirmed}
+                        onChange={(e) => setMedConfirmed(e.target.checked)}
+                      />
+                      <span>
+                        <b>Correct medication</b>Physical vial label says{" "}
+                        {medName(drug)}
+                      </span>
+                    </label>
+                  </div>
+                  <div className="dose-card">
+                    <small>CALCULATED INITIAL DOSE</small>
+                    <h3>
+                      {fmt(dose)} {unit}
+                    </h3>
+                    <p>
+                      <span>Patient</span>
+                      <b>{needWeight ? `${fmt(kg)} kg` : "Adult fixed dose"}</b>
+                    </p>
+                    <p>
+                      <span>Route</span>
+                      <b>{route}</b>
+                    </p>
+                  </div>
+                </div>
+                <h3 className="label-heading">
+                  2. Enter exactly what the physical vial says
+                </h3>
+                <div className="vial-entry">
+                  <label>
+                    <span>Total drug</span>
+                    <div>
+                      <input
+                        inputMode="decimal"
+                        value={amt}
+                        onChange={(e) => {
+                          setAmt(e.target.value);
+                          setConfirmed(false);
+                        }}
+                        placeholder="0"
+                      />
+                      <b>{unit}</b>
+                    </div>
+                  </label>
+                  <label>
+                    <span>Total volume</span>
+                    <div>
+                      <input
+                        inputMode="decimal"
+                        value={ml}
+                        onChange={(e) => {
+                          setMl(e.target.value);
+                          setConfirmed(false);
+                        }}
+                        placeholder="0"
+                      />
+                      <b>mL</b>
+                    </div>
+                  </label>
+                </div>
+                {conc > 0 && (
+                  <button
+                    className={`confirm-concentration ${confirmed ? "confirmed" : ""}`}
+                    onClick={() => setConfirmed(!confirmed)}
+                  >
+                    <small>
+                      {confirmed
+                        ? "CONFIRMED"
+                        : "3. TAP TO CONFIRM CONCENTRATION"}
+                    </small>
+                    <strong>
+                      {fmt(conc)} {unit}/mL
+                    </strong>
+                    <span>
+                      {confirmed
+                        ? "Matches physical vial ✓"
+                        : "Compare with the vial in your hand"}
+                    </span>
+                  </button>
+                )}
+                {inTooHigh && (
+                  <HardStop
+                    title="IN VOLUME EXCEEDS LIMIT"
+                    reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`}
+                    source="DMP 9230 Opioids"
+                    action="Use an appropriate higher concentration or select another DMP-approved route, then recalculate."
+                  />
+                )}
+                <Next ok={valid.vial} go={next} text="Review final dose" />
+              </>
+            )}
+          </Screen>
+        )}
+        {step === "review" && drug && r && (
+          <Screen
+            e="FINAL CROSS-CHECK"
+            t="Confirm the medication plan"
+            h="Read the action line aloud and verify the protocol rules."
+          >
+            <div className="action-line">
+              <small>INITIAL DOSE</small>
+              <strong>
+                GIVE {fmt(dose)} {unit} = DRAW {fmt(vol)} mL
+              </strong>
+              <b>{route}</b>
+            </div>
+            <MathPicture
+              perKg={r.perKg}
+              kg={kg}
+              rate={rate || 0}
+              dose={dose}
+              amount={Number(amt)}
+              vialMl={Number(ml)}
+              concentration={conc}
+              volume={vol}
+              unit={unit}
+            />
+            <SyringeDiagram volume={vol} />
+            <DoseTracker
+              entries={dosesGiven}
+              unit={unit}
+              total={totalGiven}
+              totalVolume={totalVolume}
+              maxTotal={maxTotal}
+              repeatsLeft={repeatsLeft}
+              repeatMinutes={r.repeat}
+              secondsLeft={secondsLeft}
+              nextDose={nextRepeat}
+              concentration={conc}
+              drug={drug}
+              reason={reason}
+              record={recordDose}
+            />
+            <MedicationReport
+              drug={medName(drug)}
+              reason={reason}
+              route={route || ""}
+              age={ageText}
+              patientClass={adult ? "Adult" : "Pediatric"}
+              weight={needWeight ? `${fmt(kg)} kg` : undefined}
+              weightSource={
+                ws === "age"
+                  ? "age-based estimate"
+                  : ws === "tape"
+                    ? `${tapeColor} length-based band`
+                    : ws
+              }
+              protocol={
+                drug === "fentanyl"
+                  ? "DMP 9230 • July 2026"
+                  : "DMP 9070 • July 2026"
+              }
+              doseRule={
+                r.perKg
+                  ? `${fmt(kg)} kg × ${rate} ${unit}/kg`
+                  : `${rate} ${unit} fixed dose`
+              }
+              concentration={`${fmt(conc)} ${unit}/mL`}
+              calculatedDose={`${fmt(dose)} ${unit}`}
+              calculatedVolume={`${fmt(vol)} mL`}
+              unit={unit}
+              entries={dosesGiven}
+            />
+            <div className="final-card">
+              <div className="final-drug">
+                <span>Medication</span>
+                <b>{medName(drug)}</b>
+                <small>
+                  {reason} • {route}
+                </small>
+              </div>
+              <Review
+                l="Patient"
+                v={`${adult ? "Adult" : "Pediatric"} • age ${ageText}${needWeight ? ` • ${fmt(kg)} kg${ws === "age" ? " (age-based estimate)" : ws === "tape" ? ` ( length-based band)` : ""}` : ""}`}
+              />
+              <Review
+                l="Medication check"
+                v={`Physical vial confirmed as ${medName(drug)}`}
+              />
+              <Review
+                l="DMP dose"
+                v={
+                  r.perKg
+                    ? `${fmt(kg)} kg × ${rate} ${unit}/kg = ${fmt(baseDose)} ${unit}`
+                    : `${rate} ${unit} fixed dose`
+                }
+              />
+              {capped && (
+                <Review
+                  l="Maximum applied"
+                  v={`${fmt(baseDose)} ${unit} capped at ${r.maxSingle} ${unit}`}
+                />
+              )}
+              <Review
+                l="Repeat rule"
+                v={`After ${r.repeat} min • ${r.repeatText}`}
+              />
+              {drug === "fentanyl" && route === "IN" && (
+                <Review
+                  l="IN volume split"
+                  v={`${fmt(vol / 2)} mL per nostril (${fmt(vol)} mL total)`}
+                />
+              )}
+              <Review
+                l="Vial"
+                v={`${amt} ${unit} in ${ml} mL = ${fmt(conc)} ${unit}/mL`}
+              />
+              <Review
+                l="Volume calculation"
+                v={`${fmt(dose)} ${unit} ÷ ${fmt(conc)} ${unit}/mL = ${fmt(vol)} mL`}
+              />
+              <Review
+                l="Protocol"
+                v={
+                  drug === "fentanyl"
+                    ? "DMP 9230 • July 2026"
+                    : "DMP 9070 • July 2026"
+                }
+              />
+            </div>
+            <div className="final-warning">
+              <b>DMP cross-check required</b>
+              <span>
+                The syringe diagram is a visual cross-check, not an actual-size
+                measuring tool. Verify the physical syringe markings, Six Rights
+                and verbal repeat-back. Obtain repeat vital signs after
+                administration.
+              </span>
+            </div>
+            <button className="new-calc" onClick={reset}>
+              Start a new calculation
+            </button>
+          </Screen>
+        )}
+      </section>
+      {install && (
+        <div className="modal-backdrop" onClick={() => setInstall(false)}>
+          <section className="install-modal">
+            <button className="close" onClick={() => setInstall(false)}>
+              ×
+            </button>
+            <h2>Install for offline use</h2>
+            <ol>
+              <li>Open in Safari and tap Share.</li>
+              <li>
+                Choose <b>Add to Home Screen</b>.
+              </li>
+              <li>Open once online after protocol updates.</li>
+            </ol>
+          </section>
+        </div>
+      )}
+    </main>
+  );
+}
+function Screen({
+  e,
+  t,
+  h,
+  children,
+}: {
+  e: string;
+  t: string;
+  h: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="wizard-card">
+      <small className="eyebrow">{e}</small>
+      <h1>{t}</h1>
+      <p className="screen-help">{h}</p>
+      {children}
+    </section>
+  );
+}
+function HardStop({
+  title,
+  reason,
+  source,
+  action,
+}: {
+  title: string;
+  reason: string;
+  source: string;
+  action: string;
+}) {
+  return (
+    <div className="hard-stop" role="alert">
+      <b>{title}</b>
+      <span>
+        <strong>Why:</strong> {reason}
+      </span>
+      <span>
+        <strong>Protocol:</strong> {source}
+      </span>
+      <span>
+        <strong>Next:</strong> {action}
+      </span>
+    </div>
+  );
+}
+function Next({
+  ok,
+  go,
+  text = "Continue",
+}: {
+  ok: boolean;
+  go: () => void;
+  text?: string;
+}) {
+  return (
+    <button className="continue" disabled={!ok} onClick={go}>
+      {text}
+      <span>→</span>
+    </button>
+  );
+}
+function Review({ l, v }: { l: string; v: string }) {
+  return (
+    <div className="review-row">
+      <span>{l}</span>
+      <b>{v}</b>
+    </div>
+  );
+}
+function MathPicture({
+  perKg,
+  kg,
+  rate,
+  dose,
+  amount,
+  vialMl,
+  concentration,
+  volume,
+  unit,
+}: {
+  perKg: boolean;
+  kg: number;
+  rate: number;
+  dose: number;
+  amount: number;
+  vialMl: number;
+  concentration: number;
+  volume: number;
+  unit: string;
+}) {
+  return (
+    <section className="math-picture" aria-label="Dose calculation picture">
+      <h2>Calculation picture</h2>
+      <div>
+        <span>
+          <small>1 • DOSE</small>
+          <b>
+            {perKg
+              ? `${fmt(kg)} kg × ${fmt(rate)} ${unit}/kg`
+              : `Fixed DMP dose`}
+          </b>
+          <strong>
+            {fmt(dose)} {unit}
+          </strong>
+        </span>
+        <i>→</i>
+        <span>
+          <small>2 • CONCENTRATION</small>
+          <b>
+            {fmt(amount)} {unit} ÷ {fmt(vialMl)} mL
+          </b>
+          <strong>
+            {fmt(concentration)} {unit}/mL
+          </strong>
+        </span>
+        <i>→</i>
+        <span className="math-answer">
+          <small>3 • DRAW</small>
+          <b>
+            {fmt(dose)} ÷ {fmt(concentration)}
+          </b>
+          <strong>{fmt(volume)} mL</strong>
+        </span>
+      </div>
+    </section>
+  );
+}
+function SyringeDiagram({ volume }: { volume: number }) {
+  const size = syringeSize(volume),
+    fill = Math.min(volume / size, 1) * 190,
+    marker = 20 + fill;
+  return (
+    <section
+      className="syringe-card"
+      aria-label={`${size} mL syringe drawn to ${fmt(volume)} mL`}
+    >
+      <div className="syringe-heading">
+        <span>
+          <small>SUGGESTED SYRINGE</small>
+          <b>{size} mL syringe</b>
+        </span>
+        <strong>DRAW TO {fmt(volume)} mL</strong>
+      </div>
+      <svg
+        viewBox="0 0 300 135"
+        role="img"
+        aria-label={`Diagram of medication drawn to ${fmt(volume)} mL in a ${size} mL syringe`}
+      >
+        <path
+          d="M4 68h16M4 61v14M210 55h29v26h-29M239 68h49M288 55v26"
+          fill="none"
+          stroke="#193447"
+          strokeWidth="4"
+        />
+        <rect
+          x="20"
+          y="40"
+          width="190"
+          height="55"
+          rx="8"
+          fill="#fff"
+          stroke="#193447"
+          strokeWidth="4"
+        />
+        <rect
+          x="22"
+          y="42"
+          width={Math.max(fill - 2, 0)}
+          height="51"
+          rx="5"
+          fill="#75c9df"
+        />
+        <line
+          x1={marker}
+          y1="36"
+          x2={marker}
+          y2="100"
+          stroke="#08745f"
+          strokeWidth="4"
+        />
+        {Array.from({ length: 11 }, (_, i) => (
+          <line
+            key={i}
+            x1={20 + i * 19}
+            y1="40"
+            x2={20 + i * 19}
+            y2={i % 5 === 0 ? 55 : 49}
+            stroke="#193447"
+            strokeWidth="2"
+          />
+        ))}
+        <text x="20" y="118" fontSize="12" fill="#435b6b">
+          0
+        </text>
+        <text x="195" y="118" fontSize="12" fill="#435b6b">
+          {size} mL
+        </text>
+        <text
+          x={Math.min(Math.max(marker - 20, 55), 220)}
+          y="28"
+          textAnchor="middle"
+          fontSize="13"
+          fontWeight="800"
+          fill="#08745f"
+        >
+          {fmt(volume)} mL
+        </text>
+      </svg>
+      <p>
+        Use the smallest stocked syringe that safely accommodates the volume.
+        Diagram is not actual size; verify the physical graduations.
+      </p>
+    </section>
+  );
+}
+function syringeSize(volume: number) {
+  return [1, 3, 5, 10, 20, 30, 60].find((x) => volume <= x) || 60;
+}
+function fmt(n: number) {
+  return Number.isFinite(n) ? Number(n.toFixed(2)).toString() : "—";
+}
+function medName(d: Drug) {
+  return d === "fentanyl" ? "Fentanyl" : "Midazolam (Versed)";
+}
