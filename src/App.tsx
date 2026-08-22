@@ -2,12 +2,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
-import MedScanner from "./MedScanner";
+import MedScanner, { type StockVial } from "./MedScanner";
 type Drug = "fentanyl" | "midazolam";
 type Route = "IV/IO" | "IM" | "IN";
 type AgeUnit = "years" | "months" | "days";
 type Step =
-  "drug" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
+  "drug" | "scanConfirm" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
 const URL =
   "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
 const meds = [
@@ -168,7 +168,10 @@ export default function App() {
     [dosesGiven, setDosesGiven] = useState<
       { dose: number; volume: number; time: number }[]
     >([]),
-    [now, setNow] = useState(Date.now());
+    [now, setNow] = useState(Date.now()),
+    [scannedVial, setScannedVial] = useState<StockVial | null>(null),
+    [scanMedOk, setScanMedOk] = useState(false),
+    [scanConcOk, setScanConcOk] = useState(false);
   useEffect(() => {
     setOnline(navigator.onLine);
     setWu(localStorage.getItem("preferredWeightUnit") || "kg");
@@ -241,6 +244,7 @@ export default function App() {
     singleReason = !!drug && reasons[drug].length === 1,
     visible: Step[] = [
       "drug",
+      ...(scannedVial ? (["scanConfirm"] as Step[]) : []),
       ...(!singleReason ? ["reason" as Step] : []),
       "age",
       "route",
@@ -253,6 +257,7 @@ export default function App() {
     valid = useMemo(
       () => ({
         drug: !!drug,
+        scanConfirm: scanMedOk && scanConcOk,
         reason: !!reason,
         age: ageOk,
         route: !!route,
@@ -298,6 +303,9 @@ export default function App() {
       setMedConfirmed(false);
       setConfirmed(false);
       setDosesGiven([]);
+      setScannedVial(null);
+      setScanMedOk(false);
+      setScanConcOk(false);
     },
     setUnit = (x: string) => {
       setWu(x);
@@ -390,6 +398,9 @@ export default function App() {
             </label>
             <MedScanner
               onUse={(vial) => {
+                setScannedVial(vial);
+                setScanMedOk(false);
+                setScanConcOk(false);
                 setDrug(vial.drug);
                 setReason(
                   vial.drug === "fentanyl" ? reasons.fentanyl[0] : "",
@@ -398,7 +409,7 @@ export default function App() {
                 setMl(vial.volume);
                 setMedConfirmed(false);
                 setConfirmed(false);
-                setStep(vial.drug === "fentanyl" ? "age" : "reason");
+                setStep("scanConfirm");
               }}
             />
             <div className="choice-grid">
@@ -438,6 +449,19 @@ export default function App() {
                   );
                 })}
             </div>
+          </Screen>
+        )}
+        {step === "scanConfirm" && scannedVial && (
+          <Screen e="SCANNED VIAL" t="Confirm the medication in your hand" h="Compare the physical vial with the scanned stock information.">
+            <div className="scan-confirm-card">
+              <div className="scan-med-photo">{scannedVial.photo ? <img src={scannedVial.photo} alt={`${scannedVial.label} reference vial`}/> : <div className="reference-vial"><small>{medName(scannedVial.drug).toUpperCase()}</small><b>VIAL</b><span>Reference photo not saved</span></div>}</div>
+              <div className="scan-med-identity"><small>BARCODE MATCH</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>
+            </div>
+            <div className="scan-confirm-checks">
+              <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Correct medication</b>Physical vial says {medName(scannedVial.drug)}</span></label>
+              <label className={scanConcOk?"checked":""}><input type="checkbox" checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Correct concentration</b>Physical vial says {scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</span></label>
+            </div>
+            <Next ok={scanMedOk&&scanConcOk} go={()=>setStep(scannedVial.drug==="fentanyl"?"age":"reason")} text="Continue to patient information"/>
           </Screen>
         )}
         {step === "reason" && drug && (
