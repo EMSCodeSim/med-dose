@@ -157,7 +157,7 @@ export default function App() {
     [search, setSearch] = useState(""),
     [reason, setReason] = useState(""),
     [age, setAge] = useState(""),
-    [au, setAu] = useState<AgeUnit>("years"),
+    [au, setAu] = useState<AgeUnit | "">(""),
     [route, setRoute] = useState<Route | null>(null),
     [weight, setWeight] = useState(""),
     [wu, setWu] = useState("kg"),
@@ -189,23 +189,23 @@ export default function App() {
     };
   }, []);
   const av = Number(age),
-    an = au === "years" ? av : au === "months" ? av / 12 : av / 365.25,
+    an = au === "years" ? av : au === "months" ? av / 12 : au === "days" ? av / 365.25 : 0,
     adult = an >= 12,
     underOne = age !== "" && an < 1,
-    ageText = `${age} ${au}`,
+    ageText = au ? `${age} ${au}` : age,
     weightSuggestion = suggestedWeight(an),
     r = drug && reason && route ? rules(drug, reason, an, route) : null,
     needWeight = !!r?.weight,
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
     items = drug ? checksFor(drug, an) : [],
-    ageBlocked = (drug === "fentanyl" && underOne)||(drug==="adenosine"&&age!==""&&!adult),
+    ageBlocked = !!au&&((drug === "fentanyl" && underOne)||(drug==="adenosine"&&age!==""&&!adult)),
     ageWithinRange =
       au === "years"
         ? av >= 0 && av < 130
         : au === "months"
           ? av >= 0 && av < 144
-          : av >= 0 && av < 366,
-    ageOk = age !== "" && ageWithinRange && !ageBlocked,
+          : au === "days" && av >= 0 && av < 366,
+    ageOk = age !== "" && !!au && ageWithinRange && !ageBlocked,
     weightOk = !needWeight || (kg > 0 && kg < 350),
     baseDose = r && rate !== null ? (r.perKg ? kg * rate : rate) : 0,
     dose = r?.maxSingle ? Math.min(baseDose, r.maxSingle) : baseDose,
@@ -291,7 +291,7 @@ export default function App() {
       setSearch("");
       setReason("");
       setAge("");
-      setAu("years");
+      setAu("");
       setRoute(null);
       setWeight("");
       setWs("actual");
@@ -489,24 +489,10 @@ export default function App() {
           <Screen
             e="PATIENT"
             t="Enter the patient’s age"
-            h="Choose the unit first. DMP defines adult as 12 years or older."
+            h="Enter the number first, then select years, months or days. DMP defines adult as 12 years or older."
           >
-            <div className="age-unit-toggle">
-              {(["years", "months", "days"] as AgeUnit[]).map((x) => (
-                <button
-                  key={x}
-                  className={au === x ? "selected" : ""}
-                  onClick={() => {
-                    setAu(x);
-                    setAge("");
-                  }}
-                >
-                  {x[0].toUpperCase() + x.slice(1)}
-                </button>
-              ))}
-            </div>
             <label className="giant-input">
-              <span>Age in {au}</span>
+              <span>Age</span>
               <input
                 autoFocus
                 inputMode="decimal"
@@ -518,7 +504,23 @@ export default function App() {
                 placeholder="0"
               />
             </label>
-            {age !== "" && !ageWithinRange ? (
+            <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">
+              {(["years", "months", "days"] as AgeUnit[]).map((x) => (
+                <button
+                  key={x}
+                  className={au === x ? "selected" : ""}
+                  onClick={() => setAu(x)}
+                >
+                  {x[0].toUpperCase() + x.slice(1)}
+                </button>
+              ))}
+            </div>
+            {age !== "" && !au ? (
+              <div className="input-guidance">
+                <b>Select the age unit</b>
+                <span>Choose years, months or days to classify the patient and continue.</span>
+              </div>
+            ) : age !== "" && !ageWithinRange ? (
               <div className="input-guidance">
                 <b>Check the age entry</b>
                 <span>
