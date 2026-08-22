@@ -6,6 +6,7 @@ import MedScanner, { type StockVial } from "./MedScanner";
 type Drug = "fentanyl" | "midazolam" | "adenosine";
 type Route = "IV" | "IV/IO" | "IM" | "IN";
 type AgeUnit = "years" | "months" | "days";
+type AgeClass = "adult" | "pediatric";
 type Step =
   "drug" | "scanConfirm" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
 const URL =
@@ -156,6 +157,7 @@ export default function App() {
     [drug, setDrug] = useState<Drug | null>(null),
     [search, setSearch] = useState(""),
     [reason, setReason] = useState(""),
+    [ageClass, setAgeClass] = useState<AgeClass | "">(""),
     [age, setAge] = useState(""),
     [au, setAu] = useState<AgeUnit | "">(""),
     [route, setRoute] = useState<Route | null>(null),
@@ -192,7 +194,7 @@ export default function App() {
     an = au === "years" ? av : au === "months" ? av / 12 : au === "days" ? av / 365.25 : 0,
     adult = an >= 12,
     underOne = age !== "" && an < 1,
-    ageText = au ? `${age} ${au}` : age,
+    ageText = ageClass==="adult"?(an>=65?"65 years or older":"12–64 years"):au ? `${age} ${au}` : age,
     weightSuggestion = suggestedWeight(an),
     r = drug && reason && route ? rules(drug, reason, an, route) : null,
     needWeight = !!r?.weight,
@@ -290,6 +292,7 @@ export default function App() {
       setDrug(null);
       setSearch("");
       setReason("");
+      setAgeClass("");
       setAge("");
       setAu("");
       setRoute(null);
@@ -390,6 +393,9 @@ export default function App() {
                 setScanMedOk(false);
                 setScanConcOk(false);
                 setDrug(vial.drug);
+                setAgeClass("");
+                setAge("");
+                setAu("");
                 setReason(
                   vial.drug === "fentanyl" ? reasons.fentanyl[0] : "",
                 );
@@ -425,6 +431,9 @@ export default function App() {
                       onClick={() => {
                         const selectedDrug = m.id as Drug;
                         setDrug(selectedDrug);
+                        setAgeClass("");
+                        setAge("");
+                        setAu("");
                         setReason(reasons[selectedDrug].length===1?reasons[selectedDrug][0]:"");
                         setAmt("");
                         setMl("");
@@ -488,64 +497,26 @@ export default function App() {
         {step === "age" && drug && (
           <Screen
             e="PATIENT"
-            t="Enter the patient’s age"
-            h="Enter the number first, then select years, months or days. DMP defines adult as 12 years or older."
+            t="Select the patient age group"
+            h="Start with the DMP age category. Only needed follow-up questions will appear."
           >
-            <label className="giant-input">
-              <span>Age</span>
-              <input
-                autoFocus
-                inputMode="decimal"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && ageOk) next();
-                }}
-                placeholder="0"
-              />
-            </label>
-            <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">
-              {(["years", "months", "days"] as AgeUnit[]).map((x) => (
-                <button
-                  key={x}
-                  className={au === x ? "selected" : ""}
-                  onClick={() => setAu(x)}
-                >
-                  {x[0].toUpperCase() + x.slice(1)}
-                </button>
-              ))}
-            </div>
-            {age !== "" && !au ? (
-              <div className="input-guidance">
-                <b>Select the age unit</b>
-                <span>Choose years, months or days to classify the patient and continue.</span>
-              </div>
-            ) : age !== "" && !ageWithinRange ? (
-              <div className="input-guidance">
-                <b>Check the age entry</b>
-                <span>
-                  Use days through 365, months through 143, or years for older
-                  patients.
-                </span>
-              </div>
-            ) : ageBlocked ? (
-              <HardStop
-                title="BASE CONTACT REQUIRED"
-                reason={drug==="adenosine"?"DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration.":"DMP 9230 does not provide a standing-order Fentanyl dose for patients younger than 1 year."}
-                source={drug==="adenosine"?"DMP 9010 Adenosine":"DMP 9230 Opioids"}
-                action="Correct the age if entered incorrectly. Otherwise stop and contact Base for a direct order."
-              />
-            ) : (
-              ageOk && (
-                <div className="classification">
-                  <span>DMP category</span>
-                  <b>
-                    {adult ? "Adult" : "Pediatric"} • {ageText}
-                  </b>
-                </div>
-              )
-            )}
-            <Next ok={valid.age} go={next} />
+            {!ageClass ? <div className="age-class-grid">
+              <button onClick={()=>{setAgeClass("adult");setAge("");setAu("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>
+              <button onClick={()=>{setAgeClass("pediatric");setAge(drug==="adenosine"?"11":"");setAu(drug==="adenosine"?"years":"")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>
+            </div>:<>
+              <button className="change-age-class" onClick={()=>{setAgeClass("");setAge("");setAu("")}}>← Change age group</button>
+              {ageClass==="adult" ? <div className="age-followup">
+                <small>ONE SAFETY CHECK</small>
+                <h3>Is the patient 65 or older?</h3>
+                <div><button onClick={()=>{setAge("12");setAu("years");setTimeout(()=>setStep("route"),60)}}><b>No</b><span>Age 12–64</span></button><button onClick={()=>{setAge("65");setAu("years");setTimeout(()=>setStep("route"),60)}}><b>Yes</b><span>Age 65+</span></button></div>
+              </div>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
+                <div className="age-followup"><small>PEDIATRIC DETAIL NEEDED</small><h3>Enter the patient’s age</h3></div>
+                <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter"&&ageOk)next()}} placeholder="0"/></label>
+                <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">{(["years","months","days"] as AgeUnit[]).map((x)=><button key={x} className={au===x?"selected":""} onClick={()=>setAu(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
+                {age!==""&&!au?<div className="input-guidance"><b>Select the age unit</b><span>Choose years, months or days to continue.</span></div>:age!==""&&!ageWithinRange?<div className="input-guidance"><b>Check the age entry</b><span>Use days through 365, months through 143, or years below 12.</span></div>:ageBlocked?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9230 does not provide a standing-order Fentanyl dose for patients younger than 1 year." source="DMP 9230 Opioids" action="Correct the age if entered incorrectly. Otherwise stop and contact Base for a direct order."/>:null}
+                <Next ok={valid.age} go={next}/>
+              </>}
+            </>}
           </Screen>
         )}
         {step === "route" && drug && (
