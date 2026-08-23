@@ -7,7 +7,9 @@ type Props = {
   ageYears: number | null;
   ageLabel: string;
   weightKg: number | null;
+  currentDrugId?: SupportedDrug;
   currentDrug?: string;
+  currentIndication?: string;
   currentDose?: string;
   currentVolume?: string;
   onSelectMedication: (drug: SupportedDrug) => void;
@@ -25,12 +27,14 @@ export default function FieldToolbar(p: Props) {
   const [tool,setTool]=useState<Tool>(null),[query,setQuery]=useState(""),[lookupAge,setLookupAge]=useState(""),[protocol,setProtocol]=useState<ProtocolTarget|null>(null);
   const age = p.ageYears ?? (lookupAge === "" ? null : Number(lookupAge));
   const context = p.ageYears !== null ? `Current patient • ${p.ageLabel}${p.weightKg ? ` • ${fmt(p.weightKg)} kg` : ""}` : "No current patient • lookup mode";
+  const treatmentReady = Boolean(p.currentDrugId && p.currentIndication);
+  const treatmentHint = p.currentDrugId && !p.currentIndication ? "Select why the medication is being given first" : "Select a medication and indication first";
   const close=()=>{setTool(null);setQuery("")};
   return <>
     <nav className="field-toolbar" aria-label="Quick clinical reference">
       <button onClick={()=>setTool("meds")}><span>Rx</span><b>Meds</b></button>
       <button onClick={()=>setTool("vitals")}><span>♥</span><b>Vitals</b></button>
-      <button onClick={()=>setTool("treatment")}><span>✚</span><b>Treatment</b></button>
+      <button disabled={!treatmentReady} title={!treatmentReady?treatmentHint:undefined} aria-label={treatmentReady?"Treatment":"Treatment unavailable — "+treatmentHint} onClick={()=>setTool("treatment")}><span>✚</span><b>Treatment</b></button>
       <button onClick={()=>setTool("protocols")}><span>§</span><b>Protocols</b></button>
     </nav>
     {tool&&<div className="quick-drawer-backdrop" onClick={close}><section className="quick-drawer" role="dialog" aria-modal="true" aria-label={`${tool} quick reference`} onClick={e=>e.stopPropagation()}>
@@ -38,7 +42,7 @@ export default function FieldToolbar(p: Props) {
       <div className="drawer-patient">{context}</div>
       {tool==="meds"&&<MedicationPanel {...p} onSelectMedication={(drug)=>{p.onSelectMedication(drug);close()}} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
       {tool==="vitals"&&<VitalsPanel age={age} lookupAge={lookupAge} setLookupAge={setLookupAge} hasPatient={p.ageYears!==null}/>} 
-      {tool==="treatment"&&<TreatmentPanel age={age} kg={p.weightKg}/>} 
+      {tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} openProtocol={setProtocol}/>} 
       {tool==="protocols"&&<LookupList title="Search protocol number or name" items={protocols} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
       <a className="drawer-protocol-link" href={DMP_URL} target="_blank" rel="noreferrer">Open current July 2026 DMP PDF ↗</a>
     </section></div>}
@@ -62,13 +66,24 @@ function VitalsPanel({age,lookupAge,setLookupAge,hasPatient}:{age:number|null;lo
   </>;
 }
 
-function TreatmentPanel({age,kg}:{age:number|null;kg:number|null}) {
+function TreatmentPanel({age,kg,drug,indication,openProtocol}:{age:number|null;kg:number|null;drug:SupportedDrug;indication:string;openProtocol:(x:ProtocolTarget)=>void}) {
   const pediatric=age!==null&&age<12;
+  const treatment=treatmentProtocol(drug,indication);
+  const cardioversion=indication.toLowerCase().includes("cardioversion");
   return <div className="treatment-list">
-    <section><small>SYNCHRONIZED CARDIOVERSION</small>{age===null?<b>Select or enter a patient age in Vitals</b>:pediatric&&kg?<><b>{fmt(.5*kg)}–{fmt(kg)} J</b><span>0.5–1 J/kg biphasic</span></>:pediatric?<b>Weight required</b>:<><b>200 J</b><span>Adult biphasic</span></>}</section>
-    <section><small>DEFIBRILLATION — PEDIATRIC ARREST</small>{pediatric&&kg?<><b>First: {fmt(2*kg)} J</b><strong>Subsequent: {fmt(4*kg)} J</strong><span>2 J/kg, then 4 J/kg</span></>:<><b>{pediatric?"Weight required":"Pediatric pathway only"}</b><span>Adult energy follows arrest protocol/device guidance.</span></>}</section>
-    <section><small>AIRWAY EQUIPMENT</small><b>Use agency-approved age/weight/length system</b><span>DMP requires a standardized pediatric medication and equipment system but does not publish one universal airway-size table.</span></section>
+    <button className="smart-protocol" onClick={()=>openProtocol(treatment)}><small>CURRENT TREATMENT PROTOCOL</small><b>DMP {treatment.id} • {treatment.name}</b><span>{indication}</span><strong>Open page {treatment.page} ›</strong></button>
+    {cardioversion&&<section><small>SYNCHRONIZED CARDIOVERSION</small>{age===null?<b>Patient age is required</b>:pediatric&&kg?<><b>{fmt(.5*kg)}–{fmt(kg)} J</b><span>0.5–1 J/kg biphasic</span></>:pediatric?<b>Patient weight is required</b>:<><b>200 J</b><span>Adult biphasic</span></>}</section>}
+    {drug==="midazolam"&&indication==="Status epilepticus"&&<section><small>SEIZURE PATHWAY</small><b>Airway, oxygenation and continuous monitoring</b><span>Use the current DMP 4040 pathway and medication-specific monitoring cautions. Reassess after each dose.</span></section>}
+    {drug==="fentanyl"&&<section><small>PAIN MANAGEMENT PATHWAY</small><b>Reassess pain, respiratory status and perfusion</b><span>Document response and cumulative dose after each administration.</span></section>}
   </div>;
+}
+
+function treatmentProtocol(drug:SupportedDrug,indication:string):ProtocolTarget {
+  if(drug==="midazolam"&&indication==="Status epilepticus") return {id:"4040",name:"Seizure",page:80};
+  if(indication.toLowerCase().includes("cardioversion")) return {id:"1090",name:"Synchronized Cardioversion",page:48};
+  if(indication.toLowerCase().includes("pacing")) return {id:"1100",name:"Transcutaneous Pacing",page:49};
+  if(drug==="fentanyl") return {id:"1160",name:"Pain Management",page:56};
+  return {id:"3040",name:"Tachyarrhythmia with Poor Perfusion",page:70};
 }
 
 function LookupList({title,items,query,setQuery,openProtocol}:{title:string;items:ProtocolTarget[];query:string;setQuery:(x:string)=>void;openProtocol:(x:ProtocolTarget)=>void}) {

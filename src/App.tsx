@@ -1007,7 +1007,9 @@ export default function App() {
         ageYears={ageOk?an:null}
         ageLabel={ageOk?ageText:""}
         weightKg={needWeight&&weightOk?kg:null}
+        currentDrugId={drug||undefined}
         currentDrug={drug?medName(drug):undefined}
+        currentIndication={reason||undefined}
         currentDose={drug&&r&&rate!==null?`${fmt(dose)} ${unit}`:undefined}
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
         onSelectMedication={beginMedication}
