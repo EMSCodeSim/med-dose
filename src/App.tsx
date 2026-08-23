@@ -135,12 +135,17 @@ function checksFor(drug: Drug, age: number) {
           "No benzodiazepine coadministration OR direct physician verbal order obtained",
         ]
       : ["Patient is NOT hypotensive", "Patient has NO respiratory depression"];
-  return age >= 65
+  return age >= 65 && drug !== "adenosine"
     ? [
         ...base,
         "Strongly considered ½ dosing because patient is over 65 or a small/frail adult",
       ]
     : base;
+}
+function monitoringCautions(drug: Drug) {
+  if(drug==="adenosine")return["Continuous ECG monitoring throughout administration","Rapid IV bolus followed immediately by normal saline flush","Asthma: bronchospasm may occur; transient asystole or AV block is common"];
+  if(drug==="fentanyl")return["Continuous pulse oximetry for every administration","Titrate slowly; watch for sudden respiratory depression, hypotension and chest-wall rigidity","Keep resuscitation equipment and naloxone immediately available; add cardiac monitoring and capnography for complex or repeated dosing"];
+  return["Cardiac and pulse oximetry monitoring during transport","Watch for respiratory depression and hypotension; waveform capnography is recommended","Opioids, alcohol and other CNS depressants increase the sedative effect"];
 }
 function suggestedWeight(ageYears: number) {
   if (ageYears < 0.5 || ageYears >= 12) return null;
@@ -849,18 +854,7 @@ export default function App() {
               </strong>
               <b>{route}</b>
             </div>
-            <MathPicture
-              perKg={r.perKg}
-              kg={kg}
-              rate={rate || 0}
-              dose={dose}
-              amount={Number(amt)}
-              vialMl={Number(ml)}
-              concentration={conc}
-              volume={vol}
-              unit={unit}
-            />
-            <SyringeDiagram volume={vol} />
+            <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug).map((x)=><li key={x}>{x}</li>)}</ul></div>
             <DoseTracker
               entries={dosesGiven}
               unit={unit}
@@ -876,6 +870,21 @@ export default function App() {
               reason={reason}
               record={recordDose}
             />
+            <details className="calculation-details">
+              <summary>Show calculation and syringe guide</summary>
+              <MathPicture
+                perKg={r.perKg}
+                kg={kg}
+                rate={rate || 0}
+                dose={dose}
+                amount={Number(amt)}
+                vialMl={Number(ml)}
+                concentration={conc}
+                volume={vol}
+                unit={unit}
+              />
+              <SyringeDiagram volume={vol} />
+            </details>
             <MedicationReport
               drug={medName(drug)}
               reason={reason}
@@ -902,6 +911,8 @@ export default function App() {
               unit={unit}
               entries={dosesGiven}
             />
+            <details className="full-cross-check">
+              <summary>Show full medication cross-check</summary>
             <div className="final-card">
               <div className="final-drug">
                 <span>Medication</span>
@@ -970,6 +981,7 @@ export default function App() {
                 administration.
               </span>
             </div>
+            </details>
             </>}
             <button className="new-calc" onClick={reset}>
               Start a new calculation
