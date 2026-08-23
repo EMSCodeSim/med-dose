@@ -3,7 +3,7 @@ import {useEffect,useState} from "react";
 type Drug = "fentanyl" | "midazolam" | "adenosine";
 type Entry = { dose: number; volume: number; time: number };
 
-export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,repeatsLeft,repeatMinutes,secondsLeft,nextDose,concentration,drug,reason,record}:{entries:Entry[];unit:string;total:number;totalVolume:number;maxTotal:number;repeatsLeft:number;repeatMinutes:number;secondsLeft:number;nextDose:number;concentration:number;drug:Drug;reason:string;record:(dose:number)=>void}) {
+export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,repeatsLeft,repeatMinutes,secondsLeft,nextDose,concentration,drug,reason,route,record}:{entries:Entry[];unit:string;total:number;totalVolume:number;maxTotal:number;repeatsLeft:number;repeatMinutes:number;secondsLeft:number;nextDose:number;concentration:number;drug:Drug;reason:string;route:string;record:(dose:number)=>void}) {
   const started=entries.length>0,due=started&&secondsLeft===0;
   const [actual,setActual]=useState(String(nextDose));
   const [editing,setEditing]=useState(false);
@@ -12,11 +12,16 @@ export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,rep
   const need=reason==="Status epilepticus"?"only if the patient is still seizing":"only if reassessment shows it is still clinically indicated";
   const editor=editing?<div className="partial-dose compact-editor"><div className="partial-head"><span><small>ACTUAL AMOUNT GIVEN</small><b>Maximum {fmt(nextDose)} {unit}</b></span></div><label><span>Enter amount</span><div><input autoFocus inputMode="decimal" value={actual} onChange={e=>setActual(e.target.value)} aria-label={`Actual dose given in ${unit}`}/><b>{unit}</b></div></label>{amountOk?<div className="actual-volume"><span>Volume to record</span><strong>{fmt(volume)} mL</strong></div>:<div className="partial-error" role="alert">Enter more than 0 and no more than {fmt(nextDose)} {unit}.</div>}</div>:null;
   const recordButton=<button className="record-dose" disabled={!amountOk} onClick={()=>record(amount)}>Record {amountOk?`${fmt(amount)} ${unit} • ${fmt(volume)} mL`:`dose`} given now</button>;
+  const initialRecordButton=<button className="initial-record-dose" disabled={!amountOk} onClick={()=>record(amount)} aria-label={amountOk?`Give ${fmt(amount)} ${unit}, draw ${fmt(volume)} milliliters by ${route}, and record given now`:"Enter a valid dose before recording"}>
+    <span><small>INITIAL DOSE</small><b>{route}</b></span>
+    <strong>{amountOk?<>GIVE {fmt(amount)} {unit} = DRAW {fmt(volume)} mL</>:"ENTER A VALID DOSE"}</strong>
+    <em>Tap to record given now</em>
+  </button>;
   return <section className={`dose-tracker ${started?"has-doses":"first-dose"}`} aria-live="polite">
     {started&&<div className="tracker-head"><span><small>ADMINISTRATION</small><h2>Dose tracker</h2></span><b>{repeatsLeft} repeat{repeatsLeft===1?"":"s"} available</b></div>}
     {!started?<>
       {editor}
-      {recordButton}
+      {initialRecordButton}
       <button className="adjust-amount" onClick={()=>{if(editing)setActual(String(nextDose));setEditing(!editing)}}>{editing?"Use calculated dose":"Change amount given"}</button>
       <div className="compact-limit">Cumulative protocol limit: <b>{fmt(maxTotal)} {unit}</b></div>
     </>:<>
