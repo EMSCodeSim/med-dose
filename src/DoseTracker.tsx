@@ -9,7 +9,7 @@ export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,rep
   const [editing,setEditing]=useState(false);
   useEffect(()=>{setActual(String(nextDose));setEditing(false)},[entries.length,nextDose]);
   const amount=Number(actual),amountOk=amount>0&&amount<=nextDose,volume=amountOk?amount/concentration:0;
-  const need=reason==="Seizure"?"only if the patient is still seizing":"only if reassessment shows it is still clinically indicated";
+  const need=reason==="Status epilepticus"?"only if the patient is still seizing":"only if reassessment shows it is still clinically indicated";
   const editor=editing?<div className="partial-dose compact-editor"><div className="partial-head"><span><small>ACTUAL AMOUNT GIVEN</small><b>Maximum {fmt(nextDose)} {unit}</b></span></div><label><span>Enter amount</span><div><input autoFocus inputMode="decimal" value={actual} onChange={e=>setActual(e.target.value)} aria-label={`Actual dose given in ${unit}`}/><b>{unit}</b></div></label>{amountOk?<div className="actual-volume"><span>Volume to record</span><strong>{fmt(volume)} mL</strong></div>:<div className="partial-error" role="alert">Enter more than 0 and no more than {fmt(nextDose)} {unit}.</div>}</div>:null;
   const recordButton=<button className="record-dose" disabled={!amountOk} onClick={()=>record(amount)}>Record {amountOk?`${fmt(amount)} ${unit} • ${fmt(volume)} mL`:`dose`} given now</button>;
   return <section className={`dose-tracker ${started?"has-doses":"first-dose"}`} aria-live="polite">

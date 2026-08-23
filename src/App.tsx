@@ -59,9 +59,9 @@ function subsequence(query: string, value: string) {
 }
 const reasons: Record<Drug, string[]> = {
   adenosine: ["Regular narrow-complex AV nodal reentrant tachycardia"],
-  fentanyl: ["Moderate to severe pain"],
+  fentanyl: ["Moderate to severe pain in a hemodynamically stable patient"],
   midazolam: [
-    "Seizure",
+    "Status epilepticus",
     "Sedation for cardioversion",
     "Sedation for transcutaneous pacing",
   ],
@@ -105,7 +105,7 @@ function rules(drug: Drug, reason: string, age: number, route: Route | null) {
             : "",
     };
   }
-  const seizure = reason === "Seizure",
+  const seizure = reason === "Status epilepticus",
     inim = route === "IN" || route === "IM";
   if (adult)
     return {
@@ -151,13 +151,10 @@ function checksFor(drug: Drug, age: number) {
           "Patient has NO respiratory depression",
           "No benzodiazepine coadministration OR direct physician verbal order obtained",
         ]
-      : ["Patient is NOT hypotensive", "Patient has NO respiratory depression"];
-  return age >= 65 && drug !== "adenosine"
-    ? [
-        ...base,
-        "Strongly considered ½ dosing because patient is over 65 or a small/frail adult",
-      ]
-    : base;
+      : ["Patient is NOT hypotensive", "Patient has NO respiratory depression", "No opioid coadministration OR direct physician verbal order obtained"];
+  if(drug==="fentanyl"&&age>=65)return[...base,"Strongly considered ½ typical dosing because patient is age 65+ or frail"];
+  if(drug==="midazolam"&&age>=12)return[...base,...(age>65?["Considered ½ dosing because patient is over 65"]:[]),"Patient is NOT a small adult under 50 kg, OR ½ dosing was considered"];
+  return base;
 }
 function monitoringCautions(drug: Drug) {
   if(drug==="adenosine")return["Continuous ECG monitoring throughout administration","Rapid IV bolus followed immediately by normal saline flush","Asthma: bronchospasm may occur; transient asystole or AV block is common"];
@@ -217,7 +214,7 @@ export default function App() {
     adult = an >= 12,
     tapeEligible = !adult && an < 10,
     underOne = age !== "" && an < 1,
-    ageText = drug==="adenosine"&&ageClass==="adult"?"12 years or older":ageClass==="adult"?(an>=65?"65 years or older":"12–64 years"):au ? `${age} ${au}` : age,
+    ageText = drug==="adenosine"&&ageClass==="adult"?"12 years or older":ageClass==="adult"?(drug==="midazolam"?(an>65?"over 65 years":"12–65 years"):(an>=65?"65 years or older":"12–64 years")):au ? `${age} ${au}` : age,
     weightSuggestion = suggestedWeight(an),
     r = drug && reason && route ? rules(drug, reason, an, route) : null,
     needWeight = !!r?.weight,
@@ -257,7 +254,7 @@ export default function App() {
       0,
       Math.ceil((lastTime + (r?.repeat || 0) * 60000 - now) / 1000),
     );
-  useEffect(() => setChecks(Array(items.length).fill(false)), [drug, an >= 65]);
+  useEffect(() => setChecks(Array(items.length).fill(false)), [drug, an >= 65, an > 65]);
   useEffect(() => {
     setRate(r?.rates.length === 1 ? r.rates[0] : null);
   }, [drug, reason, route, adult]);
@@ -500,18 +497,18 @@ export default function App() {
             {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("")}}>{x}</button>)}</div><a className="inline-protocol" href={URL} target="_blank" rel="noreferrer">Open {protocolId(drug)} indication protocol ↗</a></div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={URL} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>}
             <div className="adaptive-heading">AGE GROUP</div>
             {!ageClass ? <div className={`age-class-grid ${drug!=="adenosine"?"three-age-options":""}`}>
-              {drug==="adenosine"?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12–64 YEARS</small><b>Adult</b><span>›</span></button><button onClick={()=>{setAgeClass("adult");setAge("65");setAu("years");setRoute(null);setWeight("")}}><small>65 YEARS OR OLDER</small><b>Adult 65+</b><span>›</span></button></>}
+              {drug==="adenosine"?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"12–65 YEARS":"12–64 YEARS"}</small><b>Adult</b><span>›</span></button><button onClick={()=>{setAgeClass("adult");setAge(drug==="midazolam"?"66":"65");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"OVER 65 YEARS":"65 YEARS OR OLDER"}</small><b>{drug==="midazolam"?"Adult >65":"Adult 65+"}</b><span>›</span></button></>}
               {drug!=="adenosine"&&<button onClick={()=>{setAgeClass("pediatric");setAge("");setAu("");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>}
             </div>:<>
               {drug!=="adenosine"&&<button className="change-age-class" onClick={()=>{setAgeClass("");setAge("");setAu("");setRoute(null);setWeight("")}}>← Change age group</button>}
-              {ageClass==="adult" ? <><div className="selected-age"><b>{drug==="adenosine"?"Adult standing-order pathway • age 12+":an>=65?"Adult 65+":"Adult 12–64"}</b></div>{drug==="adenosine"&&<div className="base-order-note"><b>Patient under 12?</b><span>DMP 9010 requires a direct verbal Base order. This pathway does not calculate pediatric Adenosine.</span></div>}</>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
+              {ageClass==="adult" ? <><div className="selected-age"><b>{drug==="adenosine"?"Adult standing-order pathway • age 12+":drug==="midazolam"?(an>65?"Adult over 65":"Adult 12–65"):an>=65?"Adult 65+":"Adult 12–64"}</b></div>{drug==="adenosine"&&<div className="base-order-note"><b>Patient under 12?</b><span>DMP 9010 requires a direct verbal Base order. This pathway does not calculate pediatric Adenosine.</span></div>}</>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
                 <div className="age-followup"><small>PEDIATRIC DETAIL NEEDED</small><h3>Enter the patient’s age</h3></div>
                 <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} placeholder="0"/></label>
                 <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">{(["years","months","days"] as AgeUnit[]).map((x)=><button key={x} className={au===x?"selected":""} onClick={()=>setAu(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
                 {age!==""&&!au?<div className="input-guidance"><b>Select the age unit</b><span>Choose years, months or days to continue.</span></div>:age!==""&&!ageWithinRange?<div className="input-guidance"><b>Check the age entry</b><span>Use days through 365, months through 143, or years below 12.</span></div>:ageBlocked?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9230 does not provide a standing-order Fentanyl dose for patients younger than 1 year." source="DMP 9230 Opioids" action="Correct the age if entered incorrectly. Otherwise stop and contact Base for a direct order."/>:null}
               </>}
             </>}
-            {!!reason&&ageOk&&!ageBlocked&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routes[drug].map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Seizure"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}</div>}
+            {!!reason&&ageOk&&!ageBlocked&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routes[drug].map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Status epilepticus"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}</div>}
             {!!route&&needWeight&&<div className="adaptive-section"><small>CALCULATION WEIGHT</small><div className="source-grid compact-sources">{[["actual","Actual"],["estimated","Estimated"],...(tapeEligible?[["tape","Length-based tape"]]:[])].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>
               {weightSuggestion!==null&&ws!=="tape"&&<button className="quick-estimate" onClick={useSuggestedWeight}>Use DMP age-band estimate: {weightSuggestion} kg</button>}
               {ws==="tape"&&tapeEligible?<><div className="tape-heading"><b>Select tape color</b><span>Use only when the child physically fits the tape.</span></div><div className="tape-grid">{tapeBands.map((b)=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div></>:<><div className="unit-toggle compact-unit"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>kg</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>lb</button></div><label className="giant-input compact-weight"><span>Patient weight ({wu})</span><input inputMode="decimal" value={weight} onChange={(e)=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} placeholder="0"/></label>{Number(weight)>0&&<div className="kg-lock" role="status"><small>CALCULATION WEIGHT</small><b>{fmt(kg)} kg</b><span>{wu==="lb"?`${weight} lb ÷ 2.2046`:"Entered in kilograms"}</span></div>}</>}
@@ -548,7 +545,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            {drug === "midazolam" && reason === "Seizure" && (
+            {drug === "midazolam" && reason === "Status epilepticus" && (
               <div className="source-note">
                 IN is preferred over IM when IV cannot be safely or rapidly
                 obtained.
@@ -844,6 +841,7 @@ export default function App() {
               </strong>
               <b>{route}</b>
             </div>
+            {drug==="fentanyl"&&adult&&<div className="dose-guidance"><b>ADULT DOSING GUIDANCE</b><span>Initial dose is typically 100 mcg. Adult doses may be rounded to the nearest 25 mcg.</span></div>}
             {capped && <div className="ceiling-alert" role="alert"><b>PROTOCOL MAXIMUM APPLIED</b><strong>{fmt(baseDose)} {unit} calculated → GIVE {fmt(dose)} {unit}</strong><span>Do not administer the uncapped weight-based result.</span></div>}
             <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug).map((x)=><li key={x}>{x}</li>)}</ul></div>
             <DoseTracker
