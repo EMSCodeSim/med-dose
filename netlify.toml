@@ -16,6 +16,12 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
 [[redirects]]
+  from = "/protocols/dmp-current.pdf"
+  to = "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

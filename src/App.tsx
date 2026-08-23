@@ -12,6 +12,8 @@ type Step =
   "drug" | "scanConfirm" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
 const URL =
   "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
+const protocolPages: Record<Drug, number> = { adenosine: 123, midazolam: 136, fentanyl: 163 };
+const protocolUrl = (drug: Drug) => `${URL}#page=${protocolPages[drug]}`;
 const medicationPhoto = (drug: Drug) =>
   drug === "adenosine" ? "/medications/adenosine-vial.webp" : undefined;
 const meds = [
@@ -491,7 +493,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <div className="indication-source"><span><small>SOURCE</small><b>Current Denver Metro medication protocol</b></span><a href={URL} target="_blank" rel="noreferrer">Open {protocolId(drug)} ↗</a></div>
+            <div className="indication-source"><span><small>SOURCE</small><b>Current Denver Metro medication protocol</b></span><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">Open {protocolId(drug)} ↗</a></div>
           </Screen>
         )}
         {step === "age" && drug && (
@@ -500,7 +502,7 @@ export default function App() {
             t="Patient and route"
             h="Complete only the questions needed for this medication pathway."
           >
-            {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("")}}>{x}</button>)}</div><a className="inline-protocol" href={URL} target="_blank" rel="noreferrer">Open {protocolId(drug)} indication protocol ↗</a></div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={URL} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>}
+            {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("")}}>{x}</button>)}</div><a className="inline-protocol" href={protocolUrl(drug)} target="_blank" rel="noreferrer">Open {protocolId(drug)} indication protocol ↗</a></div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>}
             <div className="adaptive-heading">AGE GROUP</div>
             {!ageClass ? <div className={`age-class-grid ${drug!=="adenosine"?"three-age-options":""}`}>
               {drug==="adenosine"?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"12–65 YEARS":"12–64 YEARS"}</small><b>Adult</b><span>›</span></button><button onClick={()=>{setAgeClass("adult");setAge(drug==="midazolam"?"66":"65");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"OVER 65 YEARS":"65 YEARS OR OLDER"}</small><b>{drug==="midazolam"?"Adult >65":"Adult 65+"}</b><span>›</span></button></>}
@@ -720,7 +722,7 @@ export default function App() {
             </div>
             <a
               className="protocol-link"
-              href={URL}
+              href={protocolUrl(drug)}
               target="_blank"
               rel="noreferrer"
             >
@@ -837,7 +839,7 @@ export default function App() {
             t="Select and confirm the dose"
             h="Choose the ordered DMP dose when required, then read the action line aloud."
           >
-            <div className="final-context"><span>{route} • {reason}</span><b>{fmt(conc)} {unit}/mL confirmed</b><a href={URL} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>
+            <div className="final-context"><span>{route} • {reason}</span><b>{fmt(conc)} {unit}/mL confirmed</b><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>
             {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
             {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Go back and select another DMP-approved route or use an appropriate higher concentration, then recalculate."/>:<>
             <div className="action-line">
