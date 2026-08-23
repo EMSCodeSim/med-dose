@@ -3,10 +3,12 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
 import MedScanner, { type StockVial } from "./MedScanner";
+import { InfusionCalculator, ProtocolSettings } from "./ClinicalTools";
 type Drug = "fentanyl" | "midazolam" | "adenosine";
 type Route = "IV" | "IV/IO" | "IM" | "IN";
 type AgeUnit = "years" | "months" | "days";
 type AgeClass = "adult" | "pediatric";
+type UtilityTool = "infusion" | "settings" | null;
 type Step =
   "drug" | "scanConfirm" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
 const URL =
@@ -40,6 +42,23 @@ const meds = [
     sub: "Pending review",
   },
 ];
+const medicationAliases: Record<string, string[]> = {
+  adenosine: ["adenocard", "svt", "antiarrhythmic"],
+  fentanyl: ["sublimaze", "pain", "opioid"],
+  midazolam: ["versed", "seizure", "sedation", "benzodiazepine"],
+};
+function fuzzyMedicationMatch(med: (typeof meds)[number], query: string) {
+  const q = query.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!q) return true;
+  const words = [med.name, med.brand, med.sub, ...(medicationAliases[med.id] || [])]
+    .map(x => x.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  return words.some(word => word.includes(q) || q.includes(word) || subsequence(q, word));
+}
+function subsequence(query: string, value: string) {
+  let i = 0;
+  for (const char of value) if (char === query[i]) i += 1;
+  return i === query.length;
+}
 const reasons: Record<Drug, string[]> = {
   adenosine: ["Regular narrow-complex AV nodal reentrant tachycardia"],
   fentanyl: ["Moderate to severe pain"],
@@ -182,7 +201,8 @@ export default function App() {
     [now, setNow] = useState(Date.now()),
     [scannedVial, setScannedVial] = useState<StockVial | null>(null),
     [scanMedOk, setScanMedOk] = useState(false),
-    [scanConcOk, setScanConcOk] = useState(false);
+    [scanConcOk, setScanConcOk] = useState(false),
+    [utilityTool, setUtilityTool] = useState<UtilityTool>(() => new URLSearchParams(location.search).get("tool") === "infusion" ? "infusion" : null);
   useEffect(() => {
     setOnline(navigator.onLine);
     setWu(localStorage.getItem("preferredWeightUnit") || "kg");
@@ -402,6 +422,10 @@ export default function App() {
                 setStep("scanConfirm");
               }}
             />
+            <div className="quick-tools" aria-label="Clinical calculators and settings">
+              <button onClick={() => setUtilityTool("infusion")}><b>Infusion calculator</b><span>mL/hr and gtt/min</span></button>
+              <button onClick={() => setUtilityTool("settings")}><b>Local protocol profile</b><span>Waiver configuration draft</span></button>
+            </div>
             <div className="or-divider"><span>OR SELECT MEDICATION</span></div>
             <label className="drug-search">
               <span>Search generic or brand name</span>
@@ -414,11 +438,7 @@ export default function App() {
             </label>
             <div className="choice-grid medication-order">
               {meds
-                .filter((m) =>
-                  (m.name + " " + m.brand)
-                    .toLowerCase()
-                    .includes(search.toLowerCase()),
-                )
+                .filter((m) => fuzzyMedicationMatch(m, search))
                 .map((m) => {
                         const active = m.id === "fentanyl" || m.id === "midazolam" || m.id === "adenosine";
                   return (
@@ -521,7 +541,7 @@ export default function App() {
             {!!reason&&ageOk&&!ageBlocked&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routes[drug].map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Seizure"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}</div>}
             {!!route&&needWeight&&<div className="adaptive-section"><small>CALCULATION WEIGHT</small><div className="source-grid compact-sources">{[["actual","Actual"],["estimated","Estimated"],["tape","Length-based tape"]].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>
               {weightSuggestion!==null&&ws!=="tape"&&<button className="quick-estimate" onClick={useSuggestedWeight}>Use DMP age-band estimate: {weightSuggestion} kg</button>}
-              {ws==="tape"?<><div className="tape-heading"><b>Select tape color</b><span>DMP average weight is applied.</span></div><div className="tape-grid">{tapeBands.map((b)=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div></>:<><div className="unit-toggle compact-unit"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>kg</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>lb</button></div><label className="giant-input compact-weight"><span>Patient weight ({wu})</span><input inputMode="decimal" value={weight} onChange={(e)=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} placeholder="0"/></label></>}
+              {ws==="tape"?<><div className="tape-heading"><b>Select tape color</b><span>DMP average weight is applied.</span></div><div className="tape-grid">{tapeBands.map((b)=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div></>:<><div className="unit-toggle compact-unit"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>kg</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>lb</button></div><label className="giant-input compact-weight"><span>Patient weight ({wu})</span><input inputMode="decimal" value={weight} onChange={(e)=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} placeholder="0"/></label>{Number(weight)>0&&<div className="kg-lock" role="status"><small>CALCULATION WEIGHT</small><b>{fmt(kg)} kg</b><span>{wu==="lb"?`${weight} lb ÷ 2.2046`:"Entered in kilograms"}</span></div>}</>}
               {ws==="age"&&<div className="estimate-warning"><b>Age-based estimate selected</b><span>Replace it if a better weight becomes available before administration.</span></div>}
             </div>}
             {!!reason&&ageOk&&!ageBlocked&&<Next ok={!!route&&weightOk} go={()=>setStep("safety")} text="Continue to safety checks"/>}
@@ -821,6 +841,7 @@ export default function App() {
                   <b>{fmt(conc)} {unit}/mL</b>
                   <span>Confirmed before patient dosing information was entered.</span>
                 </div>
+                {capped && <div className="ceiling-alert" role="alert"><b>PROTOCOL MAXIMUM APPLIED</b><strong>{fmt(baseDose)} {unit} calculated → {fmt(dose)} {unit} maximum</strong><span>The displayed administration volume uses the capped dose. Verify the ceiling against the linked protocol.</span></div>}
                 {inTooHigh && (
                   <HardStop
                     title="IN VOLUME EXCEEDS LIMIT"
@@ -854,6 +875,7 @@ export default function App() {
               </strong>
               <b>{route}</b>
             </div>
+            {capped && <div className="ceiling-alert" role="alert"><b>PROTOCOL MAXIMUM APPLIED</b><strong>{fmt(baseDose)} {unit} calculated → GIVE {fmt(dose)} {unit}</strong><span>Do not administer the uncapped weight-based result.</span></div>}
             <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug).map((x)=><li key={x}>{x}</li>)}</ul></div>
             <DoseTracker
               entries={dosesGiven}
@@ -1006,6 +1028,8 @@ export default function App() {
           </section>
         </div>
       )}
+      {utilityTool === "infusion" && <InfusionCalculator close={() => setUtilityTool(null)} />}
+      {utilityTool === "settings" && <ProtocolSettings close={() => setUtilityTool(null)} />}
     </main>
   );
 }
