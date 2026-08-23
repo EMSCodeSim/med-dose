@@ -32,7 +32,6 @@ export default function FieldToolbar(p: Props) {
   const close=()=>{setTool(null);setQuery("")};
   return <>
     <nav className="field-toolbar" aria-label="Quick clinical reference">
-      <button onClick={()=>setTool("meds")}><span>Rx</span><b>Meds</b></button>
       <button onClick={()=>setTool("vitals")}><span>{p.ageYears!==null?"●":"♥"}</span><b>{p.ageYears!==null?"Patient":"Vitals"}</b></button>
       <button disabled={!treatmentReady} title={!treatmentReady?treatmentHint:undefined} aria-label={treatmentReady?"Treatment":"Treatment unavailable — "+treatmentHint} onClick={()=>setTool("treatment")}><span>✚</span><b>Treatment</b></button>
       <button onClick={()=>setTool("protocols")}><span>§</span><b>Protocols</b></button>
