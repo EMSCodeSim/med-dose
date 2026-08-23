@@ -426,9 +426,9 @@ export default function App() {
                       onClick={() => {
                         const selectedDrug = m.id as Drug;
                         setDrug(selectedDrug);
-                        setAgeClass("");
-                        setAge("");
-                        setAu("");
+                        setAgeClass(selectedDrug==="adenosine"?"adult":"");
+                        setAge(selectedDrug==="adenosine"?"12":"");
+                        setAu(selectedDrug==="adenosine"?"years":"");
                         setReason(reasons[selectedDrug].length===1?reasons[selectedDrug][0]:"");
                         setAmt("");
                         setMl("");
@@ -500,9 +500,9 @@ export default function App() {
             <div className="adaptive-heading">AGE GROUP</div>
             {!ageClass ? <div className={`age-class-grid ${drug!=="adenosine"?"three-age-options":""}`}>
               {drug==="adenosine"?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12–64 YEARS</small><b>Adult</b><span>›</span></button><button onClick={()=>{setAgeClass("adult");setAge("65");setAu("years");setRoute(null);setWeight("")}}><small>65 YEARS OR OLDER</small><b>Adult 65+</b><span>›</span></button></>}
-              <button onClick={()=>{setAgeClass("pediatric");setAge(drug==="adenosine"?"11":"");setAu(drug==="adenosine"?"years":"");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>
+              {drug!=="adenosine"&&<button onClick={()=>{setAgeClass("pediatric");setAge("");setAu("");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>}
             </div>:<>
-              <button className="change-age-class" onClick={()=>{setAgeClass("");setAge("");setAu("");setRoute(null);setWeight("")}}>← Change age group</button>
+              {drug!=="adenosine"&&<button className="change-age-class" onClick={()=>{setAgeClass("");setAge("");setAu("");setRoute(null);setWeight("")}}>← Change age group</button>}
               {ageClass==="adult" ? <div className="selected-age"><b>{an>=65?"Adult 65+":"Adult 12–64"}</b></div>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
                 <div className="age-followup"><small>PEDIATRIC DETAIL NEEDED</small><h3>Enter the patient’s age</h3></div>
                 <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} placeholder="0"/></label>
