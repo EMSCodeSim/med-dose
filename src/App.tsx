@@ -14,6 +14,19 @@ const URL =
   "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
 const protocolPages: Record<Drug, number> = { adenosine: 123, midazolam: 136, fentanyl: 163 };
 const protocolUrl = (drug: Drug) => `${URL}#page=${protocolPages[drug]}`;
+const indicationProtocol = (drug: Drug, indication: string) => {
+  if (drug === "midazolam" && indication === "Status epilepticus")
+    return { id: "4040", name: "Seizure", page: 80 };
+  if (indication.toLowerCase().includes("cardioversion"))
+    return { id: "1090", name: "Synchronized Cardioversion", page: 48 };
+  if (indication.toLowerCase().includes("pacing"))
+    return { id: "1100", name: "Transcutaneous Cardiac Pacing", page: 49 };
+  if (drug === "fentanyl")
+    return { id: "1160", name: "Pain Management", page: 56 };
+  return { id: "3040", name: "Tachyarrhythmia with Poor Perfusion", page: 70 };
+};
+const indicationProtocolUrl = (drug: Drug, indication: string) =>
+  `${URL}#page=${indicationProtocol(drug, indication).page}`;
 const medicationPhoto = (drug: Drug) =>
   drug === "adenosine" ? "/medications/adenosine-vial.webp" : undefined;
 const meds = [
@@ -518,7 +531,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <div className="indication-source"><span><small>SOURCE</small><b>Current Denver Metro medication protocol</b></span><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">Open {protocolId(drug)} ↗</a></div>
+            <div className="indication-source"><span><small>SOURCE</small><b>Current Denver Metro medication protocol</b></span><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">Open medication {protocolId(drug)} ↗</a></div>
           </Screen>
         )}
         {step === "age" && drug && (
@@ -527,7 +540,7 @@ export default function App() {
             t="Patient and route"
             h="Complete only the questions needed for this medication pathway."
           >
-            {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("")}}>{x}</button>)}</div><a className="inline-protocol" href={protocolUrl(drug)} target="_blank" rel="noreferrer">Open {protocolId(drug)} indication protocol ↗</a></div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>}
+            {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("")}}>{x}</button>)}</div>{reason&&<a className="inline-protocol" href={indicationProtocolUrl(drug,reason)} target="_blank" rel="noreferrer">Open DMP {indicationProtocol(drug,reason).id} {indicationProtocol(drug,reason).name} ↗</a>}</div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={indicationProtocolUrl(drug,reasons[drug][0])} target="_blank" rel="noreferrer">DMP {indicationProtocol(drug,reasons[drug][0]).id} ↗</a></div>}
             <div className="adaptive-heading">AGE GROUP</div>
             {!ageClass ? <div className={`age-class-grid ${drug!=="adenosine"?"three-age-options":""}`}>
               {drug==="adenosine"?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(false);setMidazolamSmallAdult(null);setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"12–65 YEARS":"NOT IDENTIFIED AS ELDERLY/FRAIL"}</small><b>Adult</b><span>›</span></button><button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(drug==="fentanyl");setMidazolamSmallAdult(false);setAge(drug==="midazolam"?"66":"65");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"OVER 65 YEARS":"FENTANYL-SPECIFIC CONSIDERATION"}</small><b>{drug==="midazolam"?"Adult >65":"Elderly or frail"}</b><span>›</span></button></>}
@@ -751,7 +764,7 @@ export default function App() {
               target="_blank"
               rel="noreferrer"
             >
-              Open current DMP medication protocol ↗
+              Open medication {protocolId(drug)} ↗
             </a>
             <Next ok={valid.safety} go={next} />
           </Screen>
@@ -864,7 +877,7 @@ export default function App() {
             t="Select and confirm the dose"
             h="Choose the ordered DMP dose when required, then read the action line aloud."
           >
-            <div className="final-context"><span>{route} • {reason}</span><b>{fmt(conc)} {unit}/mL confirmed</b><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>
+            <div className="final-context"><span>{route} • {reason}</span><b>{fmt(conc)} {unit}/mL confirmed</b><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">Medication {protocolId(drug)} ↗</a></div>
             {baseApproval&&<div className="base-approved compact"><small>BASE AUTHORIZATION</small><b>Approved by {baseApproval.physician}</b><time>{new Date(baseApproval.time).toLocaleString()}</time></div>}
             {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
             {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Go back and select another DMP-approved route or use an appropriate higher concentration, then recalculate."/>:<>
