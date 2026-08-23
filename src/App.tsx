@@ -14,7 +14,7 @@ const URL =
 const medicationPhoto = (drug: Drug) =>
   drug === "adenosine" ? "/medications/adenosine-vial.webp" : undefined;
 const meds = [
-  {id:"adenosine" as Drug,name:"Adenosine",brand:"Adenocard",sub:"Antiarrhythmic"},
+  {id:"adenosine" as Drug,name:"Adenosine",brand:"Adenocard",sub:"Adult standing order • age 12+"},
   {
     id: "fentanyl" as Drug,
     name: "Fentanyl",
@@ -216,7 +216,7 @@ export default function App() {
     an = au === "years" ? av : au === "months" ? av / 12 : au === "days" ? av / 365.25 : 0,
     adult = an >= 12,
     underOne = age !== "" && an < 1,
-    ageText = ageClass==="adult"?(an>=65?"65 years or older":"12–64 years"):au ? `${age} ${au}` : age,
+    ageText = drug==="adenosine"&&ageClass==="adult"?"12 years or older":ageClass==="adult"?(an>=65?"65 years or older":"12–64 years"):au ? `${age} ${au}` : age,
     weightSuggestion = suggestedWeight(an),
     r = drug && reason && route ? rules(drug, reason, an, route) : null,
     needWeight = !!r?.weight,
@@ -503,7 +503,7 @@ export default function App() {
               {drug!=="adenosine"&&<button onClick={()=>{setAgeClass("pediatric");setAge("");setAu("");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>}
             </div>:<>
               {drug!=="adenosine"&&<button className="change-age-class" onClick={()=>{setAgeClass("");setAge("");setAu("");setRoute(null);setWeight("")}}>← Change age group</button>}
-              {ageClass==="adult" ? <div className="selected-age"><b>{an>=65?"Adult 65+":"Adult 12–64"}</b></div>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
+              {ageClass==="adult" ? <><div className="selected-age"><b>{drug==="adenosine"?"Adult standing-order pathway • age 12+":an>=65?"Adult 65+":"Adult 12–64"}</b></div>{drug==="adenosine"&&<div className="base-order-note"><b>Patient under 12?</b><span>DMP 9010 requires a direct verbal Base order. This pathway does not calculate pediatric Adenosine.</span></div>}</>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
                 <div className="age-followup"><small>PEDIATRIC DETAIL NEEDED</small><h3>Enter the patient’s age</h3></div>
                 <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} placeholder="0"/></label>
                 <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">{(["years","months","days"] as AgeUnit[]).map((x)=><button key={x} className={au===x?"selected":""} onClick={()=>setAu(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
