@@ -467,6 +467,7 @@ export default function App() {
               <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Correct medication</b>Physical vial says {medName(scannedVial.drug)}</span></label>
               <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Correct concentration</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`Physical vial says ${scannedVial.amount} ${scannedVial.unit} in ${scannedVial.volume} mL`:"Enter the vial amount and volume above first"}</span></label>
             </div>
+            {reasons[scannedVial.drug].length===1&&<div className="indication-source"><span><small>PROTOCOL INDICATION</small><b>{reasons[scannedVial.drug][0]}</b></span><a href={URL} target="_blank" rel="noreferrer">Open {protocolId(scannedVial.drug)} ↗</a></div>}
             <Next ok={scanMedOk&&scanConcOk} go={()=>setStep(reasons[scannedVial.drug].length===1?"age":"reason")} text="Continue to patient information"/>
           </Screen>
         )}
@@ -491,6 +492,7 @@ export default function App() {
                 </button>
               ))}
             </div>
+            <div className="indication-source"><span><small>SOURCE</small><b>Current Denver Metro medication protocol</b></span><a href={URL} target="_blank" rel="noreferrer">Open {protocolId(drug)} ↗</a></div>
           </Screen>
         )}
         {step === "age" && drug && (
@@ -1217,4 +1219,7 @@ function fmt(n: number) {
 }
 function medName(d: Drug) {
   return d === "fentanyl" ? "Fentanyl" : d==="adenosine"?"Adenosine (Adenocard)":"Midazolam (Versed)";
+}
+function protocolId(d: Drug) {
+  return d==="fentanyl"?"DMP 9230":d==="adenosine"?"DMP 9010":"DMP 9070";
 }
