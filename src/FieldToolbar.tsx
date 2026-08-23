@@ -16,6 +16,8 @@ type Props = {
   currentDose?: string;
   currentVolume?: string;
   onSelectMedication: (drug: SupportedDrug) => void;
+  reportReady: boolean;
+  onOpenReport: () => void;
 };
 
 const DMP_URL = "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
@@ -35,7 +37,7 @@ export default function FieldToolbar(p: Props) {
   const close=()=>{setTool(null);setQuery("")};
   return <>
     <nav className="field-toolbar" aria-label="Quick clinical reference">
-      <button onClick={()=>setTool("vitals")}><span>{p.ageYears!==null?"●":"♥"}</span><b>{p.ageYears!==null?"Patient":"Vitals"}</b></button>
+      <button disabled={!p.reportReady} title={!p.reportReady?"Complete the medication calculation first":undefined} aria-label={p.reportReady?"Open medication report":"Report unavailable — complete the medication calculation first"} onClick={p.onOpenReport}><span>▤</span><b>Report</b></button>
       <button disabled={!treatmentReady} title={!treatmentReady?treatmentHint:undefined} aria-label={treatmentReady?"Treatment":"Treatment unavailable — "+treatmentHint} onClick={()=>setTool("treatment")}><span>✚</span><b>Treatment</b></button>
       <button onClick={()=>setTool("protocols")}><span>§</span><b>Protocols</b></button>
     </nav>
