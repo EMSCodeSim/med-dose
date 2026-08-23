@@ -890,7 +890,18 @@ export default function App() {
             t="Select and confirm the dose"
             h="Choose the ordered DMP dose when required, then read the action line aloud."
           >
-            <div className="final-context"><span>{route} • {reason}</span><b>{fmt(conc)} {unit}/mL confirmed</b><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">Medication {protocolId(drug)} ↗</a></div>
+            <section className="entered-summary" aria-label="Entered medication information">
+              <header><small>ENTERED INFORMATION</small><b>Tap a field to correct it</b></header>
+              <div>
+                <button onClick={()=>setStep("scanConfirm")}><small>MEDICATION</small><b>{medName(drug)}</b></button>
+                <button onClick={()=>setStep("age")}><small>PATIENT</small><b>{adult?"Adult":"Pediatric"} • {ageText}</b>{needWeight&&<span>{fmt(kg)} kg</span>}</button>
+                <button onClick={()=>setStep("age")}><small>ROUTE</small><b>{route}</b></button>
+                <button onClick={()=>setStep("scanConfirm")}><small>CONCENTRATION</small><b>{fmt(conc)} {unit}/mL</b><span>{amt} {unit} in {ml} mL</span></button>
+                <button className="summary-indication" onClick={()=>setStep("age")}><small>INDICATION</small><b>{reason}</b></button>
+                {rate!==null&&<><span className="summary-result"><small>PROTOCOL DOSE</small><b>{r.perKg?`${fmt(rate)} ${unit}/kg`:`${fmt(rate)} ${unit}`}</b></span><span className="summary-result primary"><small>CALCULATED RESULT</small><b>{fmt(dose)} {unit} • {fmt(vol)} mL</b></span></>}
+              </div>
+              <a href={protocolUrl(drug)} target="_blank" rel="noreferrer">Medication {protocolId(drug)} ↗</a>
+            </section>
             {baseApproval&&<div className="base-approved compact"><small>BASE AUTHORIZATION</small><b>Approved by {baseApproval.physician}</b><time>{new Date(baseApproval.time).toLocaleString()}</time></div>}
             {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
             {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Select another DMP-approved route or confirm an appropriate higher-concentration vial, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:<>
