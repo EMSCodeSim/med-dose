@@ -254,7 +254,6 @@ export default function App() {
       "route",
       ...(needWeight ? ["weight" as Step] : []),
       "safety",
-      "vial",
       "review",
     ],
     pos = visible.indexOf(step),
@@ -829,9 +828,16 @@ export default function App() {
         {step === "review" && drug && r && (
           <Screen
             e="FINAL CROSS-CHECK"
-            t="Confirm the medication plan"
-            h="Read the action line aloud and verify the protocol rules."
+            t="Select and confirm the dose"
+            h="Choose the ordered DMP dose when required, then read the action line aloud."
           >
+            <div className="route-rule combined-dose-rule">
+              <b>{route} • {reason}</b>
+              <span>{amt} {unit} in {ml} mL • {fmt(conc)} {unit}/mL confirmed</span>
+              {r.note && <small>{r.note}</small>}
+            </div>
+            {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
+            {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Go back and select another DMP-approved route or use an appropriate higher concentration, then recalculate."/>:<>
             <div className="action-line">
               <small>INITIAL DOSE</small>
               <strong>
@@ -924,7 +930,7 @@ export default function App() {
               )}
               <Review
                 l="Repeat rule"
-                v={`After ${r.repeat} min • ${r.repeatText}`}
+                v={`${r.repeat>0?`After ${r.repeat} min`:"Per protocol"} • ${r.repeatText}`}
               />
               {drug === "fentanyl" && route === "IN" && (
                 <Review
@@ -945,7 +951,9 @@ export default function App() {
                 v={
                   drug === "fentanyl"
                     ? "DMP 9230 • July 2026"
-                    : "DMP 9070 • July 2026"
+                    : drug === "adenosine"
+                      ? "DMP 9010 • July 2026"
+                      : "DMP 9070 • July 2026"
                 }
               />
             </div>
@@ -958,6 +966,7 @@ export default function App() {
                 administration.
               </span>
             </div>
+            </>}
             <button className="new-calc" onClick={reset}>
               Start a new calculation
             </button>
