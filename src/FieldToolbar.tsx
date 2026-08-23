@@ -102,5 +102,5 @@ function LookupList({title,items,query,setQuery,openProtocol}:{title:string;item
   const shown=useMemo(()=>items.filter(x=>(x.id+x.name).toLowerCase().includes(query.toLowerCase())),[items,query]);
   return <div className="drawer-lookup"><label>{title}<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search…"/></label><div>{shown.map(x=><button key={x.id} onClick={()=>openProtocol(x)}><small>DMP {x.id}</small><b>{x.name}</b><span>Page {x.page} ›</span></button>)}</div></div>;
 }
-function vitalThresholds(age:number){const sbp=age<1?"<70 mmHg":age<=10?`<${fmt(70+2*age)} mmHg`:"<90 mmHg";const hr=age<1?">160 bpm":age<2?">150 bpm":age<5?">140 bpm":age<=12?">120 bpm":">100 bpm";return{sbp,hr}}
+function vitalThresholds(age:number){const sbp=age<1?"<70 mmHg":age<=10?`<${fmt(70+2*age)} mmHg`:"<90 mmHg";const hr=age<1?">160 bpm":age<2?">150 bpm":age<5?">140 bpm":age<12?">120 bpm":">100 bpm";return{sbp,hr}}
 function fmt(n:number){return Number(n.toFixed(1)).toString()}
