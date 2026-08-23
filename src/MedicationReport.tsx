@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Entry = { dose: number; volume: number; time: number };
 type Props = {
@@ -17,6 +17,8 @@ type Props = {
   unit: string;
   entries: Entry[];
   baseApproval?: { physician: string; time: number; reason: string };
+  openSignal?: number;
+  hideLauncher?: boolean;
 };
 
 export default function MedicationReport(p: Props) {
@@ -26,6 +28,9 @@ export default function MedicationReport(p: Props) {
     [shareStatus, setShareStatus] = useState("");
   const total = p.entries.reduce((n, x) => n + x.dose, 0),
     totalVolume = p.entries.reduce((n, x) => n + x.volume, 0);
+  useEffect(() => {
+    if (p.openSignal) setOpen(true);
+  }, [p.openSignal]);
   const report = useMemo(
     () => buildReport(p, incident, provider, total, totalVolume),
     [p, incident, provider, total, totalVolume],
@@ -65,14 +70,14 @@ export default function MedicationReport(p: Props) {
   };
   return (
     <section className="report-tools">
-      <button className="open-report" onClick={() => setOpen(true)}>
+      {!p.hideLauncher && <button className="open-report" onClick={() => setOpen(true)}>
         <span>
           <small>DOCUMENTATION</small>
           <b>Save, send or print medication report</b>
         </span>
         <i>›</i>
-      </button>
-      {!p.entries.length && (
+      </button>}
+      {!p.hideLauncher && !p.entries.length && (
         <p>
           No administration has been recorded. The report will be labeled
           “calculation only.”
@@ -131,9 +136,9 @@ export default function MedicationReport(p: Props) {
               provider={provider}
             />
             <div className="report-actions">
-              <button onClick={download}>Save report</button>
+              <button onClick={download}>Save text copy</button>
               <button onClick={share}>Send / share</button>
-              <button onClick={() => window.print()}>Print / PDF</button>
+              <button onClick={() => window.print()}>Print / save PDF</button>
             </div>
             {shareStatus && (
               <div className="share-status" role="status">
@@ -141,6 +146,10 @@ export default function MedicationReport(p: Props) {
               </div>
             )}
             <p className="report-disclaimer">
+              On iPhone or iPad, choose Print / save PDF, open the print preview,
+              then use Share to send the one-page PDF. "Send / share" sends a
+              plain-text copy for systems that do not accept PDF attachments.
+              <br />
               This report supports documentation and does not replace the agency
               ePCR, reassessment, protocol compliance, or provider verification.
             </p>
