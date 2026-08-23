@@ -482,11 +482,10 @@ export default function App() {
               <div className="scan-med-identity"><small>{scannedVial.barcode?"BARCODE MATCH":"MANUAL SELECTION"}</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?<><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></>:<span className="manual-vial-note">Enter the concentration from the physical vial below.</span>}</div>
             </div>
             {!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)&&<><h3 className="label-heading">Enter exactly what the physical vial says</h3><div className="vial-entry"><label><span>Total drug</span><div><input inputMode="decimal" value={scannedVial.amount} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,amount:value});setAmt(value);setScanConcOk(false)}} placeholder="0"/><b>{scannedVial.unit}</b></div></label><label><span>Total volume</span><div><input inputMode="decimal" value={scannedVial.volume} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,volume:value});setMl(value);setScanConcOk(false)}} placeholder="0"/><b>mL</b></div></label></div>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0&&<div className="manual-concentration-result"><span>Calculated concentration</span><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>}</>}
-            <div className="scan-confirm-checks">
-              <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Correct medication</b>Physical vial says {medName(scannedVial.drug)}</span></label>
-              <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Correct concentration</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`Physical vial says ${scannedVial.amount} ${scannedVial.unit} in ${scannedVial.volume} mL`:"Enter the vial amount and volume above first"}</span></label>
+            <div className="scan-confirm-checks compact-confirmations">
+              <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Medication matches</b>{medName(scannedVial.drug)}</span></label>
+              <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Concentration matches</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`${scannedVial.amount} ${scannedVial.unit} / ${scannedVial.volume} mL`:"Enter label values"}</span></label>
             </div>
-            {reasons[scannedVial.drug].length===1&&<div className="indication-source"><span><small>PROTOCOL INDICATION</small><b>{reasons[scannedVial.drug][0]}</b></span><a href={URL} target="_blank" rel="noreferrer">Open {protocolId(scannedVial.drug)} ↗</a></div>}
             <Next ok={scanMedOk&&scanConcOk} go={()=>setStep("age")} text="Continue to patient information"/>
           </Screen>
         )}
@@ -522,16 +521,12 @@ export default function App() {
           >
             {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("")}}>{x}</button>)}</div><a className="inline-protocol" href={URL} target="_blank" rel="noreferrer">Open {protocolId(drug)} indication protocol ↗</a></div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={URL} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>}
             <div className="adaptive-heading">AGE GROUP</div>
-            {!ageClass ? <div className="age-class-grid">
-              <button onClick={()=>{setAgeClass("adult");setAge("");setAu("");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>
+            {!ageClass ? <div className={`age-class-grid ${drug!=="adenosine"?"three-age-options":""}`}>
+              {drug==="adenosine"?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12–64 YEARS</small><b>Adult</b><span>›</span></button><button onClick={()=>{setAgeClass("adult");setAge("65");setAu("years");setRoute(null);setWeight("")}}><small>65 YEARS OR OLDER</small><b>Adult 65+</b><span>›</span></button></>}
               <button onClick={()=>{setAgeClass("pediatric");setAge(drug==="adenosine"?"11":"");setAu(drug==="adenosine"?"years":"");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>
             </div>:<>
               <button className="change-age-class" onClick={()=>{setAgeClass("");setAge("");setAu("");setRoute(null);setWeight("")}}>← Change age group</button>
-              {ageClass==="adult" ? <div className="age-followup">
-                <small>ONE SAFETY CHECK</small>
-                <h3>Is the patient 65 or older?</h3>
-                <div><button className={age==="12"?"selected":""} onClick={()=>{setAge("12");setAu("years")}}><b>No</b><span>Age 12–64</span></button><button className={age==="65"?"selected":""} onClick={()=>{setAge("65");setAu("years")}}><b>Yes</b><span>Age 65+</span></button></div>
-              </div>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
+              {ageClass==="adult" ? <div className="selected-age"><small>AGE GROUP</small><b>{an>=65?"Adult 65+":"Adult 12–64"}</b></div>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
                 <div className="age-followup"><small>PEDIATRIC DETAIL NEEDED</small><h3>Enter the patient’s age</h3></div>
                 <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} placeholder="0"/></label>
                 <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">{(["years","months","days"] as AgeUnit[]).map((x)=><button key={x} className={au===x?"selected":""} onClick={()=>setAu(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
@@ -861,11 +856,7 @@ export default function App() {
             t="Select and confirm the dose"
             h="Choose the ordered DMP dose when required, then read the action line aloud."
           >
-            <div className="route-rule combined-dose-rule">
-              <b>{route} • {reason}</b>
-              <span>{amt} {unit} in {ml} mL • {fmt(conc)} {unit}/mL confirmed</span>
-              {r.note && <small>{r.note}</small>}
-            </div>
+            <div className="final-context"><span>{route} • {reason}</span><b>{fmt(conc)} {unit}/mL confirmed</b><a href={URL} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>
             {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
             {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Go back and select another DMP-approved route or use an appropriate higher concentration, then recalculate."/>:<>
             <div className="action-line">
