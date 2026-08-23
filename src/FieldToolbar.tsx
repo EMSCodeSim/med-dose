@@ -11,6 +11,7 @@ type Props = {
   currentDrug?: string;
   currentIndication?: string;
   currentRoute?: string;
+  fentanylOlderFrail?: boolean;
   currentDose?: string;
   currentVolume?: string;
   onSelectMedication: (drug: SupportedDrug) => void;
@@ -41,7 +42,7 @@ export default function FieldToolbar(p: Props) {
       <div className="drawer-handle"/><header><span><small>QUICK REFERENCE</small><h2>{tool==="meds"?"Denver Metro medications":tool==="vitals"?(p.ageYears!==null?"Current patient":"Vital-sign thresholds"):tool==="treatment"?"Treatment calculations":"Protocol lookup"}</h2></span><button onClick={close} aria-label="Close">×</button></header>
       <div className="drawer-patient">{context}</div>
       {tool==="meds"&&<MedicationPanel {...p} onSelectMedication={(drug)=>{p.onSelectMedication(drug);close()}} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
-      {tool==="vitals"&&<VitalsPanel age={age} ageLabel={p.ageLabel} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} lookupAge={lookupAge} setLookupAge={setLookupAge} hasPatient={p.ageYears!==null}/>} 
+      {tool==="vitals"&&<VitalsPanel age={age} ageLabel={p.ageLabel} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} fentanylOlderFrail={p.fentanylOlderFrail} lookupAge={lookupAge} setLookupAge={setLookupAge} hasPatient={p.ageYears!==null}/>} 
       {tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} route={p.currentRoute} dose={p.currentDose} openProtocol={setProtocol}/>} 
       {tool==="protocols"&&<LookupList title="Search protocol number or name" items={protocols} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
       <a className="drawer-protocol-link" href={DMP_URL} target="_blank" rel="noreferrer">Open current July 2026 DMP PDF ↗</a>
@@ -59,20 +60,21 @@ function MedicationPanel(p: Props & {query:string;setQuery:(x:string)=>void;open
   </>;
 }
 
-function VitalsPanel({age,ageLabel,kg,drug,indication,lookupAge,setLookupAge,hasPatient}:{age:number|null;ageLabel:string;kg:number|null;drug?:SupportedDrug;indication?:string;lookupAge:string;setLookupAge:(x:string)=>void;hasPatient:boolean}) {
+function VitalsPanel({age,ageLabel,kg,drug,indication,fentanylOlderFrail,lookupAge,setLookupAge,hasPatient}:{age:number|null;ageLabel:string;kg:number|null;drug?:SupportedDrug;indication?:string;fentanylOlderFrail?:boolean;lookupAge:string;setLookupAge:(x:string)=>void;hasPatient:boolean}) {
   const thresholds=age===null?null:vitalThresholds(age);
   const pediatric=age!==null&&age<12;
   return <>{hasPatient&&age!==null?<div className="patient-summary"><small>CURRENT PATIENT</small><b>{ageLabel}</b><strong>{pediatric?"Pediatric":"Adult"}</strong>{kg!==null&&<span>{fmt(kg)} kg calculation weight</span>}</div>:<div className="lookup-age"><label>Enter age for quick lookup<input inputMode="decimal" value={lookupAge} onChange={e=>setLookupAge(e.target.value)} placeholder="Age in years"/></label></div>}
-    {thresholds?<><h3>Age-related vital considerations</h3><div className="threshold-grid"><span><small>HYPOTENSION SCREEN</small><b>SBP {thresholds.sbp}</b></span><span><small>TACHYCARDIA SCREEN</small><b>HR {thresholds.hr}</b></span></div><div className="reference-warning"><b>Abnormal screening thresholds—not normal ranges.</b><span>Interpret with perfusion, mental status, work of breathing and the applicable protocol.</span></div>{hasPatient&&age!==null&&<PatientConsiderations age={age} kg={kg} drug={drug} indication={indication}/>}</>:<div className="drawer-empty">Enter an age to show patient-specific information.</div>}
+    {thresholds?<><h3>Age-related vital considerations</h3><div className="threshold-grid"><span><small>HYPOTENSION SCREEN</small><b>SBP {thresholds.sbp}</b></span><span><small>TACHYCARDIA SCREEN</small><b>HR {thresholds.hr}</b></span></div><div className="reference-warning"><b>Abnormal screening thresholds—not normal ranges.</b><span>Interpret with perfusion, mental status, work of breathing and the applicable protocol.</span></div>{hasPatient&&age!==null&&<PatientConsiderations age={age} kg={kg} drug={drug} indication={indication} fentanylOlderFrail={fentanylOlderFrail}/>}</>:<div className="drawer-empty">Enter an age to show patient-specific information.</div>}
   </>;
 }
 
-function PatientConsiderations({age,kg,drug,indication}:{age:number;kg:number|null;drug?:SupportedDrug;indication?:string}) {
+function PatientConsiderations({age,kg,drug,indication,fentanylOlderFrail}:{age:number;kg:number|null;drug?:SupportedDrug;indication?:string;fentanylOlderFrail?:boolean}) {
   const notes:string[]=[];
   if(age<12) notes.push("Use pediatric protocol pathways and a measured weight whenever available.");
   if(age<12&&drug&&drug!=="adenosine"&&kg===null) notes.push("This medication pathway requires a calculation weight before a dose can be determined.");
   if(drug==="adenosine"&&age<12) notes.push("Pediatric Adenosine requires direct verbal Base contact under DMP 9010.");
   if(drug==="fentanyl"&&age<1) notes.push("DMP 9230 does not provide a standing-order Fentanyl dose below 1 year; contact Base.");
+  if(drug==="fentanyl"&&fentanylOlderFrail) notes.push("Elderly/frail Fentanyl pathway selected: the initial calculated dose is reduced to ½; cumulative limits are unchanged.");
   if(drug==="midazolam"&&age>65) notes.push("Use the medication-specific Midazolam over-65 pathway; do not apply an age reduction universally to other medications.");
   if(indication) notes.push(`Current indication: ${indication}.`);
   return <div className="patient-considerations"><small>SPECIAL CONSIDERATIONS</small>{notes.length?notes.map(x=><p key={x}>{x}</p>):<p>No additional age-specific warning is active for the current selection.</p>}</div>;

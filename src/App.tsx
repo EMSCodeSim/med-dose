@@ -146,7 +146,7 @@ function rules(drug: Drug, reason: string, age: number, route: Route | null) {
           : "",
   };
 }
-function checksFor(drug: Drug, age: number) {
+function checksFor(drug: Drug, age: number, fentanylOlderFrail = false) {
   const base = drug==="adenosine"?["Rhythm is REGULAR and narrow-complex","12-lead ECG obtained and documented when available","Patient has NO heart transplant history","Continuous ECG monitoring is in place","Patient warned about brief, unpleasant chest discomfort"]:
     drug === "fentanyl"
       ? [
@@ -155,7 +155,7 @@ function checksFor(drug: Drug, age: number) {
           "No benzodiazepine coadministration OR direct physician verbal order obtained",
         ]
       : ["Patient is NOT hypotensive", "Patient has NO respiratory depression", "No opioid coadministration OR direct physician verbal order obtained"];
-  if(drug==="fentanyl"&&age>=65)return[...base,"Strongly considered ½ typical dosing because patient is age 65+ or frail"];
+  if(drug==="fentanyl"&&fentanylOlderFrail)return[...base,"Elderly/frail starting-dose pathway selected; ½ of the chosen weight-based dose verified"];
   if(drug==="midazolam"&&age>=12)return[...base,...(age>65?["Considered ½ dosing because patient is over 65"]:[]),"Patient is NOT a small adult under 50 kg, OR ½ dosing was considered"];
   return base;
 }
@@ -180,6 +180,7 @@ export default function App() {
     [search, setSearch] = useState(""),
     [reason, setReason] = useState(""),
     [ageClass, setAgeClass] = useState<AgeClass | "">(""),
+    [fentanylOlderFrail, setFentanylOlderFrail] = useState(false),
     [age, setAge] = useState(""),
     [au, setAu] = useState<AgeUnit | "">(""),
     [route, setRoute] = useState<Route | null>(null),
@@ -217,12 +218,12 @@ export default function App() {
     adult = an >= 12,
     tapeEligible = !adult && an < 10,
     underOne = age !== "" && an < 1,
-    ageText = drug==="adenosine"&&ageClass==="adult"?"12 years or older":ageClass==="adult"?(drug==="midazolam"?(an>65?"over 65 years":"12–65 years"):(an>=65?"65 years or older":"12–64 years")):au ? `${age} ${au}` : age,
+    ageText = drug==="adenosine"&&ageClass==="adult"?"12 years or older":drug==="fentanyl"&&fentanylOlderFrail?"Adult • elderly/frail":ageClass==="adult"?(drug==="midazolam"?(an>65?"over 65 years":"12–65 years"):"Adult 12+"):au ? `${age} ${au}` : age,
     weightSuggestion = suggestedWeight(an),
     r = drug && reason && route ? rules(drug, reason, an, route) : null,
     needWeight = !!r?.weight,
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
-    items = drug ? checksFor(drug, an) : [],
+    items = drug ? checksFor(drug, an, fentanylOlderFrail) : [],
     ageBlocked = !!au&&((drug === "fentanyl" && underOne)||(drug==="adenosine"&&age!==""&&!adult)),
     ageWithinRange =
       au === "years"
@@ -233,7 +234,8 @@ export default function App() {
     ageOk = age !== "" && !!au && ageWithinRange && !ageBlocked,
     weightOk = !needWeight || (kg > 0 && kg < 350),
     baseDose = r && rate !== null ? (r.perKg ? kg * rate : rate) : 0,
-    dose = r?.maxSingle ? Math.min(baseDose, r.maxSingle) : baseDose,
+    adjustedBaseDose = drug==="fentanyl"&&fentanylOlderFrail ? baseDose/2 : baseDose,
+    dose = r?.maxSingle ? Math.min(adjustedBaseDose, r.maxSingle) : adjustedBaseDose,
     conc = Number(amt) > 0 && Number(ml) > 0 ? Number(amt) / Number(ml) : 0,
     vol = conc ? dose / conc : 0,
     inTooHigh = drug === "fentanyl" && route === "IN" && vol > 2,
@@ -257,7 +259,7 @@ export default function App() {
       0,
       Math.ceil((lastTime + (r?.repeat || 0) * 60000 - now) / 1000),
     );
-  useEffect(() => setChecks(Array(items.length).fill(false)), [drug, an >= 65, an > 65]);
+  useEffect(() => setChecks(Array(items.length).fill(false)), [drug, an > 65, fentanylOlderFrail]);
   useEffect(() => {
     setRate(r?.rates.length === 1 ? r.rates[0] : null);
   }, [drug, reason, route, adult]);
@@ -311,6 +313,7 @@ export default function App() {
       setSearch("");
       setReason("");
       setAgeClass("");
+      setFentanylOlderFrail(false);
       setAge("");
       setAu("");
       setRoute(null);
@@ -355,6 +358,7 @@ export default function App() {
     },
     beginMedication = (selectedDrug: Drug) => {
       setDrug(selectedDrug);
+      setFentanylOlderFrail(false);
       setAgeClass(selectedDrug==="adenosine"?"adult":"");
       setAge(selectedDrug==="adenosine"?"12":"");
       setAu(selectedDrug==="adenosine"?"years":"");
@@ -505,11 +509,11 @@ export default function App() {
             {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("")}}>{x}</button>)}</div><a className="inline-protocol" href={protocolUrl(drug)} target="_blank" rel="noreferrer">Open {protocolId(drug)} indication protocol ↗</a></div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>}
             <div className="adaptive-heading">AGE GROUP</div>
             {!ageClass ? <div className={`age-class-grid ${drug!=="adenosine"?"three-age-options":""}`}>
-              {drug==="adenosine"?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"12–65 YEARS":"12–64 YEARS"}</small><b>Adult</b><span>›</span></button><button onClick={()=>{setAgeClass("adult");setAge(drug==="midazolam"?"66":"65");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"OVER 65 YEARS":"65 YEARS OR OLDER"}</small><b>{drug==="midazolam"?"Adult >65":"Adult 65+"}</b><span>›</span></button></>}
-              {drug!=="adenosine"&&<button onClick={()=>{setAgeClass("pediatric");setAge("");setAu("");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>}
+              {drug==="adenosine"?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(false);setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"12–65 YEARS":"NOT IDENTIFIED AS ELDERLY/FRAIL"}</small><b>Adult</b><span>›</span></button><button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(drug==="fentanyl");setAge(drug==="midazolam"?"66":"65");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"OVER 65 YEARS":"FENTANYL-SPECIFIC CONSIDERATION"}</small><b>{drug==="midazolam"?"Adult >65":"Elderly or frail"}</b><span>›</span></button></>}
+              {drug!=="adenosine"&&<button onClick={()=>{setAgeClass("pediatric");setFentanylOlderFrail(false);setAge("");setAu("");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>}
             </div>:<>
-              {drug!=="adenosine"&&<button className="change-age-class" onClick={()=>{setAgeClass("");setAge("");setAu("");setRoute(null);setWeight("")}}>← Change age group</button>}
-              {ageClass==="adult" ? <><div className="selected-age"><b>{drug==="adenosine"?"Adult standing-order pathway • age 12+":drug==="midazolam"?(an>65?"Adult over 65":"Adult 12–65"):an>=65?"Adult 65+":"Adult 12–64"}</b></div>{drug==="adenosine"&&<div className="base-order-note"><b>Patient under 12?</b><span>DMP 9010 requires a direct verbal Base order. This pathway does not calculate pediatric Adenosine.</span></div>}</>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
+              {drug!=="adenosine"&&<button className="change-age-class" onClick={()=>{setAgeClass("");setFentanylOlderFrail(false);setAge("");setAu("");setRoute(null);setWeight("")}}>← Change age group</button>}
+              {ageClass==="adult" ? <><div className="selected-age"><b>{drug==="adenosine"?"Adult standing-order pathway • age 12+":drug==="midazolam"?(an>65?"Adult over 65":"Adult 12–65"):fentanylOlderFrail?"Adult • elderly/frail starting-dose pathway":"Adult fentanyl pathway"}</b></div>{drug==="fentanyl"&&fentanylOlderFrail&&<div className="base-order-note"><b>½ starting dose will be calculated</b><span>DMP 9230 says respiratory depression is more common in children and the elderly and directs providers to start with ½ the traditional dose. This does not reduce the cumulative protocol ceiling.</span></div>}{drug==="adenosine"&&<div className="base-order-note"><b>Patient under 12?</b><span>DMP 9010 requires a direct verbal Base order. This pathway does not calculate pediatric Adenosine.</span></div>}</>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
                 <div className="age-followup"><small>PEDIATRIC DETAIL NEEDED</small><h3>Enter the patient’s age</h3></div>
                 <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} placeholder="0"/></label>
                 <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">{(["years","months","days"] as AgeUnit[]).map((x)=><button key={x} className={au===x?"selected":""} onClick={()=>setAu(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
@@ -850,6 +854,7 @@ export default function App() {
               <b>{route}</b>
             </div>
             {drug==="fentanyl"&&adult&&<div className="dose-guidance"><b>ADULT DOSING GUIDANCE</b><span>Initial dose is typically 100 mcg. Adult doses may be rounded to the nearest 25 mcg.</span></div>}
+            {drug==="fentanyl"&&fentanylOlderFrail&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>ELDERLY/FRAIL STARTING DOSE APPLIED</b><strong>{fmt(baseDose)} mcg × ½ = GIVE {fmt(dose)} mcg</strong><span>DMP 9230 directs providers to start with ½ the traditional dose in elderly patients and strongly consider ½ typical dosing in elderly or frail patients. The cumulative protocol ceiling is unchanged.</span></div>}
             {capped && <div className="ceiling-alert" role="alert"><b>PROTOCOL MAXIMUM APPLIED</b><strong>{fmt(baseDose)} {unit} calculated → GIVE {fmt(dose)} {unit}</strong><span>Do not administer the uncapped weight-based result.</span></div>}
             <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug).map((x)=><li key={x}>{x}</li>)}</ul></div>
             <DoseTracker
@@ -879,6 +884,7 @@ export default function App() {
                 concentration={conc}
                 volume={vol}
                 unit={unit}
+                doseModifier={fentanylOlderFrail?.5:1}
               />
               <SyringeDiagram volume={vol} />
             </details>
@@ -899,7 +905,7 @@ export default function App() {
               protocol={drug==="fentanyl"?"DMP 9230 • July 2026":drug==="adenosine"?"DMP 9010 • July 2026":"DMP 9070 • July 2026"}
               doseRule={
                 r.perKg
-                  ? `${fmt(kg)} kg × ${rate} ${unit}/kg`
+                  ? `${fmt(kg)} kg × ${rate} ${unit}/kg${fentanylOlderFrail?" × ½ elderly/frail starting-dose adjustment":""}`
                   : `${rate} ${unit} fixed dose`
               }
               concentration={`${fmt(conc)} ${unit}/mL`}
@@ -930,7 +936,7 @@ export default function App() {
                 l="DMP dose"
                 v={
                   r.perKg
-                    ? `${fmt(kg)} kg × ${rate} ${unit}/kg = ${fmt(baseDose)} ${unit}`
+                    ? `${fmt(kg)} kg × ${rate} ${unit}/kg${fentanylOlderFrail?" × ½":""} = ${fmt(dose)} ${unit}`
                     : `${rate} ${unit} fixed dose`
                 }
               />
@@ -1011,6 +1017,7 @@ export default function App() {
         currentDrug={drug?medName(drug):undefined}
         currentIndication={reason||undefined}
         currentRoute={route||undefined}
+        fentanylOlderFrail={fentanylOlderFrail}
         currentDose={drug&&r&&rate!==null?`${fmt(dose)} ${unit}`:undefined}
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
         onSelectMedication={beginMedication}
@@ -1098,6 +1105,7 @@ function MathPicture({
   concentration,
   volume,
   unit,
+  doseModifier=1,
 }: {
   perKg: boolean;
   kg: number;
@@ -1108,6 +1116,7 @@ function MathPicture({
   concentration: number;
   volume: number;
   unit: string;
+  doseModifier?: number;
 }) {
   return (
     <section className="math-picture" aria-label="Dose calculation picture">
@@ -1117,7 +1126,7 @@ function MathPicture({
           <small>1 • DOSE</small>
           <b>
             {perKg
-              ? `${fmt(kg)} kg × ${fmt(rate)} ${unit}/kg`
+              ? `${fmt(kg)} kg × ${fmt(rate)} ${unit}/kg${doseModifier!==1?" × ½":""}`
               : `Fixed DMP dose`}
           </b>
           <strong>
