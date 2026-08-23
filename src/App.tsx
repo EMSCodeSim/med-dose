@@ -201,7 +201,11 @@ export default function App() {
     [now, setNow] = useState(Date.now()),
     [scannedVial, setScannedVial] = useState<StockVial | null>(null),
     [scanMedOk, setScanMedOk] = useState(false),
-    [scanConcOk, setScanConcOk] = useState(false);
+    [scanConcOk, setScanConcOk] = useState(false),
+    [baseContactOpen, setBaseContactOpen] = useState(false),
+    [basePhysician, setBasePhysician] = useState(""),
+    [baseAttested, setBaseAttested] = useState(false),
+    [baseApproval, setBaseApproval] = useState<{physician:string;time:number;reason:string}|null>(null);
   useEffect(() => {
     setOnline(navigator.onLine);
     setWu(localStorage.getItem("preferredWeightUnit") || "kg");
@@ -227,7 +231,9 @@ export default function App() {
     needWeight = !!r?.weight,
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
     items = drug ? checksFor(drug, an, fentanylOlderFrail, midazolamHalfConsideration) : [],
-    ageBlocked = !!au&&((drug === "fentanyl" && underOne)||(drug==="adenosine"&&age!==""&&!adult)),
+    baseRequirement = drug==="fentanyl"&&underOne?"Fentanyl administration for a pediatric patient under 1 year":drug==="midazolam"&&reason==="Sedation for transcutaneous pacing"&&!adult?"Transcutaneous pacing for a patient under 12 years":null,
+    baseClear = !baseRequirement||(baseApproval?.reason===baseRequirement),
+    ageBlocked = !!au&&(((drug === "fentanyl" && underOne)&&!baseClear)||(drug==="adenosine"&&age!==""&&!adult)),
     ageWithinRange =
       au === "years"
         ? av >= 0 && av < 130
@@ -268,6 +274,7 @@ export default function App() {
     setRate(r?.rates.length === 1 ? r.rates[0] : null);
   }, [drug, reason, route, adult]);
   useEffect(() => setDosesGiven([]), [drug, reason, route, dose, conc]);
+  useEffect(()=>{setBaseApproval(null);setBasePhysician("");setBaseAttested(false);setBaseContactOpen(false)},[drug,reason,ageClass,underOne]);
   useEffect(() => {
     if (!dosesGiven.length || !repeatsLeft) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -332,6 +339,10 @@ export default function App() {
       setScannedVial(null);
       setScanMedOk(false);
       setScanConcOk(false);
+      setBaseApproval(null);
+      setBasePhysician("");
+      setBaseAttested(false);
+      setBaseContactOpen(false);
     },
     setUnit = (x: string) => {
       setWu(x);
@@ -377,6 +388,10 @@ export default function App() {
       setDosesGiven([]);
       setScanMedOk(false);
       setScanConcOk(false);
+      setBaseApproval(null);
+      setBasePhysician("");
+      setBaseAttested(false);
+      setBaseContactOpen(false);
       const selected=meds.find(x=>x.id===selectedDrug);
       setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="fentanyl"?"mcg":"mg",label:selected?.brand||selectedDrug,barcode:"",photo:medicationPhoto(selectedDrug)});
       setStep("scanConfirm");
@@ -523,16 +538,16 @@ export default function App() {
                 <div className="age-followup"><small>PEDIATRIC DETAIL NEEDED</small><h3>Enter the patient’s age</h3></div>
                 <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} placeholder="0"/></label>
                 <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">{(["years","months","days"] as AgeUnit[]).map((x)=><button key={x} className={au===x?"selected":""} onClick={()=>setAu(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
-                {age!==""&&!au?<div className="input-guidance"><b>Select the age unit</b><span>Choose years, months or days to continue.</span></div>:age!==""&&!ageWithinRange?<div className="input-guidance"><b>Check the age entry</b><span>Use days through 365, months through 143, or years below 12.</span></div>:ageBlocked?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9230 does not provide a standing-order Fentanyl dose for patients younger than 1 year." source="DMP 9230 Opioids" action="Correct the age if entered incorrectly. Otherwise stop and contact Base for a direct order."/>:null}
+                {age!==""&&!au?<div className="input-guidance"><b>Select the age unit</b><span>Choose years, months or days to continue.</span></div>:age!==""&&!ageWithinRange?<div className="input-guidance"><b>Check the age entry</b><span>Use days through 365, months through 143, or years below 12.</span></div>:baseRequirement?<BaseContactGate reason={baseRequirement} source={drug==="fentanyl"?"DMP 9230 Opioids":"DMP 1100 Transcutaneous Cardiac Pacing"} open={baseContactOpen} physician={basePhysician} attested={baseAttested} approval={baseApproval?.reason===baseRequirement?baseApproval:null} setOpen={setBaseContactOpen} setPhysician={setBasePhysician} setAttested={setBaseAttested} approve={()=>setBaseApproval({physician:basePhysician.trim(),time:Date.now(),reason:baseRequirement})} clear={()=>{setBaseApproval(null);setBaseAttested(false);setBaseContactOpen(true)}}/>:null}
               </>}
             </>}
-            {!!reason&&ageOk&&!ageBlocked&&midazolamSizeAnswered&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routes[drug].map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Status epilepticus"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}</div>}
+            {!!reason&&ageOk&&!ageBlocked&&baseClear&&midazolamSizeAnswered&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routes[drug].map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Status epilepticus"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}</div>}
             {!!route&&needWeight&&<div className="adaptive-section"><small>CALCULATION WEIGHT</small><div className="source-grid compact-sources">{[["actual","Actual"],["estimated","Estimated"],...(tapeEligible?[["tape","Length-based tape"]]:[])].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>
               {weightSuggestion!==null&&ws!=="tape"&&<button className="quick-estimate" onClick={useSuggestedWeight}>Use DMP age-band estimate: {weightSuggestion} kg</button>}
               {ws==="tape"&&tapeEligible?<><div className="tape-heading"><b>Select tape color</b><span>Use only when the child physically fits the tape.</span></div><div className="tape-grid">{tapeBands.map((b)=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div></>:<><div className="unit-toggle compact-unit"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>kg</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>lb</button></div><label className="giant-input compact-weight"><span>Patient weight ({wu})</span><input inputMode="decimal" value={weight} onChange={(e)=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} placeholder="0"/></label>{Number(weight)>0&&<div className="kg-lock" role="status"><small>CALCULATION WEIGHT</small><b>{fmt(kg)} kg</b><span>{wu==="lb"?`${weight} lb ÷ 2.2046`:"Entered in kilograms"}</span></div>}</>}
               {ws==="age"&&<div className="estimate-warning"><b>Age-based estimate selected</b><span>Replace it if a better weight becomes available before administration.</span></div>}
             </div>}
-            {!!reason&&ageOk&&!ageBlocked&&midazolamSizeAnswered&&<Next ok={!!route&&weightOk} go={()=>setStep("safety")} text="Continue to safety checks"/>}
+            {!!reason&&ageOk&&!ageBlocked&&baseClear&&midazolamSizeAnswered&&<Next ok={!!route&&weightOk} go={()=>setStep("safety")} text="Continue to safety checks"/>}
           </Screen>
         )}
         {step === "route" && drug && (
@@ -850,6 +865,7 @@ export default function App() {
             h="Choose the ordered DMP dose when required, then read the action line aloud."
           >
             <div className="final-context"><span>{route} • {reason}</span><b>{fmt(conc)} {unit}/mL confirmed</b><a href={protocolUrl(drug)} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>
+            {baseApproval&&<div className="base-approved compact"><small>BASE AUTHORIZATION</small><b>Approved by {baseApproval.physician}</b><time>{new Date(baseApproval.time).toLocaleString()}</time></div>}
             {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
             {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Go back and select another DMP-approved route or use an appropriate higher concentration, then recalculate."/>:<>
             <div className="action-line">
@@ -920,6 +936,7 @@ export default function App() {
               calculatedVolume={`${fmt(vol)} mL`}
               unit={unit}
               entries={dosesGiven}
+              baseApproval={baseApproval||undefined}
             />
             <details className="full-cross-check">
               <summary>Show full medication cross-check</summary>
@@ -939,6 +956,7 @@ export default function App() {
                 l="Medication check"
                 v={`Physical vial confirmed as ${medName(drug)}`}
               />
+              {baseApproval&&<Review l="Base authorization" v={`Direct verbal order approved by ${baseApproval.physician} • ${new Date(baseApproval.time).toLocaleString()} • ${baseApproval.reason}`}/>} 
               <Review
                 l="DMP dose"
                 v={
@@ -1078,6 +1096,10 @@ function HardStop({
       </span>
     </div>
   );
+}
+function BaseContactGate({reason,source,open,physician,attested,approval,setOpen,setPhysician,setAttested,approve,clear}:{reason:string;source:string;open:boolean;physician:string;attested:boolean;approval:{physician:string;time:number;reason:string}|null;setOpen:(x:boolean)=>void;setPhysician:(x:string)=>void;setAttested:(x:boolean)=>void;approve:()=>void;clear:()=>void}) {
+  if(approval)return <div className="base-approved" role="status"><small>DIRECT VERBAL ORDER RECORDED</small><b>Base contact approved</b><span>Physician: {approval.physician}</span><time>{new Date(approval.time).toLocaleString()}</time><button onClick={clear}>Correct authorization record</button></div>;
+  return <div className="base-contact-gate" role="alert"><button className="base-contact-required" onClick={()=>setOpen(!open)}><small>{source}</small><b>BASE CONTACT REQUIRED</b><span>{reason}</span><strong>{open?"Close":"Record authorization ›"}</strong></button>{open&&<div className="base-contact-form"><p>Continue only after receiving a direct verbal order from the Base physician.</p><label><span>Approving physician name</span><input value={physician} onChange={e=>setPhysician(e.target.value)} autoComplete="off" placeholder="First and last name"/></label><label className="base-attestation"><input type="checkbox" checked={attested} onChange={e=>setAttested(e.target.checked)}/><span>I received and read back the direct verbal order for this patient.</span></label><button className="record-base-approval" disabled={!physician.trim()||!attested} onClick={approve}>Record Base approval and continue</button></div>}</div>;
 }
 function Next({
   ok,

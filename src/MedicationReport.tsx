@@ -16,6 +16,7 @@ type Props = {
   calculatedVolume: string;
   unit: string;
   entries: Entry[];
+  baseApproval?: { physician: string; time: number; reason: string };
 };
 
 export default function MedicationReport(p: Props) {
@@ -232,6 +233,7 @@ function MedicationReportBody(
           <dt>Workflow verification</dt>
           <dd>Medication and physical vial concentration confirmed before calculation</dd>
         </div>
+        {p.baseApproval&&<div className="base-report-row"><dt>Base authorization</dt><dd><b>APPROVED</b> • {p.baseApproval.physician} • {new Date(p.baseApproval.time).toLocaleString()}<br/>{p.baseApproval.reason}</dd></div>}
       </dl>
       <h3>Administration record</h3>
       {p.entries.length ? (
@@ -311,6 +313,7 @@ function buildReport(
     `Verified concentration: ${p.concentration}`,
     `Calculated initial dose: ${p.calculatedDose}`,
     `Calculated initial volume: ${p.calculatedVolume}`,
+    ...(p.baseApproval?[`Base authorization: APPROVED`,`Approving physician: ${p.baseApproval.physician}`,`Approval time: ${new Date(p.baseApproval.time).toLocaleString()}`,`Base-contact reason: ${p.baseApproval.reason}`]:[]),
     ``,
     `ADMINISTRATION RECORD`,
     ...(p.entries.length
