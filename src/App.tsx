@@ -245,14 +245,10 @@ export default function App() {
     return () => clearInterval(id);
   }, [dosesGiven.length, repeatsLeft]);
   const capped = !!r?.maxSingle && baseDose > r.maxSingle,
-    singleReason = !!drug && reasons[drug].length === 1,
     visible: Step[] = [
       "drug",
       ...(scannedVial ? (["scanConfirm"] as Step[]) : []),
-      ...(!singleReason ? ["reason" as Step] : []),
       "age",
-      "route",
-      ...(needWeight ? ["weight" as Step] : []),
       "safety",
       "review",
     ],
@@ -395,9 +391,7 @@ export default function App() {
                 setAgeClass("");
                 setAge("");
                 setAu("");
-                setReason(
-                  vial.drug === "fentanyl" ? reasons.fentanyl[0] : "",
-                );
+                setReason(reasons[vial.drug].length===1?reasons[vial.drug][0]:"");
                 setAmt(vial.amount);
                 setMl(vial.volume);
                 setStep("scanConfirm");
@@ -468,7 +462,7 @@ export default function App() {
               <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Correct concentration</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`Physical vial says ${scannedVial.amount} ${scannedVial.unit} in ${scannedVial.volume} mL`:"Enter the vial amount and volume above first"}</span></label>
             </div>
             {reasons[scannedVial.drug].length===1&&<div className="indication-source"><span><small>PROTOCOL INDICATION</small><b>{reasons[scannedVial.drug][0]}</b></span><a href={URL} target="_blank" rel="noreferrer">Open {protocolId(scannedVial.drug)} ↗</a></div>}
-            <Next ok={scanMedOk&&scanConcOk} go={()=>setStep(reasons[scannedVial.drug].length===1?"age":"reason")} text="Continue to patient information"/>
+            <Next ok={scanMedOk&&scanConcOk} go={()=>setStep("age")} text="Continue to patient information"/>
           </Screen>
         )}
         {step === "reason" && drug && (
@@ -498,26 +492,34 @@ export default function App() {
         {step === "age" && drug && (
           <Screen
             e="PATIENT"
-            t="Select the patient age group"
-            h="Start with the DMP age category. Only needed follow-up questions will appear."
+            t="Patient and route"
+            h="Complete only the questions needed for this medication pathway."
           >
+            {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("")}}>{x}</button>)}</div><a className="inline-protocol" href={URL} target="_blank" rel="noreferrer">Open {protocolId(drug)} indication protocol ↗</a></div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={URL} target="_blank" rel="noreferrer">{protocolId(drug)} ↗</a></div>}
+            <div className="adaptive-heading">AGE GROUP</div>
             {!ageClass ? <div className="age-class-grid">
-              <button onClick={()=>{setAgeClass("adult");setAge("");setAu("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>
-              <button onClick={()=>{setAgeClass("pediatric");setAge(drug==="adenosine"?"11":"");setAu(drug==="adenosine"?"years":"")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>
+              <button onClick={()=>{setAgeClass("adult");setAge("");setAu("");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>
+              <button onClick={()=>{setAgeClass("pediatric");setAge(drug==="adenosine"?"11":"");setAu(drug==="adenosine"?"years":"");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>
             </div>:<>
-              <button className="change-age-class" onClick={()=>{setAgeClass("");setAge("");setAu("")}}>← Change age group</button>
+              <button className="change-age-class" onClick={()=>{setAgeClass("");setAge("");setAu("");setRoute(null);setWeight("")}}>← Change age group</button>
               {ageClass==="adult" ? <div className="age-followup">
                 <small>ONE SAFETY CHECK</small>
                 <h3>Is the patient 65 or older?</h3>
-                <div><button onClick={()=>{setAge("12");setAu("years");setTimeout(()=>setStep("route"),60)}}><b>No</b><span>Age 12–64</span></button><button onClick={()=>{setAge("65");setAu("years");setTimeout(()=>setStep("route"),60)}}><b>Yes</b><span>Age 65+</span></button></div>
+                <div><button className={age==="12"?"selected":""} onClick={()=>{setAge("12");setAu("years")}}><b>No</b><span>Age 12–64</span></button><button className={age==="65"?"selected":""} onClick={()=>{setAge("65");setAu("years")}}><b>Yes</b><span>Age 65+</span></button></div>
               </div>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order."/>:<>
                 <div className="age-followup"><small>PEDIATRIC DETAIL NEEDED</small><h3>Enter the patient’s age</h3></div>
-                <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter"&&ageOk)next()}} placeholder="0"/></label>
+                <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} placeholder="0"/></label>
                 <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">{(["years","months","days"] as AgeUnit[]).map((x)=><button key={x} className={au===x?"selected":""} onClick={()=>setAu(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
                 {age!==""&&!au?<div className="input-guidance"><b>Select the age unit</b><span>Choose years, months or days to continue.</span></div>:age!==""&&!ageWithinRange?<div className="input-guidance"><b>Check the age entry</b><span>Use days through 365, months through 143, or years below 12.</span></div>:ageBlocked?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9230 does not provide a standing-order Fentanyl dose for patients younger than 1 year." source="DMP 9230 Opioids" action="Correct the age if entered incorrectly. Otherwise stop and contact Base for a direct order."/>:null}
-                <Next ok={valid.age} go={next}/>
               </>}
             </>}
+            {!!reason&&ageOk&&!ageBlocked&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routes[drug].map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Seizure"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}</div>}
+            {!!route&&needWeight&&<div className="adaptive-section"><small>CALCULATION WEIGHT</small><div className="source-grid compact-sources">{[["actual","Actual"],["estimated","Estimated"],["tape","Length-based tape"]].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>
+              {weightSuggestion!==null&&ws!=="tape"&&<button className="quick-estimate" onClick={useSuggestedWeight}>Use DMP age-band estimate: {weightSuggestion} kg</button>}
+              {ws==="tape"?<><div className="tape-heading"><b>Select tape color</b><span>DMP average weight is applied.</span></div><div className="tape-grid">{tapeBands.map((b)=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div></>:<><div className="unit-toggle compact-unit"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>kg</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>lb</button></div><label className="giant-input compact-weight"><span>Patient weight ({wu})</span><input inputMode="decimal" value={weight} onChange={(e)=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} placeholder="0"/></label></>}
+              {ws==="age"&&<div className="estimate-warning"><b>Age-based estimate selected</b><span>Replace it if a better weight becomes available before administration.</span></div>}
+            </div>}
+            {!!reason&&ageOk&&!ageBlocked&&<Next ok={!!route&&weightOk} go={()=>setStep("safety")} text="Continue to safety checks"/>}
           </Screen>
         )}
         {step === "route" && drug && (
