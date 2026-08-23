@@ -905,13 +905,6 @@ export default function App() {
             {baseApproval&&<div className="base-approved compact"><small>BASE AUTHORIZATION</small><b>Approved by {baseApproval.physician}</b><time>{new Date(baseApproval.time).toLocaleString()}</time></div>}
             {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
             {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Select another DMP-approved route or confirm an appropriate higher-concentration vial, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:<>
-            <div className="action-line">
-              <small>INITIAL DOSE</small>
-              <strong>
-                GIVE {fmt(dose)} {unit} = DRAW {fmt(vol)} mL
-              </strong>
-              <b>{route}</b>
-            </div>
             {drug==="fentanyl"&&adult&&<div className="dose-guidance"><b>ADULT DOSING GUIDANCE</b><span>Initial dose is typically 100 mcg. Adult doses may be rounded to the nearest 25 mcg.</span></div>}
             {drug==="fentanyl"&&fentanylOlderFrail&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>ELDERLY/FRAIL STARTING DOSE APPLIED</b><strong>{fmt(baseDose)} mcg × ½ = GIVE {fmt(dose)} mcg</strong><span>DMP 9230 directs providers to start with ½ the traditional dose in elderly patients and strongly consider ½ typical dosing in elderly or frail patients. The cumulative protocol ceiling is unchanged.</span></div>}
             {drug==="midazolam"&&midazolamHalfConsideration&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>MIDAZOLAM ½-DOSE CONSIDERATION APPLIED</b><strong>{fmt(baseDose)} mg × ½ = GIVE {fmt(dose)} mg</strong><span>DMP 9070 states lower doses may be sufficient for patients over 65 or small adults under 50 kg. This calculation applies the protocol’s ½-dose consideration.</span></div>}
@@ -930,6 +923,7 @@ export default function App() {
               concentration={conc}
               drug={drug}
               reason={reason}
+              route={route||""}
               record={recordDose}
             />
             <details className="calculation-details">
