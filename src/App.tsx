@@ -2,13 +2,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
-import MedScanner, { type StockVial } from "./MedScanner";
-import { InfusionCalculator, ProtocolSettings } from "./ClinicalTools";
 type Drug = "fentanyl" | "midazolam" | "adenosine";
+type StockVial = {drug:Drug;amount:string;volume:string;unit:"mcg"|"mg";label:string;barcode:string;photo?:string};
 type Route = "IV" | "IV/IO" | "IM" | "IN";
 type AgeUnit = "years" | "months" | "days";
 type AgeClass = "adult" | "pediatric";
-type UtilityTool = "infusion" | "settings" | null;
 type Step =
   "drug" | "scanConfirm" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
 const URL =
@@ -201,8 +199,7 @@ export default function App() {
     [now, setNow] = useState(Date.now()),
     [scannedVial, setScannedVial] = useState<StockVial | null>(null),
     [scanMedOk, setScanMedOk] = useState(false),
-    [scanConcOk, setScanConcOk] = useState(false),
-    [utilityTool, setUtilityTool] = useState<UtilityTool>(() => new URLSearchParams(location.search).get("tool") === "infusion" ? "infusion" : null);
+    [scanConcOk, setScanConcOk] = useState(false);
   useEffect(() => {
     setOnline(navigator.onLine);
     setWu(localStorage.getItem("preferredWeightUnit") || "kg");
@@ -407,26 +404,6 @@ export default function App() {
             t="Which medication was requested?"
             h="Only advisor-review pathways are selectable."
           >
-            <MedScanner
-              onUse={(vial) => {
-                setScannedVial({...vial, photo:vial.photo || medicationPhoto(vial.drug)});
-                setScanMedOk(false);
-                setScanConcOk(false);
-                setDrug(vial.drug);
-                setAgeClass("");
-                setAge("");
-                setAu("");
-                setReason(reasons[vial.drug].length===1?reasons[vial.drug][0]:"");
-                setAmt(vial.amount);
-                setMl(vial.volume);
-                setStep("scanConfirm");
-              }}
-            />
-            <div className="quick-tools" aria-label="Clinical calculators and settings">
-              <button onClick={() => setUtilityTool("infusion")}><b>Infusion calculator</b><span>mL/hr and gtt/min</span></button>
-              <button onClick={() => setUtilityTool("settings")}><b>Local protocol profile</b><span>Waiver configuration draft</span></button>
-            </div>
-            <div className="or-divider"><span>OR SELECT MEDICATION</span></div>
             <label className="drug-search">
               <span>Search generic or brand name</span>
               <input
@@ -476,7 +453,7 @@ export default function App() {
           </Screen>
         )}
         {step === "scanConfirm" && scannedVial && (
-          <Screen e="SCANNED VIAL" t="Confirm the medication in your hand" h="Compare the physical vial with the scanned stock information.">
+          <Screen e="MEDICATION CHECK" t="Confirm the medication in your hand" h="Compare the physical vial with the selected medication.">
             <div className="scan-confirm-card">
               <div className="scan-med-photo">{scannedVial.photo ? <img src={scannedVial.photo} alt={`${scannedVial.label} reference vial`}/> : <div className="reference-vial"><small>{medName(scannedVial.drug).toUpperCase()}</small><b>VIAL</b><span>Reference photo not saved</span></div>}</div>
               <div className="scan-med-identity"><small>{scannedVial.barcode?"BARCODE MATCH":"MANUAL SELECTION"}</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?<><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></>:<span className="manual-vial-note">Enter the concentration from the physical vial below.</span>}</div>
@@ -1019,8 +996,6 @@ export default function App() {
           </section>
         </div>
       )}
-      {utilityTool === "infusion" && <InfusionCalculator close={() => setUtilityTool(null)} />}
-      {utilityTool === "settings" && <ProtocolSettings close={() => setUtilityTool(null)} />}
     </main>
   );
 }
