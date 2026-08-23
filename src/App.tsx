@@ -1010,6 +1010,7 @@ export default function App() {
         currentDrugId={drug||undefined}
         currentDrug={drug?medName(drug):undefined}
         currentIndication={reason||undefined}
+        currentRoute={route||undefined}
         currentDose={drug&&r&&rate!==null?`${fmt(dose)} ${unit}`:undefined}
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
         onSelectMedication={beginMedication}

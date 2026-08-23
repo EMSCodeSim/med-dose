@@ -10,6 +10,7 @@ type Props = {
   currentDrugId?: SupportedDrug;
   currentDrug?: string;
   currentIndication?: string;
+  currentRoute?: string;
   currentDose?: string;
   currentVolume?: string;
   onSelectMedication: (drug: SupportedDrug) => void;
@@ -41,7 +42,7 @@ export default function FieldToolbar(p: Props) {
       <div className="drawer-patient">{context}</div>
       {tool==="meds"&&<MedicationPanel {...p} onSelectMedication={(drug)=>{p.onSelectMedication(drug);close()}} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
       {tool==="vitals"&&<VitalsPanel age={age} ageLabel={p.ageLabel} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} lookupAge={lookupAge} setLookupAge={setLookupAge} hasPatient={p.ageYears!==null}/>} 
-      {tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} openProtocol={setProtocol}/>} 
+      {tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} route={p.currentRoute} dose={p.currentDose} openProtocol={setProtocol}/>} 
       {tool==="protocols"&&<LookupList title="Search protocol number or name" items={protocols} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
       <a className="drawer-protocol-link" href={DMP_URL} target="_blank" rel="noreferrer">Open current July 2026 DMP PDF ↗</a>
     </section></div>}
@@ -77,17 +78,60 @@ function PatientConsiderations({age,kg,drug,indication}:{age:number;kg:number|nu
   return <div className="patient-considerations"><small>SPECIAL CONSIDERATIONS</small>{notes.length?notes.map(x=><p key={x}>{x}</p>):<p>No additional age-specific warning is active for the current selection.</p>}</div>;
 }
 
-function TreatmentPanel({age,kg,drug,indication,openProtocol}:{age:number|null;kg:number|null;drug:SupportedDrug;indication:string;openProtocol:(x:ProtocolTarget)=>void}) {
+function TreatmentPanel({age,kg,drug,indication,route,dose,openProtocol}:{age:number|null;kg:number|null;drug:SupportedDrug;indication:string;route?:string;dose?:string;openProtocol:(x:ProtocolTarget)=>void}) {
   const pediatric=age!==null&&age<12;
   const treatment=treatmentProtocol(drug,indication);
   const cardioversion=indication.toLowerCase().includes("cardioversion");
+  const checklist=treatmentChecklist(drug,indication,route,dose,age);
   return <div className="treatment-list">
     <button className="smart-protocol" onClick={()=>openProtocol(treatment)}><small>CURRENT TREATMENT PROTOCOL</small><b>DMP {treatment.id} • {treatment.name}</b><span>{indication}</span><strong>Open page {treatment.page} ›</strong></button>
+    <div className="smart-checklist" aria-label="Smart treatment checklist">
+      {checklist.map((item,index)=><section key={item.label}><i>{index+1}</i><small>{item.label}</small><b>{item.value}</b>{item.note&&<span>{item.note}</span>}</section>)}
+    </div>
     {cardioversion&&<section><small>SYNCHRONIZED CARDIOVERSION</small>{age===null?<b>Patient age is required</b>:pediatric&&kg?<><b>{fmt(.5*kg)}–{fmt(kg)} J</b><span>0.5–1 J/kg biphasic</span></>:pediatric?<b>Patient weight is required</b>:<><b>200 J</b><span>Adult biphasic</span></>}</section>}
-    {drug==="midazolam"&&indication==="Status epilepticus"&&<section><small>SEIZURE PATHWAY</small><b>Airway, oxygenation and continuous monitoring</b><span>Use the current DMP 4040 pathway and medication-specific monitoring cautions. Reassess after each dose.</span></section>}
-    {drug==="fentanyl"&&<section><small>PAIN MANAGEMENT PATHWAY</small><b>Reassess pain, respiratory status and perfusion</b><span>Document response and cumulative dose after each administration.</span></section>}
   </div>;
 }
+
+type ChecklistItem={label:string;value:string;note?:string};
+function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,dose?:string,age?:number|null):ChecklistItem[] {
+  const medication=dose?`${drugName(drug)} • ${dose}${route?` • ${route}`:""}`:`${drugName(drug)} per medication DMP`;
+  if(drug==="midazolam"&&indication==="Status epilepticus") return [
+    {label:"REQUIRED MONITORING",value:"ABCs, oxygen, pulse and neurologic status",note:"Cardiac monitoring when seizures recur and/or medication is given."},
+    {label:"PREREQUISITES",value:"Prolonged or recurrent active seizure",note:"Use seizure precautions; check blood glucose and treat hypoglycemia."},
+    {label:"MEDICATION OPTION",value:medication,note:"IN is preferred over IM when IV cannot be safely or rapidly obtained."},
+    {label:"REASSESSMENT",value:"Reassess active seizure at 5 minutes",note:"One repeat dose is available under the standing-order pathway if still seizing."},
+    {label:"TRANSPORT / BASE",value:"Transport while monitoring ABCs, vital signs and neurologic condition",note:"Contact Base if still seizing after the repeat or before more than 2 benzodiazepine doses."},
+  ];
+  if(drug==="midazolam"&&indication.toLowerCase().includes("cardioversion")) return [
+    {label:"REQUIRED MONITORING",value:"Oxygen, ECG and continuous reassessment",note:"Have suction and advanced-airway equipment ready."},
+    {label:"PREREQUISITES",value:"Tachyarrhythmia with poor perfusion",note:"Confirm functioning IV/IO. Benzodiazepine sedation is used when systolic BP is greater than 80 mmHg."},
+    {label:"MEDICATION OPTION",value:medication,note:"If hypotensive, DMP 1090 says to consider fentanyl instead of benzodiazepine sedation."},
+    {label:"REASSESSMENT",value:"Reassess sedation after 5 minutes",note:"A second protocol dose may be given if additional sedation is needed."},
+    {label:"TRANSPORT / BASE",value:"Continue under the tachycardia-with-poor-perfusion pathway",note:"Contact Base before more than 2 sedation doses."},
+  ];
+  if(drug==="midazolam") return [
+    {label:"REQUIRED MONITORING",value:"ECG, perfusion and continuous respiratory reassessment",note:"Have suction and advanced-airway equipment available."},
+    {label:"PREREQUISITES",value:"Symptomatic bradyarrhythmia with poor perfusion",note:"TCP is contraindicated in pulseless arrest. Sedate with benzodiazepine only if BP allows (>80 mmHg)."},
+    {label:"MEDICATION OPTION",value:medication,note:"If hypotensive, DMP 1100 says to consider fentanyl."},
+    {label:"REASSESSMENT",value:"Reassess sedation after 5 minutes",note:"During pacing, verify electrical and mechanical capture."},
+    {label:"TRANSPORT / BASE",value:"Treat under the bradyarrhythmia pathway",note:"Contact Base before more than 2 sedation doses; pediatric pacing is rarely indicated and requires Base contact."},
+  ];
+  if(drug==="fentanyl") return [
+    {label:"REQUIRED MONITORING",value:"Continuous pulse oximetry",note:"For medically complex patients or repeated dosing, add cardiac monitoring and capnography as soon as possible; keep naloxone and resuscitation equipment available."},
+    {label:"PREREQUISITES",value:"Hemodynamically stable with moderate-to-severe pain",note:"Use comfort measures first; do not give with respiratory depression or shock."},
+    {label:"MEDICATION OPTION",value:medication,note:"Titrate to tolerable pain—not necessarily pain-free."},
+    {label:"REASSESSMENT",value:route==="IN"?"Reassess after 10 minutes":"Reassess after 5 minutes",note:"Recheck pain, respiratory status and perfusion before recording or repeating a dose."},
+    {label:"TRANSPORT / BASE",value:"Transport in position of comfort and reassess",note:"Additional dosing beyond the DMP cumulative limit requires Base. Opioid plus benzodiazepine requires a direct physician verbal order."},
+  ];
+  return [
+    {label:"REQUIRED MONITORING",value:"12-lead ECG before administration",note:"Repeat the 12-lead after conversion and monitor during transport."},
+    {label:"PREREQUISITES",value:"Regular narrow-complex suspected AVNRT",note:"Support ABCs, establish IV access and give oxygen. Never administer for an irregular tachycardia or heart-transplant patient."},
+    {label:"MEDICATION OPTION",value:medication,note:"Rapid IV bolus followed immediately by normal saline flush."},
+    {label:"REASSESSMENT",value:"Immediately reassess rhythm and perfusion",note:"If the rhythm recurs, return to the tachyarrhythmia pathway."},
+    {label:"TRANSPORT / BASE",value:"Monitor during transport",note:age!=null&&age<12?"Pediatric Adenosine requires a direct verbal Base order.":"If the rhythm does not convert, contact Base for consultation; contact medical control for dosing beyond the additional 12 mg dose."},
+  ];
+}
+function drugName(drug:SupportedDrug){return drug==="midazolam"?"Midazolam":drug[0].toUpperCase()+drug.slice(1)}
 
 function treatmentProtocol(drug:SupportedDrug,indication:string):ProtocolTarget {
   if(drug==="midazolam"&&indication==="Status epilepticus") return {id:"4040",name:"Seizure",page:80};
