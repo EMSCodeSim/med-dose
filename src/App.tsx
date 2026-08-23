@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
+import FieldToolbar from "./FieldToolbar";
 type Drug = "fentanyl" | "midazolam" | "adenosine";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:"mcg"|"mg";label:string;barcode:string;photo?:string};
 type Route = "IV" | "IV/IO" | "IM" | "IN";
@@ -349,6 +350,24 @@ export default function App() {
         ...x,
         { dose: amount, volume: amount / conc, time },
       ]);
+    },
+    beginMedication = (selectedDrug: Drug) => {
+      setDrug(selectedDrug);
+      setAgeClass(selectedDrug==="adenosine"?"adult":"");
+      setAge(selectedDrug==="adenosine"?"12":"");
+      setAu(selectedDrug==="adenosine"?"years":"");
+      setReason(reasons[selectedDrug].length===1?reasons[selectedDrug][0]:"");
+      setRoute(null);
+      setWeight("");
+      setChecks([]);
+      setAmt("");
+      setMl("");
+      setDosesGiven([]);
+      setScanMedOk(false);
+      setScanConcOk(false);
+      const selected=meds.find(x=>x.id===selectedDrug);
+      setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="fentanyl"?"mcg":"mg",label:selected?.brand||selectedDrug,barcode:"",photo:medicationPhoto(selectedDrug)});
+      setStep("scanConfirm");
     };
   return (
     <main className="wizard-app">
@@ -421,20 +440,7 @@ export default function App() {
                       key={m.id}
                       disabled={!active}
                       className="choice"
-                      onClick={() => {
-                        const selectedDrug = m.id as Drug;
-                        setDrug(selectedDrug);
-                        setAgeClass(selectedDrug==="adenosine"?"adult":"");
-                        setAge(selectedDrug==="adenosine"?"12":"");
-                        setAu(selectedDrug==="adenosine"?"years":"");
-                        setReason(reasons[selectedDrug].length===1?reasons[selectedDrug][0]:"");
-                        setAmt("");
-                        setMl("");
-                        setScanMedOk(false);
-                        setScanConcOk(false);
-                        setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="fentanyl"?"mcg":"mg",label:m.brand,barcode:"",photo:medicationPhoto(selectedDrug)});
-                        setTimeout(() => setStep("scanConfirm"), 60);
-                      }}
+                      onClick={() => beginMedication(m.id as Drug)}
                     >
                       <span className="rx">{meds.findIndex(x=>x.id===m.id)+1}</span>
                       <span>
@@ -995,6 +1001,15 @@ export default function App() {
           </section>
         </div>
       )}
+      <FieldToolbar
+        ageYears={ageOk?an:null}
+        ageLabel={ageOk?ageText:""}
+        weightKg={needWeight&&weightOk?kg:null}
+        currentDrug={drug?medName(drug):undefined}
+        currentDose={drug&&r&&rate!==null?`${fmt(dose)} ${unit}`:undefined}
+        currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
+        onSelectMedication={beginMedication}
+      />
     </main>
   );
 }
