@@ -218,7 +218,8 @@ export default function App() {
     [baseContactOpen, setBaseContactOpen] = useState(false),
     [basePhysician, setBasePhysician] = useState(""),
     [baseAttested, setBaseAttested] = useState(false),
-    [baseApproval, setBaseApproval] = useState<{physician:string;time:number;reason:string}|null>(null);
+    [baseApproval, setBaseApproval] = useState<{physician:string;time:number;reason:string}|null>(null),
+    [reportSignal, setReportSignal] = useState(0);
   useEffect(() => {
     setOnline(navigator.onLine);
     setWu(localStorage.getItem("preferredWeightUnit") || "kg");
@@ -962,6 +963,8 @@ export default function App() {
               unit={unit}
               entries={dosesGiven}
               baseApproval={baseApproval||undefined}
+              openSignal={reportSignal}
+              hideLauncher
             />
             <details className="full-cross-check">
               <summary>Show full medication cross-check</summary>
@@ -1072,6 +1075,11 @@ export default function App() {
         currentDose={drug&&r&&rate!==null?`${fmt(dose)} ${unit}`:undefined}
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
         onSelectMedication={beginMedication}
+        reportReady={Boolean(drug&&r&&rate!==null&&conc>0&&!inTooHigh)}
+        onOpenReport={()=>{
+          setStep("review");
+          setReportSignal(x=>x+1);
+        }}
       />
     </main>
   );
