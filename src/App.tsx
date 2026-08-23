@@ -215,6 +215,7 @@ export default function App() {
   const av = Number(age),
     an = au === "years" ? av : au === "months" ? av / 12 : au === "days" ? av / 365.25 : 0,
     adult = an >= 12,
+    tapeEligible = !adult && an < 10,
     underOne = age !== "" && an < 1,
     ageText = drug==="adenosine"&&ageClass==="adult"?"12 years or older":ageClass==="adult"?(an>=65?"65 years or older":"12–64 years"):au ? `${age} ${au}` : age,
     weightSuggestion = suggestedWeight(an),
@@ -511,9 +512,9 @@ export default function App() {
               </>}
             </>}
             {!!reason&&ageOk&&!ageBlocked&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routes[drug].map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Seizure"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}</div>}
-            {!!route&&needWeight&&<div className="adaptive-section"><small>CALCULATION WEIGHT</small><div className="source-grid compact-sources">{[["actual","Actual"],["estimated","Estimated"],["tape","Length-based tape"]].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>
+            {!!route&&needWeight&&<div className="adaptive-section"><small>CALCULATION WEIGHT</small><div className="source-grid compact-sources">{[["actual","Actual"],["estimated","Estimated"],...(tapeEligible?[["tape","Length-based tape"]]:[])].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>
               {weightSuggestion!==null&&ws!=="tape"&&<button className="quick-estimate" onClick={useSuggestedWeight}>Use DMP age-band estimate: {weightSuggestion} kg</button>}
-              {ws==="tape"?<><div className="tape-heading"><b>Select tape color</b><span>DMP average weight is applied.</span></div><div className="tape-grid">{tapeBands.map((b)=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div></>:<><div className="unit-toggle compact-unit"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>kg</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>lb</button></div><label className="giant-input compact-weight"><span>Patient weight ({wu})</span><input inputMode="decimal" value={weight} onChange={(e)=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} placeholder="0"/></label>{Number(weight)>0&&<div className="kg-lock" role="status"><small>CALCULATION WEIGHT</small><b>{fmt(kg)} kg</b><span>{wu==="lb"?`${weight} lb ÷ 2.2046`:"Entered in kilograms"}</span></div>}</>}
+              {ws==="tape"&&tapeEligible?<><div className="tape-heading"><b>Select tape color</b><span>Use only when the child physically fits the tape.</span></div><div className="tape-grid">{tapeBands.map((b)=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div></>:<><div className="unit-toggle compact-unit"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>kg</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>lb</button></div><label className="giant-input compact-weight"><span>Patient weight ({wu})</span><input inputMode="decimal" value={weight} onChange={(e)=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} placeholder="0"/></label>{Number(weight)>0&&<div className="kg-lock" role="status"><small>CALCULATION WEIGHT</small><b>{fmt(kg)} kg</b><span>{wu==="lb"?`${weight} lb ÷ 2.2046`:"Entered in kilograms"}</span></div>}</>}
               {ws==="age"&&<div className="estimate-warning"><b>Age-based estimate selected</b><span>Replace it if a better weight becomes available before administration.</span></div>}
             </div>}
             {!!reason&&ageOk&&!ageBlocked&&<Next ok={!!route&&weightOk} go={()=>setStep("safety")} text="Continue to safety checks"/>}
@@ -559,13 +560,13 @@ export default function App() {
           <Screen
             e="WEIGHT-BASED DOSE"
             t="Enter the calculation weight"
-            h="Use an actual or length-based weight whenever available."
+            h="Use an actual weight whenever available."
           >
             <div className="source-grid">
               {[
                 ["actual", "Actual"],
                 ["estimated", "Estimated"],
-                ["tape", "Length-based tape"],
+                ...(tapeEligible ? [["tape", "Length-based tape"]] : []),
               ].map(([id, x]) => (
                 <button
                   key={id}
@@ -627,11 +628,11 @@ export default function App() {
                 </button>
               </div>
             )}
-            {ws === "tape" ? (
+            {ws === "tape" && tapeEligible ? (
               <>
                 <div className="tape-heading">
                   <b>Select the tape color</b>
-                  <span>DMP average weight will be used automatically.</span>
+                  <span>Use only when the child physically fits the tape.</span>
                 </div>
                 <div className="tape-grid">
                   {tapeBands.map((b) => (
