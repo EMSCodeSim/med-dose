@@ -126,6 +126,25 @@ const reasons: Record<Drug, string[]> = {
     "Systemic allergic reaction — auto-injector",
   ],
 };
+function epinephrineReasonsForConcentration(concentrationMcgMl: number) {
+  const isPointOneMgMl = Math.abs(concentrationMcgMl - 100) < 0.01;
+  const isOneMgMl = Math.abs(concentrationMcgMl - 1000) < 0.01;
+  if (isPointOneMgMl) return [
+    "Pulseless arrest",
+    "Hypotension or refractory anaphylaxis — push dose",
+    "Hypotension or refractory anaphylaxis — infusion",
+    "Pediatric severe anaphylaxis — Base push dose",
+    "Bradycardia with poor perfusion",
+  ];
+  if (isOneMgMl) return [
+    "Systemic allergic reaction — IM",
+    "Wheezing — IM",
+    "Hypotension or refractory anaphylaxis — infusion",
+    "Stridor at rest — alternative to racemic epinephrine",
+    "Systemic allergic reaction — auto-injector",
+  ];
+  return [];
+}
 const routes: Record<Drug, Route[]> = {
   adenosine: ["IV"],
   fentanyl: ["IV/IO", "IM", "IN"],
@@ -422,6 +441,8 @@ export default function App() {
     adjustedBaseDose = baseDose*doseModifier,
     dose = r?.maxSingle ? Math.min(adjustedBaseDose, r.maxSingle) : adjustedBaseDose,
     conc = Number(amt) > 0 && Number(ml) > 0 ? Number(amt) / Number(ml) : 0,
+    availableReasons = drug === "epinephrine" ? epinephrineReasonsForConcentration(conc) : drug ? reasons[drug] : [],
+    epiConcentrationName = drug !== "epinephrine" || conc <= 0 ? "" : Math.abs(conc-100)<0.01 ? "0.1 mg/mL (1:10,000)" : Math.abs(conc-1000)<0.01 ? "1 mg/mL (1:1,000)" : `${fmt(conc)} mcg/mL — nonstandard for DMP pathways`,
     epiInfusion = drug === "epinephrine" && reason.includes("infusion"),
     epiPediatricDilution = drug === "epinephrine" && reason === "Pediatric severe anaphylaxis — Base push dose",
     administrationConcentration = epiInfusion ? 1 : epiPediatricDilution ? 10 : conc,
@@ -460,6 +481,16 @@ export default function App() {
       Math.ceil((lastTime + (r?.repeat || 0) * 60000 - now) / 1000),
     );
   useEffect(() => setChecks(Array(items.length).fill(false)), [drug, reason, an > 65, fentanylOlderFrail, midazolamHalfConsideration]);
+  useEffect(() => {
+    if (drug === "epinephrine" && reason && !availableReasons.includes(reason)) {
+      setReason("");
+      setAgeClass("");
+      setAge("");
+      setAu("");
+      setRoute(null);
+      setWeight("");
+    }
+  }, [drug, conc, reason]);
   useEffect(() => {
     setRate(r?.rates.length === 1 ? r.rates[0] : null);
   }, [drug, reason, route, adult]);
@@ -739,7 +770,8 @@ export default function App() {
             t="Patient and route"
             h="Complete only the questions needed for this medication pathway."
           >
-            {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("");if((drug==="magnesium"&&magnesiumAdultOnly(x))||(drug==="epinephrine"&&(epinephrineAdultOnly(x)||epinephrinePediatricOnly(x)))){setAgeClass("");setAge("");setAu("")}}}>{x}</button>)}</div>{reason&&<a className="inline-protocol" href={indicationProtocolUrl(drug,reason)} target="_blank" rel="noreferrer">Open DMP {indicationProtocol(drug,reason).id} {indicationProtocol(drug,reason).name} ↗</a>}</div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={indicationProtocolUrl(drug,reasons[drug][0])} target="_blank" rel="noreferrer">DMP {indicationProtocol(drug,reasons[drug][0]).id} ↗</a></div>}
+            {drug==="epinephrine"&&<div className="confirmed-source"><small>CONFIRMED EPINEPHRINE FORMULATION</small><strong>{epiConcentrationName}</strong><span>Only DMP uses compatible with this concentration are shown below.</span></div>}
+            {availableReasons.length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{availableReasons.map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("");if((drug==="magnesium"&&magnesiumAdultOnly(x))||(drug==="epinephrine"&&(epinephrineAdultOnly(x)||epinephrinePediatricOnly(x)))){setAgeClass("");setAge("");setAu("")}}}>{x}</button>)}</div>{reason&&<a className="inline-protocol" href={indicationProtocolUrl(drug,reason)} target="_blank" rel="noreferrer">Open DMP {indicationProtocol(drug,reason).id} {indicationProtocol(drug,reason).name} ↗</a>}</div>:availableReasons.length===1?<div className="selected-path"><small>INDICATION</small><b>{availableReasons[0]}</b><a href={indicationProtocolUrl(drug,availableReasons[0])} target="_blank" rel="noreferrer">DMP {indicationProtocol(drug,availableReasons[0]).id} ↗</a></div>:<HardStop title="NO MATCHING EPINEPHRINE PATHWAY" reason={`The confirmed concentration (${epiConcentrationName||"not entered"}) does not match a supported DMP 9120 Epinephrine formulation.`} source="DMP 9120 Epinephrine" action="Return to the medication check and enter the total drug and total volume exactly as printed on the physical medication." recoveryLabel="Correct concentration" onRecover={()=>setStep("scanConfirm")}/>} 
             <div className="adaptive-heading">AGE GROUP</div>
             {!ageClass ? <div className={`age-class-grid ${(drug==="fentanyl"||drug==="midazolam")?"three-age-options":""}`}>
               {!epinephrinePediatricOnly(reason)&&((drug==="adenosine"||(drug==="magnesium"&&magnesiumAdultOnly(reason))||(drug==="epinephrine"&&epinephrineAdultOnly(reason)))?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(false);setMidazolamSmallAdult(null);setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"12–65 YEARS":drug==="fentanyl"?"NOT IDENTIFIED AS ELDERLY/FRAIL":"12 YEARS OR OLDER"}</small><b>Adult</b><span>›</span></button>{(drug==="fentanyl"||drug==="midazolam")&&<button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(drug==="fentanyl");setMidazolamSmallAdult(false);setAge(drug==="midazolam"?"66":"65");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"OVER 65 YEARS":"FENTANYL-SPECIFIC CONSIDERATION"}</small><b>{drug==="midazolam"?"Adult >65":"Elderly or frail"}</b><span>›</span></button>}</>)}
