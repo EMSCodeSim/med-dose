@@ -4,7 +4,8 @@ import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
 import FieldToolbar from "./FieldToolbar";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium";
-type StockVial = {drug:Drug;amount:string;volume:string;unit:"mcg"|"mg";label:string;barcode:string;photo?:string};
+type DoseUnit = "mcg" | "mg" | "g";
+type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
 type Route = "IV" | "IV/IO" | "IM" | "IN";
 type AgeUnit = "years" | "months" | "days";
 type AgeClass = "adult" | "pediatric";
@@ -119,6 +120,10 @@ function routesFor(drug: Drug, reason: string) {
   if (reason === "Eclampsia") return ["IV/IO", "IM"] as Route[];
   if (reason === "Torsades — unstable/peri-arrest" || reason === "Refractory severe bronchospasm") return ["IV"] as Route[];
   return ["IV/IO"] as Route[];
+}
+function normalizedVialAmount(amount: string, unit: DoseUnit) {
+  if (amount === "") return "";
+  return unit === "g" ? String(Number(amount) * 1000) : amount;
 }
 const tapeBands = [
   { name: "Grey", kg: 4, color: "#7b8790", text: "#fff" },
@@ -497,7 +502,7 @@ export default function App() {
       setBaseAttested(false);
       setBaseContactOpen(false);
       const selected=meds.find(x=>x.id===selectedDrug);
-      setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="fentanyl"?"mcg":"mg",label:selected?.brand||selectedDrug,barcode:"",photo:medicationPhoto(selectedDrug)});
+      setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="fentanyl"?"mcg":selectedDrug==="magnesium"?"g":"mg",label:selected?.brand||selectedDrug,barcode:"",photo:medicationPhoto(selectedDrug)});
       setStep("scanConfirm");
     };
   return (
@@ -603,8 +608,18 @@ export default function App() {
               <div className="scan-med-photo">{scannedVial.photo ? <img src={scannedVial.photo} alt={`${scannedVial.label} reference vial`}/> : <div className="reference-vial"><small>{medName(scannedVial.drug).toUpperCase()}</small><b>VIAL</b><span>Reference photo not saved</span></div>}</div>
               <div className="scan-med-identity"><small>{scannedVial.barcode?"BARCODE MATCH":"MANUAL SELECTION"}</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?<><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></>:<span className="manual-vial-note">Enter the concentration from the physical vial below.</span>}</div>
             </div>
-            {!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)&&<><h3 className="label-heading">Enter exactly what the physical vial says</h3><div className="vial-entry"><label><span>Total drug</span><div><input inputMode="decimal" value={scannedVial.amount} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,amount:value});setAmt(value);setScanConcOk(false)}} placeholder="0"/><b>{scannedVial.unit}</b></div></label><label><span>Total volume</span><div><input inputMode="decimal" value={scannedVial.volume} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,volume:value});setMl(value);setScanConcOk(false)}} placeholder="0"/><b>mL</b></div></label></div>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0&&<div className="manual-concentration-result"><span>Calculated concentration</span><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>}</>}
-            {scannedVial.drug==="magnesium"&&<div className="input-guidance"><b>Enter magnesium in milligrams</b><span>If the vial is labeled in grams, convert before entry: 1 g = 1,000 mg. Confirm the converted amount during the concentration check.</span></div>}
+            {!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)&&<>
+              <h3 className="label-heading">Enter exactly what the physical vial says</h3>
+              <div className="vial-entry">
+                <label><span>Total drug</span><div>
+                  <input inputMode="decimal" value={scannedVial.amount} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,amount:value});setAmt(normalizedVialAmount(value,scannedVial.unit));setScanConcOk(false)}} placeholder="0"/>
+                  {scannedVial.drug==="magnesium"?<select aria-label="Magnesium vial amount unit" value={scannedVial.unit} onChange={e=>{const unit=e.target.value as DoseUnit;setScannedVial({...scannedVial,unit});setAmt(normalizedVialAmount(scannedVial.amount,unit));setScanConcOk(false)}}><option value="g">g</option><option value="mg">mg</option></select>:<b>{scannedVial.unit}</b>}
+                </div></label>
+                <label><span>Total volume</span><div><input inputMode="decimal" value={scannedVial.volume} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,volume:value});setMl(value);setScanConcOk(false)}} placeholder="0"/><b>mL</b></div></label>
+              </div>
+              {Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0&&<div className="manual-concentration-result"><span>Calculated concentration</span><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>}
+            </>}
+            {scannedVial.drug==="magnesium"&&scannedVial.unit==="g"&&Number(scannedVial.amount)>0&&<div className="input-guidance"><b>Calculation conversion</b><span>{scannedVial.amount} g = {fmt(Number(scannedVial.amount)*1000)} mg. The dose calculation uses milligrams internally.</span></div>}
             <div className="scan-confirm-checks compact-confirmations">
               <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Medication matches</b>{medName(scannedVial.drug)}</span></label>
               <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Concentration matches</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`${scannedVial.amount} ${scannedVial.unit} / ${scannedVial.volume} mL`:"Enter label values"}</span></label>
