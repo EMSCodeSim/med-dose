@@ -440,7 +440,9 @@ export default function App() {
     doseModifier = (drug==="fentanyl"&&fentanylOlderFrail)||midazolamHalfConsideration ? .5 : 1,
     adjustedBaseDose = baseDose*doseModifier,
     dose = r?.maxSingle ? Math.min(adjustedBaseDose, r.maxSingle) : adjustedBaseDose,
-    conc = Number(amt) > 0 && Number(ml) > 0 ? Number(amt) / Number(ml) : 0,
+    vialAmountForCalculation = drug === "epinephrine" && scannedVial ? Number(normalizedVialAmount(scannedVial.amount, scannedVial.unit, drug)) : Number(amt),
+    vialVolumeForCalculation = drug === "epinephrine" && scannedVial ? Number(scannedVial.volume) : Number(ml),
+    conc = vialAmountForCalculation > 0 && vialVolumeForCalculation > 0 ? vialAmountForCalculation / vialVolumeForCalculation : 0,
     availableReasons = drug === "epinephrine" ? epinephrineReasonsForConcentration(conc) : drug ? reasons[drug] : [],
     epiConcentrationName = drug !== "epinephrine" || conc <= 0 ? "" : Math.abs(conc-0.1)<0.0001 ? "0.1 mg/mL (1:10,000)" : Math.abs(conc-1)<0.0001 ? "1 mg/mL (1:1,000)" : `${fmt(conc)} mg/mL — nonstandard for DMP pathways`,
     epiInfusion = drug === "epinephrine" && reason.includes("infusion"),
@@ -772,7 +774,7 @@ export default function App() {
           >
             {drug==="epinephrine"&&<div className="confirmed-source"><small>CONFIRMED EPINEPHRINE FORMULATION</small><strong>{epiConcentrationName}</strong><span>Only DMP uses compatible with this concentration are shown below.</span></div>}
             {availableReasons.length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{availableReasons.map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("");if((drug==="magnesium"&&magnesiumAdultOnly(x))||(drug==="epinephrine"&&(epinephrineAdultOnly(x)||epinephrinePediatricOnly(x)))){setAgeClass("");setAge("");setAu("")}}}>{x}</button>)}</div>{reason&&<a className="inline-protocol" href={indicationProtocolUrl(drug,reason)} target="_blank" rel="noreferrer">Open DMP {indicationProtocol(drug,reason).id} {indicationProtocol(drug,reason).name} ↗</a>}</div>:availableReasons.length===1?<div className="selected-path"><small>INDICATION</small><b>{availableReasons[0]}</b><a href={indicationProtocolUrl(drug,availableReasons[0])} target="_blank" rel="noreferrer">DMP {indicationProtocol(drug,availableReasons[0]).id} ↗</a></div>:<HardStop title="NO MATCHING EPINEPHRINE PATHWAY" reason={`The confirmed concentration (${epiConcentrationName||"not entered"}) does not match a supported DMP 9120 Epinephrine formulation.`} source="DMP 9120 Epinephrine" action="Return to the medication check and enter the total drug and total volume exactly as printed on the physical medication." recoveryLabel="Correct concentration" onRecover={()=>setStep("scanConfirm")}/>} 
-            <div className="adaptive-heading">AGE GROUP</div>
+            {availableReasons.length>0&&<><div className="adaptive-heading">AGE GROUP</div>
             {!ageClass ? <div className={`age-class-grid ${(drug==="fentanyl"||drug==="midazolam")?"three-age-options":""}`}>
               {!epinephrinePediatricOnly(reason)&&((drug==="adenosine"||(drug==="magnesium"&&magnesiumAdultOnly(reason))||(drug==="epinephrine"&&epinephrineAdultOnly(reason)))?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(false);setMidazolamSmallAdult(null);setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"12–65 YEARS":drug==="fentanyl"?"NOT IDENTIFIED AS ELDERLY/FRAIL":"12 YEARS OR OLDER"}</small><b>Adult</b><span>›</span></button>{(drug==="fentanyl"||drug==="midazolam")&&<button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(drug==="fentanyl");setMidazolamSmallAdult(false);setAge(drug==="midazolam"?"66":"65");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"OVER 65 YEARS":"FENTANYL-SPECIFIC CONSIDERATION"}</small><b>{drug==="midazolam"?"Adult >65":"Elderly or frail"}</b><span>›</span></button>}</>)}
               {drug!=="adenosine"&&!(drug==="magnesium"&&magnesiumAdultOnly(reason))&&!(drug==="epinephrine"&&epinephrineAdultOnly(reason))&&<button onClick={()=>{setAgeClass("pediatric");setFentanylOlderFrail(false);setMidazolamSmallAdult(null);setAge("");setAu("");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>}
@@ -784,7 +786,7 @@ export default function App() {
                 <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">{(["years","months","days"] as AgeUnit[]).map((x)=><button key={x} className={au===x?"selected":""} onClick={()=>setAu(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
                 {age!==""&&!au?<div className="input-guidance"><b>Select the age unit</b><span>Choose years, months or days to continue.</span></div>:age!==""&&!ageWithinRange?<div className="input-guidance"><b>Check the age entry</b><span>Use days through 365, months through 143, or years below 12.</span></div>:epiWheezingTooYoung?<HardStop title="AGE OUTSIDE THIS INDICATION" reason="DMP 9120 lists pediatric wheezing Epinephrine only for ages 1 through 12 years." source="DMP 9120 Epinephrine" action="Correct the age or choose the systemic allergic reaction indication when that is the actual clinical reason." recoveryLabel="Correct age or indication" onRecover={()=>{setAge("");setAu("")}}/>:baseRequirement?<BaseContactGate reason={baseRequirement} source={drug==="fentanyl"?"DMP 9230 Opioids":drug==="epinephrine"?"DMP 9120 Epinephrine":"DMP 1100 Transcutaneous Cardiac Pacing"} open={baseContactOpen} physician={basePhysician} attested={baseAttested} approval={baseApproval?.reason===baseRequirement?baseApproval:null} setOpen={setBaseContactOpen} setPhysician={setBasePhysician} setAttested={setBaseAttested} approve={()=>setBaseApproval({physician:basePhysician.trim(),time:Date.now(),reason:baseRequirement})} clear={()=>{setBaseApproval(null);setBaseAttested(false);setBaseContactOpen(true)}}/>:null}
               </>}
-            </>}
+            </>}</>}
             {!!reason&&ageOk&&!ageBlocked&&baseClear&&midazolamSizeAnswered&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routesFor(drug,reason).map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Status epilepticus"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}{drug==="magnesium"&&route&&r?.note&&<div className="source-note">{r.note}</div>}</div>}
             {!!route&&needWeight&&<div className="adaptive-section"><small>CALCULATION WEIGHT</small><div className="source-grid compact-sources">{[["actual","Actual"],["estimated","Estimated"],...(tapeEligible?[["tape","Length-based tape"]]:[])].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>
               {weightSuggestion!==null&&ws!=="tape"&&<button className="quick-estimate" onClick={useSuggestedWeight}>Use DMP age-band estimate: {weightSuggestion} kg</button>}
@@ -1084,7 +1086,7 @@ export default function App() {
                 </div>
                 <div className="confirmed-source">
                   <small>CONFIRMED VIAL CONCENTRATION</small>
-                  <strong>{amt} {unit} in {ml} mL</strong>
+                  <strong>{fmt(vialAmountForCalculation)} {unit} in {fmt(vialVolumeForCalculation)} mL</strong>
                   <b>{fmt(conc)} {unit}/mL</b>
                   <span>Confirmed before patient dosing information was entered.</span>
                 </div>
@@ -1137,7 +1139,7 @@ export default function App() {
                 <button onClick={()=>setStep("scanConfirm")}><small>MEDICATION</small><b>{medName(drug)}</b></button>
                 <button onClick={()=>setStep("age")}><small>PATIENT</small><b>{adult?"Adult":"Pediatric"} • {ageText}</b>{needWeight&&<span>{fmt(kg)} kg</span>}</button>
                 <button onClick={()=>setStep("age")}><small>ROUTE</small><b>{administrationRoute}</b></button>
-                <button onClick={()=>setStep("scanConfirm")}><small>CONCENTRATION</small><b>{fmt(conc)} {unit}/mL</b><span>{amt} {unit} in {ml} mL</span></button>
+                <button onClick={()=>setStep("scanConfirm")}><small>CONCENTRATION</small><b>{fmt(conc)} {unit}/mL</b><span>{fmt(vialAmountForCalculation)} {unit} in {fmt(vialVolumeForCalculation)} mL</span></button>
                 <button className="summary-indication" onClick={()=>setStep("age")}><small>INDICATION</small><b>{reason}</b></button>
                 {rate!==null&&<><span className="summary-result"><small>PROTOCOL DOSE</small><b>{epiWeightBandDose?`${kg<25?"<25":"≥25"} kg → ${formatDose(drug,dose,unit)}`:r.perKg?`${fmt(rate)} ${unit}/kg`:formatDose(drug,rate,unit)}</b></span><span className="summary-result primary"><small>CALCULATED RESULT</small><b>{doseText} • {fmt(vol)} mL{epiInfusion?"/min":""}</b></span></>}
               </div>
@@ -1186,8 +1188,8 @@ export default function App() {
                 kg={kg}
                 rate={rate || 0}
                 dose={dose}
-                amount={Number(amt)}
-                vialMl={Number(ml)}
+                amount={vialAmountForCalculation}
+                vialMl={vialVolumeForCalculation}
                 concentration={administrationConcentration}
                 volume={vol}
                 unit={unit}
@@ -1273,7 +1275,7 @@ export default function App() {
               )}
               <Review
                 l="Vial"
-                v={`${amt} ${unit} in ${ml} mL = ${fmt(conc)} ${unit}/mL`}
+                v={`${fmt(vialAmountForCalculation)} ${unit} in ${fmt(vialVolumeForCalculation)} mL = ${fmt(conc)} ${unit}/mL`}
               />
               <Review
                 l="Volume calculation"
