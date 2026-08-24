@@ -1,4 +1,4 @@
-const CACHE = "metro-med-dose-v16";
+const CACHE = "metro-med-dose-v17";
 const CORE = ["/", "/offline.html", "/manifest.webmanifest", "/medications/adenosine-vial.webp", "/icons/metro-med-dose-192.png", "/icons/metro-med-dose-512.png", "/icons/apple-touch-icon.png", "/icons/favicon-32.png"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting())));
 self.addEventListener("activate", event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
