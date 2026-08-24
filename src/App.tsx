@@ -424,6 +424,8 @@ export default function App() {
     needWeight = !!r?.weight,
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
     items = drug ? checksFor(drug, an, reason, fentanylOlderFrail, midazolamHalfConsideration) : [],
+    safetyComplete = items.length > 0 && items.every((_, index) => checks[index] === true),
+    safetyCompletedCount = items.reduce((count, _, index) => count + (checks[index] === true ? 1 : 0), 0),
     baseRequirement = drug==="fentanyl"&&underOne?"Fentanyl administration for a pediatric patient under 1 year":drug==="midazolam"&&reason==="Sedation for transcutaneous pacing"&&!adult?"Transcutaneous pacing for a patient under 12 years":drug==="epinephrine"&&reason==="Pediatric severe anaphylaxis — Base push dose"?"Pediatric severe anaphylaxis refractory to 3 IM Epinephrine doses and 60 mL/kg NS":null,
     baseClear = !baseRequirement||(baseApproval?.reason===baseRequirement),
     ageBlocked = !!au&&(((drug === "fentanyl" && underOne)&&!baseClear)||(drug==="adenosine"&&age!==""&&!adult)||epiWheezingTooYoung),
@@ -520,7 +522,7 @@ export default function App() {
         age: ageOk,
         route: !!route,
         weight: weightOk,
-        safety: checks.length === items.length && checks.every(Boolean),
+        safety: safetyComplete,
         vial: rate !== null && conc > 0 && !volumeBlocked,
         review: true,
       }),
@@ -978,11 +980,7 @@ export default function App() {
                   <input
                     type="checkbox"
                     checked={!!checks[i]}
-                    onChange={(e) =>
-                      setChecks(
-                        checks.map((v, n) => (n === i ? e.target.checked : v)),
-                      )
-                    }
+                    onChange={(e) => setChecks(current => items.map((_, n) => n === i ? e.target.checked : current[n] === true))}
                   />
                   <span>
                     <b>{i + 1}</b>
@@ -990,6 +988,10 @@ export default function App() {
                   </span>
                 </label>
               ))}
+            </div>
+            <div className={safetyComplete?"checklist-progress complete":"checklist-progress"} role="status">
+              <b>{safetyCompletedCount} of {items.length} confirmed</b>
+              <span>{safetyComplete?"Safety checklist complete — continue to the final dose.":"Confirm every applicable item to continue."}</span>
             </div>
             <a
               className="protocol-link"
@@ -999,7 +1001,7 @@ export default function App() {
             >
               Open medication {protocolId(drug)} ↗
             </a>
-            <Next ok={valid.safety} go={next} />
+            <Next ok={safetyComplete} go={()=>{if(safetyComplete)setStep("review")}} text="Continue to final dose" />
           </Screen>
         )}
         {step === "vial" && drug && r && (
