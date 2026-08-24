@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 
-type SupportedDrug = "adenosine" | "fentanyl" | "midazolam" | "magnesium";
+type SupportedDrug = "adenosine" | "fentanyl" | "midazolam" | "magnesium" | "epinephrine";
 type Tool = "meds" | "vitals" | "treatment" | "protocols" | null;
 type Props = {
   ageYears: number | null;
@@ -55,7 +55,7 @@ export default function FieldToolbar(p: Props) {
 }
 
 function MedicationPanel(p: Props & {query:string;setQuery:(x:string)=>void;openProtocol:(x:ProtocolTarget)=>void}) {
-  const supported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["magnesium","Magnesium Sulfate","Torsades, refractory bronchospasm or eclampsia"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];
+  const supported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["epinephrine","Epinephrine","Arrest, anaphylaxis, shock, wheezing or stridor"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["magnesium","Magnesium Sulfate","Torsades, refractory bronchospasm or eclampsia"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];
   return <>
     {p.currentDrug&&<div className="current-reference"><small>CURRENT CALCULATION</small><b>{p.currentDrug}</b>{p.currentDose&&<strong>{p.currentDose}{p.currentVolume?` • ${p.currentVolume}`:""}</strong>}</div>}
     <h3>Patient calculator choices</h3><div className="drawer-med-choices">{supported.map(([id,name,note])=><button key={id} onClick={()=>p.onSelectMedication(id)}><b>{name}</b><span>{note}</span><i>›</i></button>)}</div>
@@ -122,6 +122,13 @@ function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,d
     {label:"REASSESSMENT",value:"Reassess sedation after 5 minutes",note:"During pacing, verify electrical and mechanical capture."},
     {label:"TRANSPORT / BASE",value:"Treat under the bradyarrhythmia pathway",note:"Contact Base before more than 2 sedation doses; pediatric pacing is rarely indicated and requires Base contact."},
   ];
+  if(drug==="epinephrine") return [
+    {label:"REQUIRED MONITORING",value:"Continuous ECG, blood pressure, pulse oximetry and perfusion",note:"Watch for tachydysrhythmia, hypertension and myocardial ischemia."},
+    {label:"PREREQUISITES",value:indication,note:"Confirm prerequisite treatments and the exact indication-specific formulation."},
+    {label:"MEDICATION OPTION",value:medication,note:"Never interchange 1 mg/mL IM stock with 0.1 mg/mL IV/IO stock. Follow the formulation hard stop."},
+    {label:"REASSESSMENT",value:indication.includes("Pulseless")?"Rhythm/pulse check per arrest algorithm":indication.includes("infusion")?"Continuously titrate to clinical effect":"Reassess rhythm, BP, perfusion and respiratory status",note:"Follow the indication-specific interval displayed by the calculator."},
+    {label:"TRANSPORT / BASE",value:"Continue the indication-specific protocol and transport",note:"Contact Base when required by the linked protocol or for dosing outside DMP 9120."},
+  ];
   if(drug==="magnesium") return [
     {label:"REQUIRED MONITORING",value:"Continuous ECG, blood pressure and respiratory monitoring",note:"Watch for bradycardia, hypotension and respiratory depression."},
     {label:"PREREQUISITES",value:indication,note:"Confirm the exact DMP 9190 indication and applicable prerequisite treatments before administration."},
@@ -144,9 +151,17 @@ function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,d
     {label:"TRANSPORT / BASE",value:"Monitor during transport",note:age!=null&&age<12?"Pediatric Adenosine requires a direct verbal Base order.":"If the rhythm does not convert, contact Base for consultation; contact medical control for dosing beyond the additional 12 mg dose."},
   ];
 }
-function drugName(drug:SupportedDrug){return drug==="midazolam"?"Midazolam":drug==="magnesium"?"Magnesium Sulfate":drug[0].toUpperCase()+drug.slice(1)}
+function drugName(drug:SupportedDrug){return drug==="midazolam"?"Midazolam":drug==="magnesium"?"Magnesium Sulfate":drug==="epinephrine"?"Epinephrine":drug[0].toUpperCase()+drug.slice(1)}
 
 function treatmentProtocol(drug:SupportedDrug,indication:string):ProtocolTarget {
+  if(drug==="epinephrine") {
+    if(indication.includes("Pulseless")) return {id:"3000",name:"Medical Pulseless Arrest",page:66};
+    if(indication.includes("Bradycardia")) return {id:"3050",name:"Bradyarrhythmia with Poor Perfusion",page:71};
+    if(indication.includes("Hypotension")) return {id:"4000",name:"Medical Shock",page:76};
+    if(indication.includes("Stridor")) return {id:"2050",name:"Pediatric Stridor/Croup",page:63};
+    if(indication.includes("Wheezing")) return {id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61};
+    return {id:"4090",name:"Allergy and Anaphylaxis",page:85};
+  }
   if(drug==="magnesium") {
     if(indication==="Eclampsia") return {id:"7010",name:"Obstetrical Complications",page:106};
     if(indication==="Refractory severe bronchospasm") return {id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61};
