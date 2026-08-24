@@ -126,9 +126,9 @@ const reasons: Record<Drug, string[]> = {
     "Systemic allergic reaction — auto-injector",
   ],
 };
-function epinephrineReasonsForConcentration(concentrationMcgMl: number) {
-  const isPointOneMgMl = Math.abs(concentrationMcgMl - 100) < 0.01;
-  const isOneMgMl = Math.abs(concentrationMcgMl - 1000) < 0.01;
+function epinephrineReasonsForConcentration(concentrationMgMl: number) {
+  const isPointOneMgMl = Math.abs(concentrationMgMl - 0.1) < 0.0001;
+  const isOneMgMl = Math.abs(concentrationMgMl - 1) < 0.0001;
   if (isPointOneMgMl) return [
     "Pulseless arrest",
     "Hypotension or refractory anaphylaxis — push dose",
@@ -174,7 +174,7 @@ function routesFor(drug: Drug, reason: string) {
 }
 function normalizedVialAmount(amount: string, unit: DoseUnit, drug?: Drug) {
   if (amount === "") return "";
-  if (drug === "epinephrine") return unit === "mg" ? String(Number(amount) * 1000) : amount;
+  if (drug === "epinephrine") return unit === "mcg" ? String(Number(amount) / 1000) : amount;
   return unit === "g" ? String(Number(amount) * 1000) : amount;
 }
 const tapeBands = [
@@ -193,21 +193,21 @@ function rules(drug: Drug, reason: string, age: number, route: Route | null) {
   if(drug==="adenosine")return{weight:false,rates:[12],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"One additional 12 mg rapid IV dose; contact medical control for further considerations.",maxCumulative:null,maxDoses:2,note:"Administer rapid IV bolus followed immediately by a normal saline flush. Continuous ECG monitoring required."};
   if (drug === "epinephrine") {
     if (reason === "Pulseless arrest") return adult
-      ? {weight:false,rates:[1000],unit:"mcg",perKg:false,maxSingle:null,repeat:3,repeatText:"Repeat every 3–5 minutes; maximum 3 doses. Additional dose only for recurrent arrest after ROSC or narrow-complex PEA.",maxCumulative:null,maxDoses:3,note:"IV/IO BOLUS. Requires 0.1 mg/mL (100 mcg/mL) solution."}
-      : {weight:true,rates:[10],unit:"mcg",perKg:true,maxSingle:null,repeat:3,repeatText:"Repeat every 3–5 minutes. DMP 9120 does not state a pediatric dose-count maximum.",maxCumulative:null,maxDoses:null,note:"IV/IO BOLUS. Requires 0.1 mg/mL (100 mcg/mL) solution."};
-    if (reason === "Bradycardia with poor perfusion") return {weight:true,rates:[10],unit:"mcg",perKg:true,maxSingle:null,repeat:0,repeatText:"No routine repeat is listed in DMP 9120 for this indication.",maxCumulative:null,maxDoses:1,note:"Pediatric IV/IO dose. Requires 0.1 mg/mL (100 mcg/mL) solution."};
-    if (reason === "Pediatric severe anaphylaxis — Base push dose") return {weight:true,rates:[1],unit:"mcg",perKg:true,maxSingle:null,repeat:0,repeatText:"Give slow IV/IO aliquots as needed under direct Base authorization.",maxCumulative:null,maxDoses:1,note:"BASE CONTACT REQUIRED. Only after 3 total IM Epinephrine doses AND 60 mL/kg NS. Required final dilution: 10 mcg/mL (0.01 mg/mL)."};
+      ? {weight:false,rates:[1],unit:"mg",perKg:false,maxSingle:null,repeat:3,repeatText:"Repeat every 3–5 minutes; maximum 3 doses. Additional dose only for recurrent arrest after ROSC or narrow-complex PEA.",maxCumulative:null,maxDoses:3,note:"IV/IO BOLUS. Requires 0.1 mg/mL (1:10,000) solution."}
+      : {weight:true,rates:[0.01],unit:"mg",perKg:true,maxSingle:null,repeat:3,repeatText:"Repeat every 3–5 minutes. DMP 9120 does not state a pediatric dose-count maximum.",maxCumulative:null,maxDoses:null,note:"IV/IO BOLUS. Requires 0.1 mg/mL (1:10,000) solution."};
+    if (reason === "Bradycardia with poor perfusion") return {weight:true,rates:[0.01],unit:"mg",perKg:true,maxSingle:null,repeat:0,repeatText:"No routine repeat is listed in DMP 9120 for this indication.",maxCumulative:null,maxDoses:1,note:"Pediatric IV/IO dose. Requires 0.1 mg/mL (1:10,000) solution."};
+    if (reason === "Pediatric severe anaphylaxis — Base push dose") return {weight:true,rates:[0.001],unit:"mg",perKg:true,maxSingle:null,repeat:0,repeatText:"Give slow IV/IO aliquots as needed under direct Base authorization.",maxCumulative:null,maxDoses:1,note:"BASE CONTACT REQUIRED. Only after 3 total IM Epinephrine doses AND 60 mL/kg NS. Required final dilution: 0.01 mg/mL."};
     if (reason === "Systemic allergic reaction — IM" || reason === "Wheezing — IM") {
-      if (adult) return {weight:false,rates:[500],unit:"mcg",perKg:false,maxSingle:null,repeat:0,repeatText:"May repeat once.",maxCumulative:null,maxDoses:2,note:"IM in the lateral thigh. Requires 1 mg/mL solution."};
-      if (age < 4/12) return {weight:false,rates:[100],unit:"mcg",perKg:false,maxSingle:null,repeat:5,repeatText:"Term to under 4 months: may repeat twice every 5 minutes.",maxCumulative:null,maxDoses:3,note:"Allergic reaction only. IM in the lateral thigh. Requires 1 mg/mL solution."};
-      return {weight:true,rates:[150],unit:"mcg",perKg:false,maxSingle:null,repeat:5,repeatText:"May repeat twice every 5 minutes.",maxCumulative:null,maxDoses:3,note:"Dose is selected by weight: 0.15 mg under 25 kg; 0.3 mg at 25 kg or more. Requires 1 mg/mL solution."};
+      if (adult) return {weight:false,rates:[0.5],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"May repeat once.",maxCumulative:null,maxDoses:2,note:"IM in the lateral thigh. Requires 1 mg/mL (1:1,000) solution."};
+      if (age < 4/12) return {weight:false,rates:[0.1],unit:"mg",perKg:false,maxSingle:null,repeat:5,repeatText:"Term to under 4 months: may repeat twice every 5 minutes.",maxCumulative:null,maxDoses:3,note:"Allergic reaction only. IM in the lateral thigh. Requires 1 mg/mL (1:1,000) solution."};
+      return {weight:true,rates:[0.15],unit:"mg",perKg:false,maxSingle:null,repeat:5,repeatText:"May repeat twice every 5 minutes.",maxCumulative:null,maxDoses:3,note:"Dose is selected by weight: 0.15 mg under 25 kg; 0.3 mg at 25 kg or more. Requires 1 mg/mL (1:1,000) solution."};
     }
     if (reason === "Systemic allergic reaction — auto-injector") return adult
-      ? {weight:false,rates:[300],unit:"mcg",perKg:false,maxSingle:null,repeat:0,repeatText:"No repeat auto-injector dose is listed in DMP 9120.",maxCumulative:null,maxDoses:1,note:"Adult 0.3 mg IM auto-injector."}
-      : {weight:false,rates:[150],unit:"mcg",perKg:false,maxSingle:null,repeat:0,repeatText:"No repeat auto-injector dose is listed in DMP 9120.",maxCumulative:null,maxDoses:1,note:"Pediatric 0.15 mg IM auto-injector."};
-    if (reason.includes("push dose")) return {weight:false,rates:[10,20],unit:"mcg",perKg:false,maxSingle:null,repeat:1,repeatText:"Give 10–20 mcg aliquots every 1–5 minutes as needed.",maxCumulative:null,maxDoses:10,note:"IV PUSH DOSE. Follow agency-specific mixing guidance; dosing error is common. Required final concentration: 100 mcg/mL (10 mcg per 0.1 mL)."};
-    if (reason.includes("infusion")) return {weight:false,rates:[2,3,4,5,6,7,8,9],unit:"mcg",perKg:false,maxSingle:null,repeat:0,repeatText:"Titrate to SBP >90 mmHg, improved respiratory status and improved perfusion/mentation.",maxCumulative:null,maxDoses:1,note:"IV/IO INFUSION — NOT PUSH. Mix 1 mg in 1000 mL NS for 1 mcg/mL and label the bag."};
-    return {weight:false,rates:[5000],unit:"mcg",perKg:false,maxSingle:null,repeat:0,repeatText:"One nebulized dose; pediatric repeat requires Base contact.",maxCumulative:null,maxDoses:1,note:"NEBULIZED — NOT INJECTED. Give 5 mL of 1 mg/mL solution."};
+      ? {weight:false,rates:[0.3],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"No repeat auto-injector dose is listed in DMP 9120.",maxCumulative:null,maxDoses:1,note:"Adult 0.3 mg IM auto-injector."}
+      : {weight:false,rates:[0.15],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"No repeat auto-injector dose is listed in DMP 9120.",maxCumulative:null,maxDoses:1,note:"Pediatric 0.15 mg IM auto-injector."};
+    if (reason.includes("push dose")) return {weight:false,rates:[0.01,0.02],unit:"mg",perKg:false,maxSingle:null,repeat:1,repeatText:"Give 0.01–0.02 mg aliquots every 1–5 minutes as needed.",maxCumulative:null,maxDoses:10,note:"IV PUSH DOSE. Follow agency-specific mixing guidance; dosing error is common. Required concentration: 0.1 mg/mL (0.01 mg per 0.1 mL)."};
+    if (reason.includes("infusion")) return {weight:false,rates:[0.002,0.003,0.004,0.005,0.006,0.007,0.008,0.009],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"Titrate to SBP >90 mmHg, improved respiratory status and improved perfusion/mentation.",maxCumulative:null,maxDoses:1,note:"IV/IO INFUSION — NOT PUSH. Mix 1 mg in 1000 mL NS for 0.001 mg/mL and label the bag."};
+    return {weight:false,rates:[5],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"One nebulized dose; pediatric repeat requires Base contact.",maxCumulative:null,maxDoses:1,note:"NEBULIZED — NOT INJECTED. Give 5 mL of 1 mg/mL solution."};
   }
   if (drug === "magnesium") {
     const pediatricWeightDose = reason === "Torsades — cardiac arrest" || reason === "Refractory severe bronchospasm";
@@ -335,7 +335,7 @@ function checksFor(drug: Drug, age: number, reason: string, fentanylOlderFrail =
 }
 function monitoringCautions(drug: Drug, reason = "", route: Route | null = null, adult = true) {
   if (drug === "epinephrine") {
-    const administration = reason.includes("infusion") ? "IV/IO INFUSION — NOT PUSH: 1 mg in 1000 mL NS = 1 mcg/mL; label the bag"
+    const administration = reason.includes("infusion") ? "IV/IO INFUSION — NOT PUSH: 1 mg in 1000 mL NS = 0.001 mg/mL; label the bag"
       : reason.includes("push dose") ? "IV PUSH DOSE: use agency-specific mixing guidance; dosing error is common"
       : reason.includes("Stridor") ? "NEBULIZED — NOT INJECTED: 5 mL of 1 mg/mL solution"
       : reason.includes("allergic") || reason.includes("auto-injector") ? "IM into the lateral thigh; verify 1 mg/mL formulation before administration"
@@ -436,27 +436,27 @@ export default function App() {
     ageOk = age !== "" && !!au && ageWithinRange && !ageBlocked,
     weightOk = !needWeight || (kg > 0 && kg < 350),
     epiWeightBandDose = drug === "epinephrine" && (reason === "Systemic allergic reaction — IM" || reason === "Wheezing — IM") && !adult && an >= 4/12,
-    baseDose = r && rate !== null ? (epiWeightBandDose ? (kg < 25 ? 150 : 300) : r.perKg ? kg * rate : rate) : 0,
+    baseDose = r && rate !== null ? (epiWeightBandDose ? (kg < 25 ? 0.15 : 0.3) : r.perKg ? kg * rate : rate) : 0,
     doseModifier = (drug==="fentanyl"&&fentanylOlderFrail)||midazolamHalfConsideration ? .5 : 1,
     adjustedBaseDose = baseDose*doseModifier,
     dose = r?.maxSingle ? Math.min(adjustedBaseDose, r.maxSingle) : adjustedBaseDose,
     conc = Number(amt) > 0 && Number(ml) > 0 ? Number(amt) / Number(ml) : 0,
     availableReasons = drug === "epinephrine" ? epinephrineReasonsForConcentration(conc) : drug ? reasons[drug] : [],
-    epiConcentrationName = drug !== "epinephrine" || conc <= 0 ? "" : Math.abs(conc-100)<0.01 ? "0.1 mg/mL (1:10,000)" : Math.abs(conc-1000)<0.01 ? "1 mg/mL (1:1,000)" : `${fmt(conc)} mcg/mL — nonstandard for DMP pathways`,
+    epiConcentrationName = drug !== "epinephrine" || conc <= 0 ? "" : Math.abs(conc-0.1)<0.0001 ? "0.1 mg/mL (1:10,000)" : Math.abs(conc-1)<0.0001 ? "1 mg/mL (1:1,000)" : `${fmt(conc)} mg/mL — nonstandard for DMP pathways`,
     epiInfusion = drug === "epinephrine" && reason.includes("infusion"),
     epiPediatricDilution = drug === "epinephrine" && reason === "Pediatric severe anaphylaxis — Base push dose",
-    administrationConcentration = epiInfusion ? 1 : epiPediatricDilution ? 10 : conc,
+    administrationConcentration = epiInfusion ? 0.001 : epiPediatricDilution ? 0.01 : conc,
     vol = administrationConcentration ? dose / administrationConcentration : 0,
     isIntranasal = route === "IN",
     inVolumeOverTarget = isIntranasal && vol > 2,
     inTooHigh = drug === "fentanyl" && inVolumeOverTarget,
-    unit = drug === "fentanyl" || drug === "epinephrine" ? "mcg" : "mg",
+    unit = drug === "fentanyl" ? "mcg" : "mg",
     doseText = drug ? `${formatDose(drug,dose,unit)}${epiInfusion?"/min":""}` : `${fmt(dose)} ${unit}`,
     magImTooHigh = drug === "magnesium" && reason === "Eclampsia" && route === "IM" && vol > 20,
     magInfusion = drug === "magnesium" && !!route && route !== "IM" && (reason === "Torsades — stable/intermittent" || reason === "Refractory severe bronchospasm" || reason === "Eclampsia"),
     magPush = drug === "magnesium" && (reason === "Torsades — unstable/peri-arrest" || reason === "Torsades — cardiac arrest"),
-    epiExpectedConcentration = drug !== "epinephrine" ? null : reason.includes("infusion") ? null : reason.includes("push dose") || reason === "Pulseless arrest" || reason === "Bradycardia with poor perfusion" ? 100 : 1000,
-    epiConcentrationMismatch = epiExpectedConcentration !== null && conc > 0 && Math.abs(conc - epiExpectedConcentration) > 0.01,
+    epiExpectedConcentration = drug !== "epinephrine" ? null : reason.includes("infusion") ? null : reason.includes("push dose") || reason === "Pulseless arrest" || reason === "Bradycardia with poor perfusion" ? 0.1 : 1,
+    epiConcentrationMismatch = epiExpectedConcentration !== null && conc > 0 && Math.abs(conc - epiExpectedConcentration) > 0.0001,
     volumeBlocked = inTooHigh || magImTooHigh || epiConcentrationMismatch,
     magInfusionMinutes = magInfusion ? (reason === "Refractory severe bronchospasm" && !adult ? 30 : 15) : 0,
     administrationRoute = magInfusion ? `${route} DRIP` : magPush ? `${route} PUSH` : epiInfusion ? `${route} INFUSION` : drug === "epinephrine" && reason.includes("push dose") ? `${route} PUSH DOSE` : route,
@@ -725,14 +725,14 @@ export default function App() {
               <div className="vial-entry">
                 <label><span>Total drug</span><div>
                   <input inputMode="decimal" value={scannedVial.amount} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,amount:value});setAmt(normalizedVialAmount(value,scannedVial.unit,scannedVial.drug));setScanConcOk(false)}} placeholder="0"/>
-                  {scannedVial.drug==="magnesium"?<select aria-label="Magnesium vial amount unit" value={scannedVial.unit} onChange={e=>{const unit=e.target.value as DoseUnit;setScannedVial({...scannedVial,unit});setAmt(normalizedVialAmount(scannedVial.amount,unit,scannedVial.drug));setScanConcOk(false)}}><option value="g">g</option><option value="mg">mg</option></select>:scannedVial.drug==="epinephrine"?<select aria-label="Epinephrine vial amount unit" value={scannedVial.unit} onChange={e=>{const unit=e.target.value as DoseUnit;setScannedVial({...scannedVial,unit});setAmt(normalizedVialAmount(scannedVial.amount,unit,scannedVial.drug));setScanConcOk(false)}}><option value="mg">mg</option><option value="mcg">mcg</option></select>:<b>{scannedVial.unit}</b>}
+                  {scannedVial.drug==="magnesium"?<select aria-label="Magnesium vial amount unit" value={scannedVial.unit} onChange={e=>{const unit=e.target.value as DoseUnit;setScannedVial({...scannedVial,unit});setAmt(normalizedVialAmount(scannedVial.amount,unit,scannedVial.drug));setScanConcOk(false)}}><option value="g">g</option><option value="mg">mg</option></select>:<b>{scannedVial.unit}</b>}
                 </div></label>
                 <label><span>Total volume</span><div><input inputMode="decimal" value={scannedVial.volume} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,volume:value});setMl(value);setScanConcOk(false)}} placeholder="0"/><b>mL</b></div></label>
               </div>
               {Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0&&<div className="manual-concentration-result"><span>Calculated concentration</span><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>}
             </>}
             {scannedVial.drug==="magnesium"&&scannedVial.unit==="g"&&Number(scannedVial.amount)>0&&<div className="input-guidance"><b>Calculation conversion</b><span>{scannedVial.amount} g = {fmt(Number(scannedVial.amount)*1000)} mg. The dose calculation uses milligrams internally.</span></div>}
-            {scannedVial.drug==="epinephrine"&&scannedVial.unit==="mg"&&Number(scannedVial.amount)>0&&<div className="input-guidance"><b>Epinephrine unit cross-check</b><span>{scannedVial.amount} mg = {fmt(Number(scannedVial.amount)*1000)} mcg. The calculator keeps micrograms visible to prevent decimal errors.</span></div>}
+            {scannedVial.drug==="epinephrine"&&Number(scannedVial.amount)>0&&<div className="input-guidance"><b>Epinephrine units locked</b><span>All Epinephrine concentrations and doses remain in milligrams throughout this calculation.</span></div>}
             <div className="scan-confirm-checks compact-confirmations">
               <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Medication matches</b>{medName(scannedVial.drug)}</span></label>
               <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Concentration matches</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`${scannedVial.amount} ${scannedVial.unit} / ${scannedVial.volume} mL`:"Enter label values"}</span></label>
@@ -1145,7 +1145,7 @@ export default function App() {
             </section>
             {baseApproval&&<div className="base-approved compact"><small>BASE AUTHORIZATION</small><b>Approved by {baseApproval.physician}</b><time>{new Date(baseApproval.time).toLocaleString()}</time></div>}
             {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
-            {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Select another DMP-approved route or confirm an appropriate higher-concentration vial, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:magImTooHigh?<HardStop title="IM VOLUME EXCEEDS SITE LIMIT" reason={`The calculated stock volume is ${fmt(vol)} mL, or ${fmt(vol/2)} mL per buttock. DMP 9190 limits each IM site to 10 mL.`} source="DMP 9190 Magnesium Sulfate" action="Confirm an appropriate higher-concentration vial or select the IV/IO route, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:epiConcentrationMismatch?<HardStop title="WRONG EPINEPHRINE CONCENTRATION" reason={`This pathway requires ${epiExpectedConcentration===100?"0.1 mg/mL (100 mcg/mL)":"1 mg/mL (1000 mcg/mL)"}, but the confirmed medication is ${fmt(conc)} mcg/mL.`} source="DMP 9120 Epinephrine" action="Do not calculate through the mismatch. Return to the medication check and confirm the correct formulation from the physical label." recoveryLabel="Correct medication concentration" onRecover={()=>setStep("scanConfirm")}/>:<>
+            {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Select another DMP-approved route or confirm an appropriate higher-concentration vial, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:magImTooHigh?<HardStop title="IM VOLUME EXCEEDS SITE LIMIT" reason={`The calculated stock volume is ${fmt(vol)} mL, or ${fmt(vol/2)} mL per buttock. DMP 9190 limits each IM site to 10 mL.`} source="DMP 9190 Magnesium Sulfate" action="Confirm an appropriate higher-concentration vial or select the IV/IO route, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:epiConcentrationMismatch?<HardStop title="WRONG EPINEPHRINE CONCENTRATION" reason={`This pathway requires ${epiExpectedConcentration===0.1?"0.1 mg/mL (1:10,000)":"1 mg/mL (1:1,000)"}, but the confirmed medication is ${fmt(conc)} mg/mL.`} source="DMP 9120 Epinephrine" action="Do not calculate through the mismatch. Return to the medication check and confirm the correct formulation from the physical label." recoveryLabel="Correct medication concentration" onRecover={()=>setStep("scanConfirm")}/>:<>
             {drug==="fentanyl"&&adult&&<div className="dose-guidance"><b>ADULT DOSING GUIDANCE</b><span>Initial dose is typically 100 mcg. Adult doses may be rounded to the nearest 25 mcg.</span></div>}
             {drug==="fentanyl"&&fentanylOlderFrail&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>ELDERLY/FRAIL STARTING DOSE APPLIED</b><strong>{fmt(baseDose)} mcg × ½ = GIVE {fmt(dose)} mcg</strong><span>DMP 9230 directs providers to start with ½ the traditional dose in elderly patients and strongly consider ½ typical dosing in elderly or frail patients. The cumulative protocol ceiling is unchanged.</span></div>}
             {drug==="midazolam"&&midazolamHalfConsideration&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>MIDAZOLAM ½-DOSE CONSIDERATION APPLIED</b><strong>{fmt(baseDose)} mg × ½ = GIVE {fmt(dose)} mg</strong><span>DMP 9070 states lower doses may be sufficient for patients over 65 or small adults under 50 kg. This calculation applies the protocol’s ½-dose consideration.</span></div>}
@@ -1159,7 +1159,7 @@ export default function App() {
             {drug==="magnesium"&&reason==="Eclampsia"&&route==="IM"&&<div className="in-split-card"><small>IM SITE SPLIT</small><strong>5 g LEFT + 5 g RIGHT BUTTOCK</strong><span>{fmt(vol/2)} mL per site • {fmt(vol)} mL total stock volume</span></div>}
             {magInfusion&&<MagnesiumDripCalculator durationMinutes={magInfusionMinutes}/>} 
             {epiInfusion&&<EpinephrineInfusionCalculator rate={rate||0} stockConcentration={conc}/>} 
-            {epiPediatricDilution&&<section className="mag-drip-calculator" aria-label="Pediatric Epinephrine push-dose dilution"><header><small>PEDIATRIC PUSH-DOSE DILUTION</small><strong>BASE CONTACT REQUIRED</strong><span>Prepare 10 mcg/mL before giving</span></header><div className="drip-results"><span><small>DRAW</small><b>1 mL of 0.1 mg/mL Epinephrine</b></span><span><small>ADD</small><b>9 mL Normal Saline</b></span></div><p><b>Final syringe: 10 mcg/mL.</b> Give {fmt(dose)} mcg ({fmt(vol)} mL) by slow IV/IO push under the recorded Base authorization.</p></section>}
+            {epiPediatricDilution&&<section className="mag-drip-calculator" aria-label="Pediatric Epinephrine push-dose dilution"><header><small>PEDIATRIC PUSH-DOSE DILUTION</small><strong>BASE CONTACT REQUIRED</strong><span>Prepare 0.01 mg/mL before giving</span></header><div className="drip-results"><span><small>DRAW</small><b>1 mL of 0.1 mg/mL Epinephrine</b></span><span><small>ADD</small><b>9 mL Normal Saline</b></span></div><p><b>Final syringe: 0.01 mg/mL.</b> Give {fmt(dose)} mg ({fmt(vol)} mL) by slow IV/IO push under the recorded Base authorization.</p></section>}
             <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug,reason,route,adult).map((x)=><li key={x}>{x}</li>)}</ul></div>
             {!epiInfusion&&<DoseTracker
               entries={dosesGiven}
@@ -1217,9 +1217,9 @@ export default function App() {
                   ? `${fmt(kg)} kg × ${rate} ${unit}/kg${doseModifier!==1?" × ½ medication-specific adjustment":""}`
                   : `${rate} ${unit}${epiInfusion?"/min infusion rate":" fixed dose"}${doseModifier!==1?" × ½ medication-specific adjustment":""}`) + ((drug==="magnesium"||drug==="epinephrine")?` • ${r.note}`:"")
               }
-              concentration={epiInfusion?`${fmt(conc)} mcg/mL confirmed stock • prepared bag 1 mcg/mL`:epiPediatricDilution?`${fmt(conc)} mcg/mL confirmed stock • diluted syringe 10 mcg/mL`:`${fmt(conc)} ${unit}/mL`}
+              concentration={epiInfusion?`${fmt(conc)} mg/mL confirmed stock • prepared bag 0.001 mg/mL`:epiPediatricDilution?`${fmt(conc)} mg/mL confirmed stock • diluted syringe 0.01 mg/mL`:`${fmt(conc)} ${unit}/mL`}
               calculatedDose={doseText}
-              calculatedVolume={epiInfusion?`${fmt(vol)} mL/min from prepared 1 mcg/mL bag`:isIntranasal?`${fmt(vol)} mL total (${fmt(vol/2)} mL per nostril)`:`${fmt(vol)} mL`}
+              calculatedVolume={epiInfusion?`${fmt(vol)} mL/min from prepared 0.001 mg/mL bag`:isIntranasal?`${fmt(vol)} mL total (${fmt(vol/2)} mL per nostril)`:`${fmt(vol)} mL`}
               unit={unit}
               entries={dosesGiven}
               baseApproval={baseApproval||undefined}
@@ -1277,7 +1277,7 @@ export default function App() {
               />
               <Review
                 l="Volume calculation"
-                v={epiInfusion?`${fmt(dose)} mcg/min ÷ 1 mcg/mL = ${fmt(vol)} mL/min`:epiPediatricDilution?`${fmt(dose)} mcg ÷ 10 mcg/mL = ${fmt(vol)} mL from prepared syringe`:`${fmt(dose)} ${unit} ÷ ${fmt(conc)} ${unit}/mL = ${fmt(vol)} mL`}
+                v={epiInfusion?`${fmt(dose)} mg/min ÷ 0.001 mg/mL = ${fmt(vol)} mL/min`:epiPediatricDilution?`${fmt(dose)} mg ÷ 0.01 mg/mL = ${fmt(vol)} mL from prepared syringe`:`${fmt(dose)} ${unit} ÷ ${fmt(conc)} ${unit}/mL = ${fmt(vol)} mL`}
               />
               <Review
                 l="Protocol"
@@ -1449,16 +1449,16 @@ function MagnesiumDripCalculator({durationMinutes}:{durationMinutes:number}) {
 
 function EpinephrineInfusionCalculator({rate,stockConcentration}:{rate:number;stockConcentration:number}) {
   const [dropFactor,setDropFactor]=useState(10);
-  const stockVolume=stockConcentration>0?1000/stockConcentration:0;
-  const mlPerMinute=rate;
-  const mlPerHour=rate*60;
+  const stockVolume=stockConcentration>0?1/stockConcentration:0;
+  const mlPerMinute=rate/0.001;
+  const mlPerHour=mlPerMinute*60;
   const dropsPerMinute=Math.round(mlPerMinute*dropFactor);
   return <section className="mag-drip-calculator" aria-label="Epinephrine infusion calculator">
-    <header><small>EPINEPHRINE INFUSION</small><strong>IV/IO DRIP — NOT IV PUSH</strong><span>Selected rate: {fmt(rate)} mcg/min</span></header>
-    <div className="drip-results"><span><small>PREPARE</small><b>1 mg in 1000 mL NS</b><em>Draw {fmt(stockVolume)} mL from the confirmed stock • final concentration 1 mcg/mL</em></span><span><small>INFUSION PUMP</small><b>{fmt(mlPerHour)} mL/hr</b><em>{fmt(mlPerMinute)} mL/min</em></span></div>
+    <header><small>EPINEPHRINE INFUSION</small><strong>IV/IO DRIP — NOT IV PUSH</strong><span>Selected rate: {fmt(rate)} mg/min</span></header>
+    <div className="drip-results"><span><small>PREPARE</small><b>1 mg in 1000 mL NS</b><em>Draw {fmt(stockVolume)} mL from the confirmed stock • final concentration 0.001 mg/mL</em></span><span><small>INFUSION PUMP</small><b>{fmt(mlPerHour)} mL/hr</b><em>{fmt(mlPerMinute)} mL/min</em></span></div>
     <div className="drop-factor"><span>Macrodrip tubing</span><div>{[10,15].map(x=><button key={x} className={dropFactor===x?"selected":""} onClick={()=>setDropFactor(x)}>{x} gtt/mL</button>)}</div></div>
-    <div className="drip-results"><span><small>GRAVITY RATE</small><b>{dropsPerMinute} gtt/min</b><em>{dropFactor} gtt/mL tubing • {fmt(rate)} mcg/min</em></span></div>
-    <p><b>Label the bag “Epinephrine 1 mcg/mL.”</b> Begin wide open to gravity in small aliquots and titrate to SBP &gt;90 mmHg, improved respiratory status, and improved perfusion/mentation. Confirm the drop factor printed on the tubing.</p>
+    <div className="drip-results"><span><small>GRAVITY RATE</small><b>{dropsPerMinute} gtt/min</b><em>{dropFactor} gtt/mL tubing • {fmt(rate)} mg/min</em></span></div>
+    <p><b>Label the bag “Epinephrine 0.001 mg/mL.”</b> Begin wide open to gravity in small aliquots and titrate to SBP &gt;90 mmHg, improved respiratory status, and improved perfusion/mentation. Confirm the drop factor printed on the tubing.</p>
   </section>;
 }
 
@@ -1614,12 +1614,11 @@ function syringeSize(volume: number) {
   return [1, 3, 5, 10, 20, 30, 60].find((x) => volume <= x) || 60;
 }
 function fmt(n: number) {
-  return Number.isFinite(n) ? Number(n.toFixed(2)).toString() : "—";
+  const decimals = Math.abs(n) > 0 && Math.abs(n) < 1 ? 3 : 2;
+  return Number.isFinite(n) ? Number(n.toFixed(decimals)).toString() : "—";
 }
 function formatDose(drug: Drug, dose: number, unit: string) {
-  return drug === "epinephrine" && dose >= 1000
-    ? `${fmt(dose)} mcg (${fmt(dose / 1000)} mg)`
-    : drug === "magnesium" && dose >= 1000
+  return drug === "magnesium" && dose >= 1000
     ? `${fmt(dose)} mg (${fmt(dose / 1000)} g)`
     : `${fmt(dose)} ${unit}`;
 }
