@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
 import FieldToolbar from "./FieldToolbar";
-type Drug = "fentanyl" | "midazolam" | "adenosine";
+type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:"mcg"|"mg";label:string;barcode:string;photo?:string};
 type Route = "IV" | "IV/IO" | "IM" | "IN";
 type AgeUnit = "years" | "months" | "days";
@@ -12,9 +12,18 @@ type Step =
   "drug" | "scanConfirm" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
 const URL =
   "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
-const protocolPages: Record<Drug, number> = { adenosine: 123, midazolam: 136, fentanyl: 163 };
+const protocolPages: Record<Drug, number> = { adenosine: 123, midazolam: 136, magnesium: 157, fentanyl: 163 };
 const protocolUrl = (drug: Drug) => `${URL}#page=${protocolPages[drug]}`;
 const indicationProtocol = (drug: Drug, indication: string) => {
+  if (drug === "magnesium") {
+    if (indication === "Refractory severe bronchospasm")
+      return { id: "2030/2040", name: "Adult/Pediatric Wheezing", page: 61 };
+    if (indication === "Eclampsia")
+      return { id: "7010", name: "Obstetrical Complications", page: 106 };
+    if (indication === "Torsades — cardiac arrest")
+      return { id: "3000", name: "Medical Pulseless Arrest", page: 66 };
+    return { id: "3040", name: "Tachyarrhythmia with Poor Perfusion", page: 70 };
+  }
   if (drug === "midazolam" && indication === "Status epilepticus")
     return { id: "4040", name: "Seizure", page: 80 };
   if (indication.toLowerCase().includes("cardioversion"))
@@ -44,6 +53,12 @@ const meds = [
     sub: "Benzodiazepine",
   },
   {
+    id: "magnesium" as Drug,
+    name: "Magnesium Sulfate",
+    brand: "Magnesium Sulfate",
+    sub: "Antiarrhythmic • bronchodilator • eclampsia",
+  },
+  {
     id: "ketorolac",
     name: "Ketorolac",
     brand: "Toradol",
@@ -60,6 +75,7 @@ const medicationAliases: Record<string, string[]> = {
   adenosine: ["adenocard", "svt", "antiarrhythmic"],
   fentanyl: ["sublimaze", "pain", "opioid"],
   midazolam: ["versed", "seizure", "sedation", "benzodiazepine"],
+  magnesium: ["mag", "mag sulfate", "torsades", "bronchospasm", "asthma", "eclampsia"],
 };
 function fuzzyMedicationMatch(med: (typeof meds)[number], query: string) {
   const q = query.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -81,12 +97,29 @@ const reasons: Record<Drug, string[]> = {
     "Sedation for cardioversion",
     "Sedation for transcutaneous pacing",
   ],
+  magnesium: [
+    "Torsades — stable/intermittent",
+    "Torsades — unstable/peri-arrest",
+    "Torsades — cardiac arrest",
+    "Refractory severe bronchospasm",
+    "Eclampsia",
+  ],
 };
 const routes: Record<Drug, Route[]> = {
   adenosine: ["IV"],
   fentanyl: ["IV/IO", "IM", "IN"],
   midazolam: ["IV/IO", "IM", "IN"],
+  magnesium: ["IV/IO", "IV", "IM"],
 };
+function magnesiumAdultOnly(reason: string) {
+  return reason === "Torsades — stable/intermittent" || reason === "Torsades — unstable/peri-arrest";
+}
+function routesFor(drug: Drug, reason: string) {
+  if (drug !== "magnesium") return routes[drug];
+  if (reason === "Eclampsia") return ["IV/IO", "IM"] as Route[];
+  if (reason === "Torsades — unstable/peri-arrest" || reason === "Refractory severe bronchospasm") return ["IV"] as Route[];
+  return ["IV/IO"] as Route[];
+}
 const tapeBands = [
   { name: "Grey", kg: 4, color: "#7b8790", text: "#fff" },
   { name: "Pink", kg: 6.5, color: "#f49bbb", text: "#4c1830" },
@@ -101,6 +134,41 @@ const tapeBands = [
 function rules(drug: Drug, reason: string, age: number, route: Route | null) {
   const adult = age >= 12;
   if(drug==="adenosine")return{weight:false,rates:[12],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"One additional 12 mg rapid IV dose; contact medical control for further considerations.",maxCumulative:null,maxDoses:2,note:"Administer rapid IV bolus followed immediately by a normal saline flush. Continuous ECG monitoring required."};
+  if (drug === "magnesium") {
+    const pediatricWeightDose = reason === "Torsades — cardiac arrest" || reason === "Refractory severe bronchospasm";
+    if (!adult && pediatricWeightDose) {
+      const bronchospasm = reason === "Refractory severe bronchospasm";
+      return {
+        weight: true,
+        rates: [bronchospasm ? 50 : 25],
+        unit: "mg",
+        perKg: true,
+        maxSingle: 2000,
+        repeat: 0,
+        repeatText: "No repeat dose is listed in DMP 9190.",
+        maxCumulative: null,
+        maxDoses: 1,
+        note: bronchospasm
+          ? "Dilute and administer by IV drip over 30 minutes. Maximum 2 g."
+          : "Administer undiluted by IV/IO push during cardiac arrest. Maximum 2 g.",
+      };
+    }
+    const dose = reason === "Eclampsia" ? (route === "IM" ? 10000 : 6000) : 2000;
+    const note = reason === "Eclampsia"
+      ? route === "IM"
+        ? "Give 5 g in each buttock. Maximum volume per site is 10 mL."
+        : "Dilute in 50 mL normal saline and administer IV/IO over 15 minutes."
+      : reason === "Torsades — stable/intermittent"
+        ? "Dilute in 50 mL normal saline and administer IV/IO over 15 minutes."
+        : reason === "Torsades — unstable/peri-arrest"
+          ? "Administer undiluted by IV push over 2 minutes."
+          : reason === "Torsades — cardiac arrest"
+            ? "Administer undiluted by IV/IO push."
+            : adult
+              ? "Dilute in 50 mL normal saline and administer by IV drip over 15 minutes."
+              : "Dilute and administer by IV drip over 30 minutes.";
+    return {weight:false,rates:[dose],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"No repeat dose is listed in DMP 9190.",maxCumulative:null,maxDoses:1,note};
+  }
   if (drug === "fentanyl") {
     const rate = route === "IN" && !adult ? [2] : [1, 2];
     return {
@@ -159,7 +227,15 @@ function rules(drug: Drug, reason: string, age: number, route: Route | null) {
           : "",
   };
 }
-function checksFor(drug: Drug, age: number, fentanylOlderFrail = false, midazolamHalfConsideration = false) {
+function checksFor(drug: Drug, age: number, reason: string, fentanylOlderFrail = false, midazolamHalfConsideration = false) {
+  if (drug === "magnesium") {
+    const indicationCheck = reason === "Eclampsia"
+      ? "Pregnancy is at least 20 weeks gestation OR patient is within 6 weeks postpartum with seizure"
+      : reason === "Refractory severe bronchospasm"
+        ? "Severe bronchospasm remains unresponsive to continuous albuterol, ipratropium and IM epinephrine"
+        : "Torsades de Pointes associated with a prolonged QT interval is confirmed";
+    return [indicationCheck,"Continuous ECG, blood pressure and respiratory monitoring are in place","Patient has NO clinically significant bradycardia","Patient has NO hypotension","Patient has NO respiratory depression"];
+  }
   const base = drug==="adenosine"?["Rhythm is REGULAR and narrow-complex","12-lead ECG obtained and documented when available","Patient has NO heart transplant history","Continuous ECG monitoring is in place","Patient warned about brief, unpleasant chest discomfort"]:
     drug === "fentanyl"
       ? [
@@ -172,9 +248,18 @@ function checksFor(drug: Drug, age: number, fentanylOlderFrail = false, midazola
   if(drug==="midazolam"&&age>=12)return[...base,...(midazolamHalfConsideration?["DMP 9070 ½-dose consideration applied for patient over 65 or small adult under 50 kg"]:[])];
   return base;
 }
-function monitoringCautions(drug: Drug) {
+function monitoringCautions(drug: Drug, reason = "", route: Route | null = null, adult = true) {
   if(drug==="adenosine")return["Continuous ECG monitoring throughout administration","Rapid IV bolus followed immediately by normal saline flush","Asthma: bronchospasm may occur; transient asystole or AV block is common"];
   if(drug==="fentanyl")return["Continuous pulse oximetry for every administration","Titrate slowly; watch for sudden respiratory depression, hypotension and chest-wall rigidity","Keep resuscitation equipment and naloxone immediately available; add cardiac monitoring and capnography for complex or repeated dosing"];
+  if(drug==="magnesium") {
+    const administration = reason === "Eclampsia"
+      ? route === "IM" ? "Give 5 g in each buttock; maximum 10 mL per site" : "Dilute in 50 mL NS and infuse IV/IO over 15 minutes"
+      : reason === "Torsades — stable/intermittent" ? "Dilute in 50 mL NS and infuse IV/IO over 15 minutes"
+      : reason === "Torsades — unstable/peri-arrest" ? "Give undiluted IV push over 2 minutes"
+      : reason === "Torsades — cardiac arrest" ? "Give undiluted IV/IO push"
+      : `Dilute and infuse IV over ${adult?15:30} minutes`;
+    return [administration,"Continuously monitor ECG, blood pressure and respiratory status","Watch for bradycardia, hypotension and respiratory depression"];
+  }
   return["Cardiac and pulse oximetry monitoring during transport","Watch for respiratory depression and hypotension; waveform capnography is recommended","Opioids, alcohol and other CNS depressants increase the sedative effect"];
 }
 function suggestedWeight(ageYears: number) {
@@ -244,7 +329,7 @@ export default function App() {
     r = drug && reason && route ? rules(drug, reason, an, route) : null,
     needWeight = !!r?.weight,
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
-    items = drug ? checksFor(drug, an, fentanylOlderFrail, midazolamHalfConsideration) : [],
+    items = drug ? checksFor(drug, an, reason, fentanylOlderFrail, midazolamHalfConsideration) : [],
     baseRequirement = drug==="fentanyl"&&underOne?"Fentanyl administration for a pediatric patient under 1 year":drug==="midazolam"&&reason==="Sedation for transcutaneous pacing"&&!adult?"Transcutaneous pacing for a patient under 12 years":null,
     baseClear = !baseRequirement||(baseApproval?.reason===baseRequirement),
     ageBlocked = !!au&&(((drug === "fentanyl" && underOne)&&!baseClear)||(drug==="adenosine"&&age!==""&&!adult)),
@@ -266,6 +351,9 @@ export default function App() {
     inVolumeOverTarget = isIntranasal && vol > 2,
     inTooHigh = drug === "fentanyl" && inVolumeOverTarget,
     unit = drug === "fentanyl" ? "mcg" : "mg",
+    doseText = drug ? formatDose(drug,dose,unit) : `${fmt(dose)} ${unit}`,
+    magImTooHigh = drug === "magnesium" && reason === "Eclampsia" && route === "IM" && vol > 20,
+    volumeBlocked = inTooHigh || magImTooHigh,
     maxTotal = r?.maxCumulative
       ? r.maxCumulative * kg
       : r?.maxDoses
@@ -285,7 +373,7 @@ export default function App() {
       0,
       Math.ceil((lastTime + (r?.repeat || 0) * 60000 - now) / 1000),
     );
-  useEffect(() => setChecks(Array(items.length).fill(false)), [drug, an > 65, fentanylOlderFrail, midazolamHalfConsideration]);
+  useEffect(() => setChecks(Array(items.length).fill(false)), [drug, reason, an > 65, fentanylOlderFrail, midazolamHalfConsideration]);
   useEffect(() => {
     setRate(r?.rates.length === 1 ? r.rates[0] : null);
   }, [drug, reason, route, adult]);
@@ -314,7 +402,7 @@ export default function App() {
         route: !!route,
         weight: weightOk,
         safety: checks.length === items.length && checks.every(Boolean),
-        vial: rate !== null && conc > 0 && !inTooHigh,
+        vial: rate !== null && conc > 0 && !volumeBlocked,
         review: true,
       }),
       [
@@ -327,7 +415,7 @@ export default function App() {
         items.length,
         rate,
         conc,
-        inTooHigh,
+        volumeBlocked,
       ],
     );
   const next = () => {
@@ -487,7 +575,7 @@ export default function App() {
               {meds
                 .filter((m) => fuzzyMedicationMatch(m, search))
                 .map((m) => {
-                        const active = m.id === "fentanyl" || m.id === "midazolam" || m.id === "adenosine";
+                        const active = m.id === "fentanyl" || m.id === "midazolam" || m.id === "adenosine" || m.id === "magnesium";
                   return (
                     <button
                       key={m.id}
@@ -516,6 +604,7 @@ export default function App() {
               <div className="scan-med-identity"><small>{scannedVial.barcode?"BARCODE MATCH":"MANUAL SELECTION"}</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?<><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></>:<span className="manual-vial-note">Enter the concentration from the physical vial below.</span>}</div>
             </div>
             {!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)&&<><h3 className="label-heading">Enter exactly what the physical vial says</h3><div className="vial-entry"><label><span>Total drug</span><div><input inputMode="decimal" value={scannedVial.amount} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,amount:value});setAmt(value);setScanConcOk(false)}} placeholder="0"/><b>{scannedVial.unit}</b></div></label><label><span>Total volume</span><div><input inputMode="decimal" value={scannedVial.volume} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,volume:value});setMl(value);setScanConcOk(false)}} placeholder="0"/><b>mL</b></div></label></div>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0&&<div className="manual-concentration-result"><span>Calculated concentration</span><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>}</>}
+            {scannedVial.drug==="magnesium"&&<div className="input-guidance"><b>Enter magnesium in milligrams</b><span>If the vial is labeled in grams, convert before entry: 1 g = 1,000 mg. Confirm the converted amount during the concentration check.</span></div>}
             <div className="scan-confirm-checks compact-confirmations">
               <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Medication matches</b>{medName(scannedVial.drug)}</span></label>
               <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Concentration matches</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`${scannedVial.amount} ${scannedVial.unit} / ${scannedVial.volume} mL`:"Enter label values"}</span></label>
@@ -553,21 +642,21 @@ export default function App() {
             t="Patient and route"
             h="Complete only the questions needed for this medication pathway."
           >
-            {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("")}}>{x}</button>)}</div>{reason&&<a className="inline-protocol" href={indicationProtocolUrl(drug,reason)} target="_blank" rel="noreferrer">Open DMP {indicationProtocol(drug,reason).id} {indicationProtocol(drug,reason).name} ↗</a>}</div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={indicationProtocolUrl(drug,reasons[drug][0])} target="_blank" rel="noreferrer">DMP {indicationProtocol(drug,reasons[drug][0]).id} ↗</a></div>}
+            {reasons[drug].length>1?<div className="adaptive-section"><small>INDICATION</small><div className="compact-choice-grid">{reasons[drug].map((x)=><button key={x} className={reason===x?"selected":""} onClick={()=>{setReason(x);setRoute(null);setWeight("");if(drug==="magnesium"&&magnesiumAdultOnly(x)){setAgeClass("");setAge("");setAu("")}}}>{x}</button>)}</div>{reason&&<a className="inline-protocol" href={indicationProtocolUrl(drug,reason)} target="_blank" rel="noreferrer">Open DMP {indicationProtocol(drug,reason).id} {indicationProtocol(drug,reason).name} ↗</a>}</div>:<div className="selected-path"><small>INDICATION</small><b>{reasons[drug][0]}</b><a href={indicationProtocolUrl(drug,reasons[drug][0])} target="_blank" rel="noreferrer">DMP {indicationProtocol(drug,reasons[drug][0]).id} ↗</a></div>}
             <div className="adaptive-heading">AGE GROUP</div>
-            {!ageClass ? <div className={`age-class-grid ${drug!=="adenosine"?"three-age-options":""}`}>
-              {drug==="adenosine"?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(false);setMidazolamSmallAdult(null);setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"12–65 YEARS":"NOT IDENTIFIED AS ELDERLY/FRAIL"}</small><b>Adult</b><span>›</span></button><button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(drug==="fentanyl");setMidazolamSmallAdult(false);setAge(drug==="midazolam"?"66":"65");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"OVER 65 YEARS":"FENTANYL-SPECIFIC CONSIDERATION"}</small><b>{drug==="midazolam"?"Adult >65":"Elderly or frail"}</b><span>›</span></button></>}
-              {drug!=="adenosine"&&<button onClick={()=>{setAgeClass("pediatric");setFentanylOlderFrail(false);setMidazolamSmallAdult(null);setAge("");setAu("");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>}
+            {!ageClass ? <div className={`age-class-grid ${(drug==="fentanyl"||drug==="midazolam")?"three-age-options":""}`}>
+              {(drug==="adenosine"||(drug==="magnesium"&&magnesiumAdultOnly(reason)))?<button onClick={()=>{setAgeClass("adult");setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>12 YEARS OR OLDER</small><b>Adult</b><span>›</span></button>:<><button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(false);setMidazolamSmallAdult(null);setAge("12");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"12–65 YEARS":drug==="magnesium"?"12 YEARS OR OLDER":"NOT IDENTIFIED AS ELDERLY/FRAIL"}</small><b>Adult</b><span>›</span></button>{drug!=="magnesium"&&<button onClick={()=>{setAgeClass("adult");setFentanylOlderFrail(drug==="fentanyl");setMidazolamSmallAdult(false);setAge(drug==="midazolam"?"66":"65");setAu("years");setRoute(null);setWeight("")}}><small>{drug==="midazolam"?"OVER 65 YEARS":"FENTANYL-SPECIFIC CONSIDERATION"}</small><b>{drug==="midazolam"?"Adult >65":"Elderly or frail"}</b><span>›</span></button>}</>}
+              {drug!=="adenosine"&&!(drug==="magnesium"&&magnesiumAdultOnly(reason))&&<button onClick={()=>{setAgeClass("pediatric");setFentanylOlderFrail(false);setMidazolamSmallAdult(null);setAge("");setAu("");setRoute(null);setWeight("")}}><small>UNDER 12 YEARS</small><b>Pediatric</b><span>›</span></button>}
             </div>:<>
               {drug!=="adenosine"&&<button className="change-age-class" onClick={()=>{setAgeClass("");setFentanylOlderFrail(false);setMidazolamSmallAdult(null);setAge("");setAu("");setRoute(null);setWeight("")}}>← Change age group</button>}
-              {ageClass==="adult" ? <><div className="selected-age"><b>{drug==="adenosine"?"Adult standing-order pathway • age 12+":drug==="midazolam"?(an>65?"Adult over 65":"Adult 12–65"):fentanylOlderFrail?"Adult • elderly/frail starting-dose pathway":"Adult fentanyl pathway"}</b></div>{drug==="midazolam"&&an<=65&&<div className="adaptive-section"><small>MEDICATION-SPECIFIC SIZE CHECK</small><b className="compact-question">Is this a small adult under 50 kg?</b><div className="compact-choice-grid"><button className={midazolamSmallAdult===false?"selected":""} onClick={()=>{setMidazolamSmallAdult(false);setRoute(null)}}>No</button><button className={midazolamSmallAdult===true?"selected":""} onClick={()=>{setMidazolamSmallAdult(true);setRoute(null)}}>Yes</button></div></div>}{drug==="midazolam"&&midazolamHalfConsideration&&<div className="base-order-note"><b>½-dose consideration applied</b><span>DMP 9070 states that lower doses may be sufficient in patients over 65 or small adults under 50 kg and says to consider ½ dosing.</span></div>}{drug==="fentanyl"&&fentanylOlderFrail&&<div className="base-order-note"><b>½ starting dose will be calculated</b><span>DMP 9230 says respiratory depression is more common in children and the elderly and directs providers to start with ½ the traditional dose. This does not reduce the cumulative protocol ceiling.</span></div>}{drug==="adenosine"&&<div className="base-order-note"><b>Patient under 12?</b><span>DMP 9010 requires a direct verbal Base order. This pathway does not calculate pediatric Adenosine.</span></div>}</>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order." recoveryLabel="Correct age group" onRecover={()=>{setAgeClass("");setAge("");setAu("")}}/>:<>
+              {ageClass==="adult" ? <><div className="selected-age"><b>{drug==="adenosine"?"Adult standing-order pathway • age 12+":drug==="magnesium"?"Adult magnesium pathway • age 12+":drug==="midazolam"?(an>65?"Adult over 65":"Adult 12–65"):fentanylOlderFrail?"Adult • elderly/frail starting-dose pathway":"Adult fentanyl pathway"}</b></div>{drug==="midazolam"&&an<=65&&<div className="adaptive-section"><small>MEDICATION-SPECIFIC SIZE CHECK</small><b className="compact-question">Is this a small adult under 50 kg?</b><div className="compact-choice-grid"><button className={midazolamSmallAdult===false?"selected":""} onClick={()=>{setMidazolamSmallAdult(false);setRoute(null)}}>No</button><button className={midazolamSmallAdult===true?"selected":""} onClick={()=>{setMidazolamSmallAdult(true);setRoute(null)}}>Yes</button></div></div>}{drug==="midazolam"&&midazolamHalfConsideration&&<div className="base-order-note"><b>½-dose consideration applied</b><span>DMP 9070 states that lower doses may be sufficient in patients over 65 or small adults under 50 kg and says to consider ½ dosing.</span></div>}{drug==="fentanyl"&&fentanylOlderFrail&&<div className="base-order-note"><b>½ starting dose will be calculated</b><span>DMP 9230 says respiratory depression is more common in children and the elderly and directs providers to start with ½ the traditional dose. This does not reduce the cumulative protocol ceiling.</span></div>}{drug==="adenosine"&&<div className="base-order-note"><b>Patient under 12?</b><span>DMP 9010 requires a direct verbal Base order. This pathway does not calculate pediatric Adenosine.</span></div>}</>:drug==="adenosine"?<HardStop title="BASE CONTACT REQUIRED" reason="DMP 9010 requires a direct verbal Base order for pediatric Adenosine administration." source="DMP 9010 Adenosine" action="Choose Adult if the category was selected incorrectly. Otherwise stop and contact Base for a direct order." recoveryLabel="Correct age group" onRecover={()=>{setAgeClass("");setAge("");setAu("")}}/>:<>
                 <div className="age-followup"><small>PEDIATRIC DETAIL NEEDED</small><h3>Enter the patient’s age</h3></div>
                 <label className="giant-input"><span>Age</span><input autoFocus inputMode="decimal" value={age} onChange={(e)=>setAge(e.target.value)} placeholder="0"/></label>
                 <div className="age-unit-toggle age-unit-after-input" aria-label="Age unit">{(["years","months","days"] as AgeUnit[]).map((x)=><button key={x} className={au===x?"selected":""} onClick={()=>setAu(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
                 {age!==""&&!au?<div className="input-guidance"><b>Select the age unit</b><span>Choose years, months or days to continue.</span></div>:age!==""&&!ageWithinRange?<div className="input-guidance"><b>Check the age entry</b><span>Use days through 365, months through 143, or years below 12.</span></div>:baseRequirement?<BaseContactGate reason={baseRequirement} source={drug==="fentanyl"?"DMP 9230 Opioids":"DMP 1100 Transcutaneous Cardiac Pacing"} open={baseContactOpen} physician={basePhysician} attested={baseAttested} approval={baseApproval?.reason===baseRequirement?baseApproval:null} setOpen={setBaseContactOpen} setPhysician={setBasePhysician} setAttested={setBaseAttested} approve={()=>setBaseApproval({physician:basePhysician.trim(),time:Date.now(),reason:baseRequirement})} clear={()=>{setBaseApproval(null);setBaseAttested(false);setBaseContactOpen(true)}}/>:null}
               </>}
             </>}
-            {!!reason&&ageOk&&!ageBlocked&&baseClear&&midazolamSizeAnswered&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routes[drug].map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Status epilepticus"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}</div>}
+            {!!reason&&ageOk&&!ageBlocked&&baseClear&&midazolamSizeAnswered&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routesFor(drug,reason).map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Status epilepticus"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}{drug==="magnesium"&&route&&r?.note&&<div className="source-note">{r.note}</div>}</div>}
             {!!route&&needWeight&&<div className="adaptive-section"><small>CALCULATION WEIGHT</small><div className="source-grid compact-sources">{[["actual","Actual"],["estimated","Estimated"],...(tapeEligible?[["tape","Length-based tape"]]:[])].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>
               {weightSuggestion!==null&&ws!=="tape"&&<button className="quick-estimate" onClick={useSuggestedWeight}>Use DMP age-band estimate: {weightSuggestion} kg</button>}
               {ws==="tape"&&tapeEligible?<><div className="tape-heading"><b>Select tape color</b><span>Use only when the child physically fits the tape.</span></div><div className="tape-grid">{tapeBands.map((b)=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div></>:<><div className="unit-toggle compact-unit"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>kg</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>lb</button></div><label className="giant-input compact-weight"><span>Patient weight ({wu})</span><input inputMode="decimal" value={weight} onChange={(e)=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} placeholder="0"/></label>{Number(weight)>0&&<div className="kg-lock" role="status"><small>CALCULATION WEIGHT</small><b>{fmt(kg)} kg</b><span>{wu==="lb"?`${weight} lb ÷ 2.2046`:"Entered in kilograms"}</span></div>}</>}
@@ -583,7 +672,7 @@ export default function App() {
             h="Only routes listed for this drug and indication are offered."
           >
             <div className="route-grid">
-              {routes[drug].map((x) => (
+              {routesFor(drug,reason).map((x) => (
                 <button
                   key={x}
                   className={route === x ? "selected" : ""}
@@ -852,11 +941,11 @@ export default function App() {
                   <div className="dose-card">
                     <small>CALCULATED INITIAL DOSE</small>
                     <h3>
-                      {fmt(dose)} {unit}
+                      {doseText}
                     </h3>
                     <p>
                       <span>Patient</span>
-                      <b>{needWeight ? `${fmt(kg)} kg` : "Adult fixed dose"}</b>
+                      <b>{needWeight ? `${fmt(kg)} kg` : "Fixed protocol dose"}</b>
                     </p>
                     <p>
                       <span>Route</span>
@@ -877,6 +966,16 @@ export default function App() {
                     reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`}
                     source="DMP 9230 Opioids"
                     action="Use an appropriate higher concentration or select another DMP-approved route, then recalculate."
+                    recoveryLabel="Correct route or concentration"
+                    onRecover={() => setStep("age")}
+                  />
+                )}
+                {magImTooHigh && (
+                  <HardStop
+                    title="IM VOLUME EXCEEDS SITE LIMIT"
+                    reason={`The calculated stock volume is ${fmt(vol)} mL, or ${fmt(vol/2)} mL per buttock. DMP 9190 limits each IM site to 10 mL.`}
+                    source="DMP 9190 Magnesium Sulfate"
+                    action="Confirm an appropriate higher-concentration vial or select the IV/IO route, then recalculate."
                     recoveryLabel="Correct route or concentration"
                     onRecover={() => setStep("age")}
                   />
@@ -911,13 +1010,13 @@ export default function App() {
                 <button onClick={()=>setStep("age")}><small>ROUTE</small><b>{route}</b></button>
                 <button onClick={()=>setStep("scanConfirm")}><small>CONCENTRATION</small><b>{fmt(conc)} {unit}/mL</b><span>{amt} {unit} in {ml} mL</span></button>
                 <button className="summary-indication" onClick={()=>setStep("age")}><small>INDICATION</small><b>{reason}</b></button>
-                {rate!==null&&<><span className="summary-result"><small>PROTOCOL DOSE</small><b>{r.perKg?`${fmt(rate)} ${unit}/kg`:`${fmt(rate)} ${unit}`}</b></span><span className="summary-result primary"><small>CALCULATED RESULT</small><b>{fmt(dose)} {unit} • {fmt(vol)} mL</b></span></>}
+                {rate!==null&&<><span className="summary-result"><small>PROTOCOL DOSE</small><b>{r.perKg?`${fmt(rate)} ${unit}/kg`:formatDose(drug,rate,unit)}</b></span><span className="summary-result primary"><small>CALCULATED RESULT</small><b>{doseText} • {fmt(vol)} mL</b></span></>}
               </div>
               <a href={protocolUrl(drug)} target="_blank" rel="noreferrer">Medication {protocolId(drug)} ↗</a>
             </section>
             {baseApproval&&<div className="base-approved compact"><small>BASE AUTHORIZATION</small><b>Approved by {baseApproval.physician}</b><time>{new Date(baseApproval.time).toLocaleString()}</time></div>}
             {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
-            {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Select another DMP-approved route or confirm an appropriate higher-concentration vial, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:<>
+            {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Select another DMP-approved route or confirm an appropriate higher-concentration vial, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:magImTooHigh?<HardStop title="IM VOLUME EXCEEDS SITE LIMIT" reason={`The calculated stock volume is ${fmt(vol)} mL, or ${fmt(vol/2)} mL per buttock. DMP 9190 limits each IM site to 10 mL.`} source="DMP 9190 Magnesium Sulfate" action="Confirm an appropriate higher-concentration vial or select the IV/IO route, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:<>
             {drug==="fentanyl"&&adult&&<div className="dose-guidance"><b>ADULT DOSING GUIDANCE</b><span>Initial dose is typically 100 mcg. Adult doses may be rounded to the nearest 25 mcg.</span></div>}
             {drug==="fentanyl"&&fentanylOlderFrail&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>ELDERLY/FRAIL STARTING DOSE APPLIED</b><strong>{fmt(baseDose)} mcg × ½ = GIVE {fmt(dose)} mcg</strong><span>DMP 9230 directs providers to start with ½ the traditional dose in elderly patients and strongly consider ½ typical dosing in elderly or frail patients. The cumulative protocol ceiling is unchanged.</span></div>}
             {drug==="midazolam"&&midazolamHalfConsideration&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>MIDAZOLAM ½-DOSE CONSIDERATION APPLIED</b><strong>{fmt(baseDose)} mg × ½ = GIVE {fmt(dose)} mg</strong><span>DMP 9070 states lower doses may be sufficient for patients over 65 or small adults under 50 kg. This calculation applies the protocol’s ½-dose consideration.</span></div>}
@@ -928,7 +1027,8 @@ export default function App() {
               <span>{fmt(vol)} mL total • Split evenly between nostrils</span>
               {inVolumeOverTarget&&drug==="midazolam"&&<em>Above the app's 1 mL-per-nostril atomization target; verify concentration and route.</em>}
             </div>}
-            <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug).map((x)=><li key={x}>{x}</li>)}</ul></div>
+            {drug==="magnesium"&&reason==="Eclampsia"&&route==="IM"&&<div className="in-split-card"><small>IM SITE SPLIT</small><strong>5 g LEFT + 5 g RIGHT BUTTOCK</strong><span>{fmt(vol/2)} mL per site • {fmt(vol)} mL total stock volume</span></div>}
+            <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug,reason,route,adult).map((x)=><li key={x}>{x}</li>)}</ul></div>
             <DoseTracker
               entries={dosesGiven}
               unit={unit}
@@ -976,14 +1076,14 @@ export default function App() {
                     ? `${tapeColor} length-based band`
                     : ws
               }
-              protocol={drug==="fentanyl"?"DMP 9230 • July 2026":drug==="adenosine"?"DMP 9010 • July 2026":"DMP 9070 • July 2026"}
+              protocol={drug==="fentanyl"?"DMP 9230 • July 2026":drug==="adenosine"?"DMP 9010 • July 2026":drug==="magnesium"?"DMP 9190 • July 2026":"DMP 9070 • July 2026"}
               doseRule={
                 r.perKg
                   ? `${fmt(kg)} kg × ${rate} ${unit}/kg${doseModifier!==1?" × ½ medication-specific adjustment":""}`
                   : `${rate} ${unit} fixed dose${doseModifier!==1?" × ½ medication-specific adjustment":""}`
               }
               concentration={`${fmt(conc)} ${unit}/mL`}
-              calculatedDose={`${fmt(dose)} ${unit}`}
+              calculatedDose={doseText}
               calculatedVolume={isIntranasal?`${fmt(vol)} mL total (${fmt(vol/2)} mL per nostril)`:`${fmt(vol)} mL`}
               unit={unit}
               entries={dosesGiven}
@@ -1049,7 +1149,9 @@ export default function App() {
                     ? "DMP 9230 • July 2026"
                     : drug === "adenosine"
                       ? "DMP 9010 • July 2026"
-                      : "DMP 9070 • July 2026"
+                      : drug === "magnesium"
+                        ? "DMP 9190 • July 2026"
+                        : "DMP 9070 • July 2026"
                 }
               />
             </div>
@@ -1097,10 +1199,10 @@ export default function App() {
         currentRoute={route||undefined}
         fentanylOlderFrail={fentanylOlderFrail}
         midazolamHalfConsideration={midazolamHalfConsideration}
-        currentDose={drug&&r&&rate!==null?`${fmt(dose)} ${unit}`:undefined}
+        currentDose={drug&&r&&rate!==null?doseText:undefined}
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
         onSelectMedication={beginMedication}
-        reportReady={Boolean(drug&&r&&rate!==null&&conc>0&&!inTooHigh)}
+        reportReady={Boolean(drug&&r&&rate!==null&&conc>0&&!volumeBlocked)}
         onOpenReport={()=>{
           setStep("review");
           setReportSignal(x=>x+1);
@@ -1346,9 +1448,14 @@ function syringeSize(volume: number) {
 function fmt(n: number) {
   return Number.isFinite(n) ? Number(n.toFixed(2)).toString() : "—";
 }
+function formatDose(drug: Drug, dose: number, unit: string) {
+  return drug === "magnesium" && dose >= 1000
+    ? `${fmt(dose)} mg (${fmt(dose / 1000)} g)`
+    : `${fmt(dose)} ${unit}`;
+}
 function medName(d: Drug) {
-  return d === "fentanyl" ? "Fentanyl" : d==="adenosine"?"Adenosine (Adenocard)":"Midazolam (Versed)";
+  return d === "fentanyl" ? "Fentanyl" : d==="adenosine"?"Adenosine (Adenocard)":d==="magnesium"?"Magnesium Sulfate":"Midazolam (Versed)";
 }
 function protocolId(d: Drug) {
-  return d==="fentanyl"?"DMP 9230":d==="adenosine"?"DMP 9010":"DMP 9070";
+  return d==="fentanyl"?"DMP 9230":d==="adenosine"?"DMP 9010":d==="magnesium"?"DMP 9190":"DMP 9070";
 }
