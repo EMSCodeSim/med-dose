@@ -381,6 +381,7 @@ export default function App() {
     [ws, setWs] = useState("actual"),
     [tapeColor, setTapeColor] = useState(""),
     [rate, setRate] = useState<number | null>(null),
+    [customRate, setCustomRate] = useState(""),
     [amt, setAmt] = useState(""),
     [ml, setMl] = useState(""),
     [checks, setChecks] = useState<boolean[]>([]),
@@ -421,6 +422,10 @@ export default function App() {
     ageText = drug==="adenosine"&&ageClass==="adult"?"12 years or older":drug==="fentanyl"&&fentanylOlderFrail?"Adult • elderly/frail":ageClass==="adult"?(drug==="midazolam"?(an>65?"over 65 years":"12–65 years"):"Adult 12+"):au ? `${age} ${au}` : age,
     weightSuggestion = suggestedWeight(an),
     r = drug && reason && route ? rules(drug, reason, an, route) : null,
+    epiVariableDose = drug === "epinephrine" && !!r && r.rates.length > 1,
+    epiDoseMinimum = epiVariableDose ? Math.min(...r.rates) : 0,
+    epiDoseMaximum = epiVariableDose ? Math.max(...r.rates) : 0,
+    epiEnteredDoseValid = !epiVariableDose || (rate !== null && rate >= epiDoseMinimum && rate <= epiDoseMaximum),
     needWeight = !!r?.weight,
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
     items = drug ? checksFor(drug, an, reason, fentanylOlderFrail, midazolamHalfConsideration) : [],
@@ -438,7 +443,7 @@ export default function App() {
     ageOk = age !== "" && !!au && ageWithinRange && !ageBlocked,
     weightOk = !needWeight || (kg > 0 && kg < 350),
     epiWeightBandDose = drug === "epinephrine" && (reason === "Systemic allergic reaction — IM" || reason === "Wheezing — IM") && !adult && an >= 4/12,
-    baseDose = r && rate !== null ? (epiWeightBandDose ? (kg < 25 ? 0.15 : 0.3) : r.perKg ? kg * rate : rate) : 0,
+    baseDose = r && rate !== null && epiEnteredDoseValid ? (epiWeightBandDose ? (kg < 25 ? 0.15 : 0.3) : r.perKg ? kg * rate : rate) : 0,
     doseModifier = (drug==="fentanyl"&&fentanylOlderFrail)||midazolamHalfConsideration ? .5 : 1,
     adjustedBaseDose = baseDose*doseModifier,
     dose = r?.maxSingle ? Math.min(adjustedBaseDose, r.maxSingle) : adjustedBaseDose,
@@ -497,6 +502,7 @@ export default function App() {
   }, [drug, conc, reason]);
   useEffect(() => {
     setRate(r?.rates.length === 1 ? r.rates[0] : null);
+    setCustomRate("");
   }, [drug, reason, route, adult]);
   useEffect(() => setDosesGiven([]), [drug, reason, route, dose, conc]);
   useEffect(()=>{setBaseApproval(null);setBasePhysician("");setBaseAttested(false);setBaseContactOpen(false)},[drug,reason,ageClass,underOne]);
@@ -523,7 +529,7 @@ export default function App() {
         route: !!route,
         weight: weightOk,
         safety: safetyComplete,
-        vial: rate !== null && conc > 0 && !volumeBlocked,
+        vial: rate !== null && epiEnteredDoseValid && conc > 0 && !volumeBlocked,
         review: true,
       }),
       [
@@ -558,6 +564,7 @@ export default function App() {
       setWs("actual");
       setTapeColor("");
       setRate(null);
+      setCustomRate("");
       setAmt("");
       setMl("");
       setDosesGiven([]);
@@ -608,6 +615,7 @@ export default function App() {
       setRoute(null);
       setWeight("");
       setChecks([]);
+      setCustomRate("");
       setAmt("");
       setMl("");
       setDosesGiven([]);
@@ -1148,8 +1156,8 @@ export default function App() {
               <a href={protocolUrl(drug)} target="_blank" rel="noreferrer">Medication {protocolId(drug)} ↗</a>
             </section>
             {baseApproval&&<div className="base-approved compact"><small>BASE AUTHORIZATION</small><b>Approved by {baseApproval.physician}</b><time>{new Date(baseApproval.time).toLocaleString()}</time></div>}
-            {r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
-            {rate===null?<div className="completion-prompt"><b>Dose selection required</b><span>Select the ordered DMP dose above to calculate the administration volume.</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Select another DMP-approved route or confirm an appropriate higher-concentration vial, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:magImTooHigh?<HardStop title="IM VOLUME EXCEEDS SITE LIMIT" reason={`The calculated stock volume is ${fmt(vol)} mL, or ${fmt(vol/2)} mL per buttock. DMP 9190 limits each IM site to 10 mL.`} source="DMP 9190 Magnesium Sulfate" action="Confirm an appropriate higher-concentration vial or select the IV/IO route, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:epiConcentrationMismatch?<HardStop title="WRONG EPINEPHRINE CONCENTRATION" reason={`This pathway requires ${epiExpectedConcentration===0.1?"0.1 mg/mL (1:10,000)":"1 mg/mL (1:1,000)"}, but the confirmed medication is ${fmt(conc)} mg/mL.`} source="DMP 9120 Epinephrine" action="Do not calculate through the mismatch. Return to the medication check and confirm the correct formulation from the physical label." recoveryLabel="Correct medication concentration" onRecover={()=>setStep("scanConfirm")}/>:<>
+            {epiVariableDose?<section className="epi-dose-entry" aria-label="Enter ordered Epinephrine dose"><header><small>DMP PROTOCOL RANGE</small><strong>{fmt(epiDoseMinimum)}–{fmt(epiDoseMaximum)} mg{epiInfusion?"/min":""}</strong><span>{epiInfusion?"Enter the ordered starting infusion rate.":"Enter the ordered IV push-dose aliquot."}</span></header><label><span>Ordered dose</span><div><input inputMode="decimal" value={customRate} onChange={e=>{const value=e.target.value;setCustomRate(value);setRate(value.trim()===""?null:Number(value))}} placeholder={epiInfusion?"0.002–0.009":"0.01–0.02"}/><b>mg{epiInfusion?"/min":""}</b></div></label>{customRate!==""&&!epiEnteredDoseValid&&<div className="partial-error" role="alert">Enter a dose from {fmt(epiDoseMinimum)} through {fmt(epiDoseMaximum)} mg{epiInfusion?"/min":""}.</div>}</section>:r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
+            {rate===null||!epiEnteredDoseValid?<div className="completion-prompt"><b>{epiVariableDose?"Ordered dose required":"Dose selection required"}</b><span>{epiVariableDose?`Enter a dose within the displayed DMP range of ${fmt(epiDoseMinimum)}–${fmt(epiDoseMaximum)} mg${epiInfusion?"/min":""}.`:"Select the ordered DMP dose above to calculate the administration volume."}</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Select another DMP-approved route or confirm an appropriate higher-concentration vial, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:magImTooHigh?<HardStop title="IM VOLUME EXCEEDS SITE LIMIT" reason={`The calculated stock volume is ${fmt(vol)} mL, or ${fmt(vol/2)} mL per buttock. DMP 9190 limits each IM site to 10 mL.`} source="DMP 9190 Magnesium Sulfate" action="Confirm an appropriate higher-concentration vial or select the IV/IO route, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:epiConcentrationMismatch?<HardStop title="WRONG EPINEPHRINE CONCENTRATION" reason={`This pathway requires ${epiExpectedConcentration===0.1?"0.1 mg/mL (1:10,000)":"1 mg/mL (1:1,000)"}, but the confirmed medication is ${fmt(conc)} mg/mL.`} source="DMP 9120 Epinephrine" action="Do not calculate through the mismatch. Return to the medication check and confirm the correct formulation from the physical label." recoveryLabel="Correct medication concentration" onRecover={()=>setStep("scanConfirm")}/>:<>
             {drug==="fentanyl"&&adult&&<div className="dose-guidance"><b>ADULT DOSING GUIDANCE</b><span>Initial dose is typically 100 mcg. Adult doses may be rounded to the nearest 25 mcg.</span></div>}
             {drug==="fentanyl"&&fentanylOlderFrail&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>ELDERLY/FRAIL STARTING DOSE APPLIED</b><strong>{fmt(baseDose)} mcg × ½ = GIVE {fmt(dose)} mcg</strong><span>DMP 9230 directs providers to start with ½ the traditional dose in elderly patients and strongly consider ½ typical dosing in elderly or frail patients. The cumulative protocol ceiling is unchanged.</span></div>}
             {drug==="midazolam"&&midazolamHalfConsideration&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>MIDAZOLAM ½-DOSE CONSIDERATION APPLIED</b><strong>{fmt(baseDose)} mg × ½ = GIVE {fmt(dose)} mg</strong><span>DMP 9070 states lower doses may be sufficient for patients over 65 or small adults under 50 kg. This calculation applies the protocol’s ½-dose consideration.</span></div>}
@@ -1345,7 +1353,7 @@ export default function App() {
         currentDose={drug&&r&&rate!==null?doseText:undefined}
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
         onSelectMedication={beginMedication}
-        reportReady={Boolean(drug&&r&&rate!==null&&conc>0&&!volumeBlocked)}
+        reportReady={Boolean(drug&&r&&rate!==null&&epiEnteredDoseValid&&conc>0&&!volumeBlocked)}
         onOpenReport={()=>{
           setStep("review");
           setReportSignal(x=>x+1);
