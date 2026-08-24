@@ -239,7 +239,7 @@ function checksFor(drug: Drug, age: number, reason: string, fentanylOlderFrail =
       : reason === "Refractory severe bronchospasm"
         ? "Severe bronchospasm remains unresponsive to continuous albuterol, ipratropium and IM epinephrine"
         : "Torsades de Pointes associated with a prolonged QT interval is confirmed";
-    return [indicationCheck,"Continuous ECG, blood pressure and respiratory monitoring are in place","Patient has NO clinically significant bradycardia","Patient has NO hypotension","Patient has NO respiratory depression"];
+    return [indicationCheck,"Continuous ECG, blood pressure and respiratory monitoring are in place","Bradycardia, hypotension and respiratory depression reviewed as DMP precautions","Route-specific dilution, administration time and maximum dose have been verified"];
   }
   const base = drug==="adenosine"?["Rhythm is REGULAR and narrow-complex","12-lead ECG obtained and documented when available","Patient has NO heart transplant history","Continuous ECG monitoring is in place","Patient warned about brief, unpleasant chest discomfort"]:
     drug === "fentanyl"
