@@ -345,7 +345,8 @@ function safe(x: string) {
     .slice(0, 40);
 }
 function fmt(n: number) {
-  return Number(n.toFixed(2)).toString();
+  const decimals = Math.abs(n) > 0 && Math.abs(n) < 1 ? 3 : 2;
+  return Number(n.toFixed(decimals)).toString();
 }
 function reportCautions(drug: string) {
   if (drug.toLowerCase().includes("adenosine")) return ["Continuous ECG monitoring", "Rapid IV bolus followed immediately by saline flush", "Document rhythm strip before, during and after administration"];
