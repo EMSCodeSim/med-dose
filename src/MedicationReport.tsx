@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Entry = { dose: number; volume: number; time: number };
+type EncounterEntry = {drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string};
 type Props = {
   drug: string;
   reason: string;
@@ -16,6 +17,7 @@ type Props = {
   calculatedVolume: string;
   unit: string;
   entries: Entry[];
+  encounterEntries?: EncounterEntry[];
   baseApproval?: { physician: string; time: number; reason: string };
   openSignal?: number;
   hideLauncher?: boolean;
@@ -27,7 +29,8 @@ export default function MedicationReport(p: Props) {
     [provider, setProvider] = useState(""),
     [shareStatus, setShareStatus] = useState("");
   const total = p.entries.reduce((n, x) => n + x.dose, 0),
-    totalVolume = p.entries.reduce((n, x) => n + x.volume, 0);
+    totalVolume = p.entries.reduce((n, x) => n + x.volume, 0),
+    recordedCount = p.encounterEntries?.length ?? p.entries.length;
   useEffect(() => {
     if (p.openSignal) setOpen(true);
   }, [p.openSignal]);
@@ -100,11 +103,11 @@ export default function MedicationReport(p: Props) {
             </button>
             <h2 id="report-title">Medication-use report</h2>
             <div
-              className={`report-status ${p.entries.length ? "given" : "not-given"}`}
+              className={`report-status ${recordedCount ? "given" : "not-given"}`}
             >
               <b>
-                {p.entries.length
-                  ? `${p.entries.length} dose${p.entries.length === 1 ? "" : "s"} recorded as given`
+                {recordedCount
+                  ? `${recordedCount} dose${recordedCount === 1 ? "" : "s"} recorded in this encounter`
                   : `CALCULATION ONLY — NO DOSE RECORDED`}
               </b>
               <span>
@@ -164,7 +167,9 @@ function MedicationReportBody(
   p: Props & { incident: string; provider: string },
 ) {
   const total = p.entries.reduce((n, x) => n + x.dose, 0),
-    totalVolume = p.entries.reduce((n, x) => n + x.volume, 0);
+    totalVolume = p.entries.reduce((n, x) => n + x.volume, 0),
+    encounterEntries = p.encounterEntries || [],
+    recordedCount = encounterEntries.length || p.entries.length;
   return (
     <article className="med-report" id="medication-report">
       <header>
@@ -187,15 +192,15 @@ function MedicationReportBody(
         <span>
           <small>Status</small>
           <b>
-            {p.entries.length
+            {recordedCount
               ? "Administration recorded"
               : "Calculation only — not recorded as given"}
           </b>
         </span>
       </div>
-      <div className={`print-status ${p.entries.length ? "given" : "calculation"}`}>
-        <b>{p.entries.length ? "ADMINISTRATION RECORDED" : "CALCULATION ONLY — NO ADMINISTRATION RECORDED"}</b>
-        <span>{p.entries.length ? `${p.entries.length} administration event${p.entries.length === 1 ? "" : "s"} documented below` : "Do not interpret this report as evidence that medication was given"}</span>
+      <div className={`print-status ${recordedCount ? "given" : "calculation"}`}>
+        <b>{recordedCount ? "ADMINISTRATION RECORDED" : "CALCULATION ONLY — NO ADMINISTRATION RECORDED"}</b>
+        <span>{recordedCount ? `${recordedCount} administration event${recordedCount === 1 ? "" : "s"} documented below` : "Do not interpret this report as evidence that medication was given"}</span>
       </div>
       <h3>Clinical calculation and cross-check</h3>
       <dl className="report-detail-grid">
@@ -244,7 +249,8 @@ function MedicationReportBody(
         </div>
         {p.baseApproval&&<div className="base-report-row"><dt>Base authorization</dt><dd><b>APPROVED</b> • {p.baseApproval.physician} • {new Date(p.baseApproval.time).toLocaleString()}<br/>{p.baseApproval.reason}</dd></div>}
       </dl>
-      <h3>Administration record</h3>
+      {encounterEntries.length>0&&<><h3>Encounter medication history</h3><table className="encounter-table"><thead><tr><th>Time</th><th>Medication / indication</th><th>Route</th><th>Dose / volume</th></tr></thead><tbody>{encounterEntries.map((x,i)=><tr key={`${x.time}-${i}`}><td>{new Date(x.time).toLocaleTimeString()}</td><td><b>{x.drug}</b><br/><small>{x.reason}<br/>{x.concentration}</small></td><td>{x.route}</td><td><b>{fmt(x.dose)} {x.unit}</b><br/>{fmt(x.volume)} mL</td></tr>)}</tbody></table></>}
+      {!encounterEntries.length&&<><h3>Administration record</h3>
       {p.entries.length ? (
         <>
           <table>
@@ -281,7 +287,7 @@ function MedicationReportBody(
           <b>NO DOSE RECORDED AS GIVEN</b>
           <span>This document contains a calculation only.</span>
         </div>
-      )}
+      )}</>}
       <div className="report-bottom-grid">
         <section>
           <h3>Medication-specific monitoring</h3>
@@ -309,7 +315,7 @@ function buildReport(
 ) {
   return [
     `METRO MED DOSE — MEDICATION-USE REPORT`,
-    `Status: ${p.entries.length ? "ADMINISTRATION RECORDED" : "CALCULATION ONLY — NO DOSE RECORDED"}`,
+    `Status: ${(p.encounterEntries?.length||p.entries.length) ? "ADMINISTRATION RECORDED" : "CALCULATION ONLY — NO DOSE RECORDED"}`,
     `Created: ${new Date().toLocaleString()}`,
     `Incident/ePCR: ${incident || "Not entered"}`,
     `Provider: ${provider || "Not entered"}`,
@@ -325,6 +331,7 @@ function buildReport(
     ...(p.baseApproval?[`Base authorization: APPROVED`,`Approving physician: ${p.baseApproval.physician}`,`Approval time: ${new Date(p.baseApproval.time).toLocaleString()}`,`Base-contact reason: ${p.baseApproval.reason}`]:[]),
     ``,
     `ADMINISTRATION RECORD`,
+    ...(p.encounterEntries?.length?["ENCOUNTER MEDICATION HISTORY",...p.encounterEntries.map((x,i)=>`${i+1}. ${new Date(x.time).toLocaleString()} — ${x.drug} — ${x.reason} — ${x.route} — ${fmt(x.dose)} ${x.unit} (${fmt(x.volume)} mL) — ${x.concentration}`),``]:[]),
     ...(p.entries.length
       ? p.entries.map(
           (x, i) =>
@@ -353,5 +360,8 @@ function reportCautions(drug: string) {
   if (drug.toLowerCase().includes("epinephrine")) return ["Continuous ECG, blood pressure, pulse oximetry and perfusion monitoring", "Verify the indication-specific concentration and route before administration", "Watch for tachydysrhythmia, hypertension and myocardial ischemia"];
   if (drug.toLowerCase().includes("fentanyl")) return ["Continuous pulse oximetry", "Monitor respiratory status, blood pressure and analgesic response", "Resuscitation equipment and naloxone immediately available"];
   if (drug.toLowerCase().includes("magnesium")) return ["Continuous ECG and blood pressure monitoring", "Monitor respiratory status throughout administration", "Watch for bradycardia, hypotension and respiratory depression"];
+  if (drug.toLowerCase().includes("diphenhydramine")) return ["Monitor airway, respiratory status, perfusion and mental status", "Administer IV/IO doses slowly", "Adjunct only; do not delay Epinephrine or transport for anaphylaxis"];
+  if (drug.toLowerCase().includes("methylprednisolone")) return ["Monitor airway, respiratory status and perfusion", "Reconstitute and use immediately; administer IV/IO over 2 minutes", "Delayed effect; do not delay transport or definitive anaphylaxis treatment"];
+  if (drug.toLowerCase().includes("albuterol")) return ["Monitor work of breathing, pulse oximetry, heart rate and lung sounds", "Administer by nebulizer over 5–15 minutes", "For anaphylaxis-associated wheezing, IM Epinephrine is given first"];
   return ["Cardiac and continuous pulse oximetry monitoring", "Monitor ventilation, blood pressure and sedation response", "Waveform capnography recommended"];
 }
