@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 
-type SupportedDrug = "adenosine" | "fentanyl" | "midazolam" | "magnesium" | "epinephrine";
+type SupportedDrug = "adenosine" | "fentanyl" | "midazolam" | "magnesium" | "epinephrine" | "albuterol" | "diphenhydramine" | "methylprednisolone";
 type Tool = "meds" | "vitals" | "treatment" | "protocols" | null;
 type Props = {
   ageYears: number | null;
@@ -16,6 +16,7 @@ type Props = {
   currentDose?: string;
   currentVolume?: string;
   onSelectMedication: (drug: SupportedDrug) => void;
+  onSelectSuggestedMedication: (drug: SupportedDrug) => void;
   reportReady: boolean;
   onOpenReport: () => void;
 };
@@ -46,7 +47,7 @@ export default function FieldToolbar(p: Props) {
       <div className="drawer-patient">{context}</div>
       {tool==="meds"&&<MedicationPanel {...p} onSelectMedication={(drug)=>{p.onSelectMedication(drug);close()}} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
       {tool==="vitals"&&<VitalsPanel age={age} ageLabel={p.ageLabel} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} fentanylOlderFrail={p.fentanylOlderFrail} midazolamHalfConsideration={p.midazolamHalfConsideration} lookupAge={lookupAge} setLookupAge={setLookupAge} hasPatient={p.ageYears!==null}/>} 
-      {tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} route={p.currentRoute} dose={p.currentDose} openProtocol={setProtocol}/>} 
+      {tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} route={p.currentRoute} dose={p.currentDose} openProtocol={setProtocol} selectSuggested={(drug)=>{p.onSelectSuggestedMedication(drug);close()}}/>}
       {tool==="protocols"&&<LookupList title="Search protocol number or name" items={protocols} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
       <a className="drawer-protocol-link" href={DMP_URL} target="_blank" rel="noreferrer">Open current July 2026 DMP PDF ↗</a>
     </section></div>}
@@ -55,7 +56,7 @@ export default function FieldToolbar(p: Props) {
 }
 
 function MedicationPanel(p: Props & {query:string;setQuery:(x:string)=>void;openProtocol:(x:ProtocolTarget)=>void}) {
-  const supported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["epinephrine","Epinephrine","Arrest, anaphylaxis, shock, wheezing or stridor"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["magnesium","Magnesium Sulfate","Torsades, refractory bronchospasm or eclampsia"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];
+  const supported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["albuterol","Albuterol","Wheezing / bronchospasm"],["diphenhydramine","Diphenhydramine","Allergic reaction adjunct"],["epinephrine","Epinephrine","Arrest, anaphylaxis, shock, wheezing or stridor"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["magnesium","Magnesium Sulfate","Torsades, refractory bronchospasm or eclampsia"],["methylprednisolone","Methylprednisolone","Allergic reaction adjunct"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];
   return <>
     {p.currentDrug&&<div className="current-reference"><small>CURRENT CALCULATION</small><b>{p.currentDrug}</b>{p.currentDose&&<strong>{p.currentDose}{p.currentVolume?` • ${p.currentVolume}`:""}</strong>}</div>}
     <h3>Patient calculator choices</h3><div className="drawer-med-choices">{supported.map(([id,name,note])=><button key={id} onClick={()=>p.onSelectMedication(id)}><b>{name}</b><span>{note}</span><i>›</i></button>)}</div>
@@ -84,7 +85,7 @@ function PatientConsiderations({age,kg,drug,indication,fentanylOlderFrail,midazo
   return <div className="patient-considerations"><small>SPECIAL CONSIDERATIONS</small>{notes.length?notes.map(x=><p key={x}>{x}</p>):<p>No additional age-specific warning is active for the current selection.</p>}</div>;
 }
 
-function TreatmentPanel({age,kg,drug,indication,route,dose,openProtocol}:{age:number|null;kg:number|null;drug:SupportedDrug;indication:string;route?:string;dose?:string;openProtocol:(x:ProtocolTarget)=>void}) {
+function TreatmentPanel({age,kg,drug,indication,route,dose,openProtocol,selectSuggested}:{age:number|null;kg:number|null;drug:SupportedDrug;indication:string;route?:string;dose?:string;openProtocol:(x:ProtocolTarget)=>void;selectSuggested:(drug:SupportedDrug)=>void}) {
   const pediatric=age!==null&&age<12;
   const treatment=treatmentProtocol(drug,indication);
   const cardioversion=indication.toLowerCase().includes("cardioversion");
@@ -94,6 +95,7 @@ function TreatmentPanel({age,kg,drug,indication,route,dose,openProtocol}:{age:nu
     <div className="smart-checklist" aria-label="Smart treatment checklist">
       {checklist.map((item,index)=><section key={item.label}><i>{index+1}</i><small>{item.label}</small><b>{item.value}</b>{item.note&&<span>{item.note}</span>}</section>)}
     </div>
+    {drug==="epinephrine"&&indication.toLowerCase().includes("allergic")&&<div className="adjunct-medications"><small>DMP 4090 • ADDITIONAL MEDICATION OPTIONS</small><h3>Continue this patient encounter</h3><p>Patient age and weight will carry forward. The next medication and vial concentration must still be confirmed.</p><button onClick={()=>selectSuggested("diphenhydramine")}><b>Diphenhydramine</b><span>If time and patient stability permit</span><i>Start ›</i></button><button onClick={()=>selectSuggested("methylprednisolone")}><b>Methylprednisolone</b><span>If time and patient stability permit; delayed effect—do not delay transport</span><i>Start ›</i></button><button onClick={()=>selectSuggested("albuterol")}><b>Albuterol</b><span>Only when wheezing is present; IM Epinephrine is given first</span><i>Start ›</i></button></div>}
     {cardioversion&&<section><small>SYNCHRONIZED CARDIOVERSION</small>{age===null?<b>Patient age is required</b>:pediatric&&kg?<><b>{fmt(.5*kg)}–{fmt(kg)} J</b><span>0.5–1 J/kg biphasic</span></>:pediatric?<b>Patient weight is required</b>:<><b>200 J</b><span>Adult biphasic</span></>}</section>}
   </div>;
 }
@@ -143,6 +145,20 @@ function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,d
     {label:"REASSESSMENT",value:route==="IN"?"Reassess after 10 minutes":"Reassess after 5 minutes",note:"Recheck pain, respiratory status and perfusion before recording or repeating a dose."},
     {label:"TRANSPORT / BASE",value:"Transport in position of comfort and reassess",note:"Additional dosing beyond the DMP cumulative limit requires Base. Opioid plus benzodiazepine requires a direct physician verbal order."},
   ];
+  if(drug==="diphenhydramine"||drug==="methylprednisolone") return [
+    {label:"REQUIRED MONITORING",value:"Airway, breathing, circulation, pulse oximetry and perfusion",note:"Continue close reassessment for progression or recurrence of anaphylaxis."},
+    {label:"PREREQUISITES",value:"Allergic reaction / anaphylaxis",note:"These are adjuncts if time and patient stability permit; they do not replace IM Epinephrine for anaphylaxis."},
+    {label:"MEDICATION OPTION",value:medication,note:drug==="methylprednisolone"?"Delayed onset; do not delay transport. Reconstitute and use immediately.":"Administer slow IV/IO when using an IV/IO route."},
+    {label:"REASSESSMENT",value:"Continuously reassess airway, respiratory status, skin findings and perfusion"},
+    {label:"TRANSPORT / BASE",value:"Transport without delay",note:"Follow DMP 4090 and contact Base for deterioration, uncertainty, or dosing outside the medication monograph."},
+  ];
+  if(drug==="albuterol") return [
+    {label:"REQUIRED MONITORING",value:"Airway, work of breathing, pulse oximetry, heart rate and lung sounds"},
+    {label:"PREREQUISITES",value:indication.includes("allergic")?"Wheezing with allergic reaction; IM Epinephrine first":"Bronchospasm / wheezing",note:"Do not use Albuterol as a substitute for IM Epinephrine in anaphylaxis."},
+    {label:"MEDICATION OPTION",value:medication,note:"Administer by nebulizer over 5–15 minutes."},
+    {label:"REASSESSMENT",value:"Reassess work of breathing and lung sounds after each treatment"},
+    {label:"TRANSPORT / BASE",value:"Continue the applicable wheezing or allergy protocol and transport"},
+  ];
   return [
     {label:"REQUIRED MONITORING",value:"12-lead ECG before administration",note:"Repeat the 12-lead after conversion and monitor during transport."},
     {label:"PREREQUISITES",value:"Regular narrow-complex suspected AVNRT",note:"Support ABCs, establish IV access and give oxygen. Never administer for an irregular tachycardia or heart-transplant patient."},
@@ -151,9 +167,11 @@ function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,d
     {label:"TRANSPORT / BASE",value:"Monitor during transport",note:age!=null&&age<12?"Pediatric Adenosine requires a direct verbal Base order.":"If the rhythm does not convert, contact Base for consultation; contact medical control for dosing beyond the additional 12 mg dose."},
   ];
 }
-function drugName(drug:SupportedDrug){return drug==="midazolam"?"Midazolam":drug==="magnesium"?"Magnesium Sulfate":drug==="epinephrine"?"Epinephrine":drug[0].toUpperCase()+drug.slice(1)}
+function drugName(drug:SupportedDrug){return drug==="midazolam"?"Midazolam":drug==="magnesium"?"Magnesium Sulfate":drug==="epinephrine"?"Epinephrine":drug==="methylprednisolone"?"Methylprednisolone":drug==="diphenhydramine"?"Diphenhydramine":drug==="albuterol"?"Albuterol":drug[0].toUpperCase()+drug.slice(1)}
 
 function treatmentProtocol(drug:SupportedDrug,indication:string):ProtocolTarget {
+  if(drug==="diphenhydramine"||drug==="methylprednisolone") return {id:"4090",name:"Allergy and Anaphylaxis",page:85};
+  if(drug==="albuterol") return indication.includes("allergic")?{id:"4090",name:"Allergy and Anaphylaxis",page:85}:{id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61};
   if(drug==="epinephrine") {
     if(indication.includes("Pulseless")) return {id:"3000",name:"Medical Pulseless Arrest",page:66};
     if(indication.includes("Bradycardia")) return {id:"3050",name:"Bradyarrhythmia with Poor Perfusion",page:71};
