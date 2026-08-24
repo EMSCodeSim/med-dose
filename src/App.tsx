@@ -724,7 +724,7 @@ export default function App() {
               <div className="scan-med-photo">{scannedVial.photo ? <img src={scannedVial.photo} alt={`${scannedVial.label} reference vial`}/> : <div className="reference-vial"><small>{medName(scannedVial.drug).toUpperCase()}</small><b>VIAL</b><span>Reference photo not saved</span></div>}</div>
               <div className="scan-med-identity"><small>{scannedVial.barcode?"BARCODE MATCH":"MANUAL SELECTION"}</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?<><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></>:<span className="manual-vial-note">Enter the concentration from the physical vial below.</span>}</div>
             </div>
-            {!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)&&<>
+            {!scannedVial.barcode&&<>
               <h3 className="label-heading">Enter exactly what the physical vial says</h3>
               <div className="vial-entry">
                 <label><span>Total drug</span><div>
@@ -733,7 +733,7 @@ export default function App() {
                 </div></label>
                 <label><span>Total volume</span><div><input inputMode="decimal" value={scannedVial.volume} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,volume:value});setMl(value);setScanConcOk(false)}} placeholder="0"/><b>mL</b></div></label>
               </div>
-              {Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0&&<div className="manual-concentration-result"><span>Calculated concentration</span><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>}
+              {Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0&&<div className="manual-concentration-result"><span>Calculated concentration — confirm only after both label values are complete</span><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>}
             </>}
             {scannedVial.drug==="magnesium"&&scannedVial.unit==="g"&&Number(scannedVial.amount)>0&&<div className="input-guidance"><b>Calculation conversion</b><span>{scannedVial.amount} g = {fmt(Number(scannedVial.amount)*1000)} mg. The dose calculation uses milligrams internally.</span></div>}
             {scannedVial.drug==="epinephrine"&&Number(scannedVial.amount)>0&&<div className="input-guidance"><b>Epinephrine units locked</b><span>All Epinephrine concentrations and doses remain in milligrams throughout this calculation.</span></div>}
