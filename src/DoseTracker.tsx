@@ -1,9 +1,9 @@
 import {useEffect,useState} from "react";
 
-type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium";
+type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine";
 type Entry = { dose: number; volume: number; time: number };
 
-export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,repeatsLeft,repeatMinutes,secondsLeft,nextDose,concentration,drug,reason,route,intranasal,record}:{entries:Entry[];unit:string;total:number;totalVolume:number;maxTotal:number;repeatsLeft:number;repeatMinutes:number;secondsLeft:number;nextDose:number;concentration:number;drug:Drug;reason:string;route:string;intranasal:boolean;record:(dose:number)=>void}) {
+export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,repeatsLeft,repeatMinutes,secondsLeft,nextDose,concentration,drug,reason,route,intranasal,record,openEndedRepeats=false}:{entries:Entry[];unit:string;total:number;totalVolume:number;maxTotal:number;repeatsLeft:number;repeatMinutes:number;secondsLeft:number;nextDose:number;concentration:number;drug:Drug;reason:string;route:string;intranasal:boolean;record:(dose:number)=>void;openEndedRepeats?:boolean}) {
   const started=entries.length>0,due=started&&secondsLeft===0;
   const [actual,setActual]=useState(String(nextDose));
   const [editing,setEditing]=useState(false);
@@ -25,9 +25,9 @@ export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,rep
       {editor}
       {initialRecordButton}
       <button className="adjust-amount" onClick={()=>{if(editing)setActual(String(nextDose));setEditing(!editing)}}>{editing?"Use calculated dose":"Change amount given"}</button>
-      <div className="compact-limit">Protocol dose limit: <b>{doseText(maxTotal)}</b></div>
+      <div className="compact-limit">{openEndedRepeats?<>Repeat limit: <b>Not specified in DMP 9120</b></>:<>Protocol dose limit: <b>{doseText(maxTotal)}</b></>}</div>
     </>:<>
-      <div className="tracker-stats"><span><small>TOTAL GIVEN</small><strong>{fmt(total)} {unit}</strong></span><span><small>TOTAL VOLUME</small><strong>{fmt(totalVolume)} mL</strong></span><span><small>DMP LIMIT</small><strong>{fmt(maxTotal)} {unit}</strong></span></div>
+      <div className="tracker-stats"><span><small>TOTAL GIVEN</small><strong>{fmt(total)} {unit}</strong></span><span><small>TOTAL VOLUME</small><strong>{fmt(totalVolume)} mL</strong></span><span><small>DMP LIMIT</small><strong>{openEndedRepeats?"Not stated":`${fmt(maxTotal)} ${unit}`}</strong></span></div>
       <div className="dose-log">{entries.map((x,i)=><div key={x.time}><b>Dose {i+1}</b><span>{fmt(x.dose)} {unit} • {fmt(x.volume)} mL</span><time>{new Date(x.time).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</time></div>)}</div>
       {repeatsLeft>0?<div className="repeat-panel"><p><b>Reassess first.</b> Repeat {need}. Wait at least {repeatMinutes} minutes from the last recorded dose.</p><div className="next-repeat"><span><small>MAXIMUM NEXT DOSE</small><b>{fmt(nextDose)} {unit} = {fmt(nextDose/concentration)} mL{intranasal?` • ${fmt(nextDose/concentration/2)} mL/nostril`:""}</b></span>{drug==="fentanyl"&&nextDose<entries[0].dose&&<em>Reduced to stay within cumulative maximum</em>}</div>{due&&<>{editor}{recordButton}<button className="adjust-amount" onClick={()=>{if(editing)setActual(String(nextDose));setEditing(!editing)}}>{editing?"Use maximum next dose":"Change amount given"}</button></>} {!due&&<button className="record-dose" disabled>Repeat available in {Math.floor(secondsLeft/60)}:{String(secondsLeft%60).padStart(2,"0")}</button>}</div>:<div className="limit-reached" role="alert"><b>PROTOCOL LIMIT REACHED</b><span>No standing-order doses remain. Contact Base before any additional dose.</span></div>}
     </>}
