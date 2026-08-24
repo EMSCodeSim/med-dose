@@ -350,5 +350,6 @@ function fmt(n: number) {
 function reportCautions(drug: string) {
   if (drug.toLowerCase().includes("adenosine")) return ["Continuous ECG monitoring", "Rapid IV bolus followed immediately by saline flush", "Document rhythm strip before, during and after administration"];
   if (drug.toLowerCase().includes("fentanyl")) return ["Continuous pulse oximetry", "Monitor respiratory status, blood pressure and analgesic response", "Resuscitation equipment and naloxone immediately available"];
+  if (drug.toLowerCase().includes("magnesium")) return ["Continuous ECG and blood pressure monitoring", "Monitor respiratory status throughout administration", "Watch for bradycardia, hypotension and respiratory depression"];
   return ["Cardiac and continuous pulse oximetry monitoring", "Monitor ventilation, blood pressure and sedation response", "Waveform capnography recommended"];
 }
