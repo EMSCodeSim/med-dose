@@ -35,4 +35,4 @@ export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,rep
   </section>
 }
 
-function fmt(n:number){return Number.isFinite(n)?Number(n.toFixed(2)).toString():"—"}
+function fmt(n:number){const decimals=Math.abs(n)>0&&Math.abs(n)<1?3:2;return Number.isFinite(n)?Number(n.toFixed(decimals)).toString():"—"}
