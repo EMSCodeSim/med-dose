@@ -154,7 +154,7 @@ function rules(drug: Drug, reason: string, age: number, route: Route | null) {
         maxCumulative: null,
         maxDoses: 1,
         note: bronchospasm
-          ? "Dilute and administer by IV drip over 30 minutes. Maximum 2 g."
+          ? "IV DRIP — NOT PUSH. Dilute and administer over 30 minutes. Maximum 2 g."
           : "Administer undiluted by IV/IO push during cardiac arrest. Maximum 2 g.",
       };
     }
@@ -162,16 +162,16 @@ function rules(drug: Drug, reason: string, age: number, route: Route | null) {
     const note = reason === "Eclampsia"
       ? route === "IM"
         ? "Give 5 g in each buttock. Maximum volume per site is 10 mL."
-        : "Dilute in 50 mL normal saline and administer IV/IO over 15 minutes."
+        : "IV/IO DRIP — NOT PUSH. Dilute in 50 mL normal saline and infuse over 15 minutes."
       : reason === "Torsades — stable/intermittent"
-        ? "Dilute in 50 mL normal saline and administer IV/IO over 15 minutes."
+        ? "IV/IO DRIP — NOT PUSH. Dilute in 50 mL normal saline and infuse over 15 minutes."
         : reason === "Torsades — unstable/peri-arrest"
           ? "Administer undiluted by IV push over 2 minutes."
           : reason === "Torsades — cardiac arrest"
             ? "Administer undiluted by IV/IO push."
             : adult
-              ? "Dilute in 50 mL normal saline and administer by IV drip over 15 minutes."
-              : "Dilute and administer by IV drip over 30 minutes.";
+              ? "IV DRIP — NOT PUSH. Dilute in 50 mL normal saline and infuse over 15 minutes."
+              : "IV DRIP — NOT PUSH. Dilute and infuse over 30 minutes.";
     return {weight:false,rates:[dose],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"No repeat dose is listed in DMP 9190.",maxCumulative:null,maxDoses:1,note};
   }
   if (drug === "fentanyl") {
@@ -258,11 +258,11 @@ function monitoringCautions(drug: Drug, reason = "", route: Route | null = null,
   if(drug==="fentanyl")return["Continuous pulse oximetry for every administration","Titrate slowly; watch for sudden respiratory depression, hypotension and chest-wall rigidity","Keep resuscitation equipment and naloxone immediately available; add cardiac monitoring and capnography for complex or repeated dosing"];
   if(drug==="magnesium") {
     const administration = reason === "Eclampsia"
-      ? route === "IM" ? "Give 5 g in each buttock; maximum 10 mL per site" : "Dilute in 50 mL NS and infuse IV/IO over 15 minutes"
-      : reason === "Torsades — stable/intermittent" ? "Dilute in 50 mL NS and infuse IV/IO over 15 minutes"
+      ? route === "IM" ? "Give 5 g in each buttock; maximum 10 mL per site" : "IV/IO DRIP — NOT PUSH: dilute in 50 mL NS and infuse over 15 minutes"
+      : reason === "Torsades — stable/intermittent" ? "IV/IO DRIP — NOT PUSH: dilute in 50 mL NS and infuse over 15 minutes"
       : reason === "Torsades — unstable/peri-arrest" ? "Give undiluted IV push over 2 minutes"
       : reason === "Torsades — cardiac arrest" ? "Give undiluted IV/IO push"
-      : `Dilute and infuse IV over ${adult?15:30} minutes`;
+      : `IV DRIP — NOT PUSH: dilute and infuse over ${adult?15:30} minutes`;
     return [administration,"Continuously monitor ECG, blood pressure and respiratory status","Watch for bradycardia, hypotension and respiratory depression"];
   }
   return["Cardiac and pulse oximetry monitoring during transport","Watch for respiratory depression and hypotension; waveform capnography is recommended","Opioids, alcohol and other CNS depressants increase the sedative effect"];
@@ -359,6 +359,10 @@ export default function App() {
     doseText = drug ? formatDose(drug,dose,unit) : `${fmt(dose)} ${unit}`,
     magImTooHigh = drug === "magnesium" && reason === "Eclampsia" && route === "IM" && vol > 20,
     volumeBlocked = inTooHigh || magImTooHigh,
+    magInfusion = drug === "magnesium" && !!route && route !== "IM" && (reason === "Torsades — stable/intermittent" || reason === "Refractory severe bronchospasm" || reason === "Eclampsia"),
+    magPush = drug === "magnesium" && (reason === "Torsades — unstable/peri-arrest" || reason === "Torsades — cardiac arrest"),
+    magInfusionMinutes = magInfusion ? (reason === "Refractory severe bronchospasm" && !adult ? 30 : 15) : 0,
+    administrationRoute = magInfusion ? `${route} DRIP` : magPush ? `${route} PUSH` : route,
     maxTotal = r?.maxCumulative
       ? r.maxCumulative * kg
       : r?.maxDoses
@@ -537,7 +541,7 @@ export default function App() {
               {needWeight && weightOk && <span>{fmt(kg)} kg</span>}
             </button>}
             {route && <button onClick={() => setStep("age")} aria-label="Edit route">
-              <small>ROUTE</small><b>{route}</b>
+              <small>ROUTE</small><b>{administrationRoute}</b>
             </button>}
           </nav>
         )}
@@ -964,7 +968,7 @@ export default function App() {
                     </p>
                     <p>
                       <span>Route</span>
-                      <b>{route}</b>
+                      <b>{administrationRoute}</b>
                     </p>
                   </div>
                 </div>
@@ -1022,7 +1026,7 @@ export default function App() {
               <div>
                 <button onClick={()=>setStep("scanConfirm")}><small>MEDICATION</small><b>{medName(drug)}</b></button>
                 <button onClick={()=>setStep("age")}><small>PATIENT</small><b>{adult?"Adult":"Pediatric"} • {ageText}</b>{needWeight&&<span>{fmt(kg)} kg</span>}</button>
-                <button onClick={()=>setStep("age")}><small>ROUTE</small><b>{route}</b></button>
+                <button onClick={()=>setStep("age")}><small>ROUTE</small><b>{administrationRoute}</b></button>
                 <button onClick={()=>setStep("scanConfirm")}><small>CONCENTRATION</small><b>{fmt(conc)} {unit}/mL</b><span>{amt} {unit} in {ml} mL</span></button>
                 <button className="summary-indication" onClick={()=>setStep("age")}><small>INDICATION</small><b>{reason}</b></button>
                 {rate!==null&&<><span className="summary-result"><small>PROTOCOL DOSE</small><b>{r.perKg?`${fmt(rate)} ${unit}/kg`:formatDose(drug,rate,unit)}</b></span><span className="summary-result primary"><small>CALCULATED RESULT</small><b>{doseText} • {fmt(vol)} mL</b></span></>}
@@ -1043,6 +1047,7 @@ export default function App() {
               {inVolumeOverTarget&&drug==="midazolam"&&<em>Above the app's 1 mL-per-nostril atomization target; verify concentration and route.</em>}
             </div>}
             {drug==="magnesium"&&reason==="Eclampsia"&&route==="IM"&&<div className="in-split-card"><small>IM SITE SPLIT</small><strong>5 g LEFT + 5 g RIGHT BUTTOCK</strong><span>{fmt(vol/2)} mL per site • {fmt(vol)} mL total stock volume</span></div>}
+            {magInfusion&&<MagnesiumDripCalculator durationMinutes={magInfusionMinutes}/>} 
             <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug,reason,route,adult).map((x)=><li key={x}>{x}</li>)}</ul></div>
             <DoseTracker
               entries={dosesGiven}
@@ -1057,7 +1062,7 @@ export default function App() {
               concentration={conc}
               drug={drug}
               reason={reason}
-              route={route||""}
+              route={administrationRoute||""}
               intranasal={isIntranasal}
               record={recordDose}
             />
@@ -1080,7 +1085,7 @@ export default function App() {
             <MedicationReport
               drug={medName(drug)}
               reason={reason}
-              route={route || ""}
+              route={administrationRoute || ""}
               age={ageText}
               patientClass={adult ? "Adult" : "Pediatric"}
               weight={needWeight ? `${fmt(kg)} kg` : undefined}
@@ -1093,9 +1098,9 @@ export default function App() {
               }
               protocol={drug==="fentanyl"?"DMP 9230 • July 2026":drug==="adenosine"?"DMP 9010 • July 2026":drug==="magnesium"?"DMP 9190 • July 2026":"DMP 9070 • July 2026"}
               doseRule={
-                r.perKg
+                (r.perKg
                   ? `${fmt(kg)} kg × ${rate} ${unit}/kg${doseModifier!==1?" × ½ medication-specific adjustment":""}`
-                  : `${rate} ${unit} fixed dose${doseModifier!==1?" × ½ medication-specific adjustment":""}`
+                  : `${rate} ${unit} fixed dose${doseModifier!==1?" × ½ medication-specific adjustment":""}`) + (drug==="magnesium"?` • ${r.note}`:"")
               }
               concentration={`${fmt(conc)} ${unit}/mL`}
               calculatedDose={doseText}
@@ -1113,7 +1118,7 @@ export default function App() {
                 <span>Medication</span>
                 <b>{medName(drug)}</b>
                 <small>
-                  {reason} • {route}
+                  {reason} • {administrationRoute}
                 </small>
               </div>
               <Review
@@ -1211,7 +1216,7 @@ export default function App() {
         currentDrugId={drug||undefined}
         currentDrug={drug?medName(drug):undefined}
         currentIndication={reason||undefined}
-        currentRoute={route||undefined}
+        currentRoute={administrationRoute||undefined}
         fentanylOlderFrail={fentanylOlderFrail}
         midazolamHalfConsideration={midazolamHalfConsideration}
         currentDose={drug&&r&&rate!==null?doseText:undefined}
@@ -1309,6 +1314,20 @@ function Review({ l, v }: { l: string; v: string }) {
     </div>
   );
 }
+function MagnesiumDripCalculator({durationMinutes}:{durationMinutes:number}) {
+  const [finalVolume,setFinalVolume]=useState("50"),[dropFactor,setDropFactor]=useState(15);
+  const volume=Number(finalVolume),valid=volume>0&&volume<=250;
+  const mlPerHour=valid?volume*60/durationMinutes:0;
+  const dropsPerMinute=valid?Math.round(volume*dropFactor/durationMinutes):0;
+  return <section className="mag-drip-calculator" aria-label="Magnesium gravity drip calculator">
+    <header><small>MAGNESIUM INFUSION</small><strong>IV DRIP — NOT IV PUSH</strong><span>Infuse over {durationMinutes} minutes</span></header>
+    <label><span>Confirmed final prepared volume</span><div><input inputMode="decimal" value={finalVolume} onChange={e=>setFinalVolume(e.target.value)} aria-label="Final prepared infusion volume in milliliters"/><b>mL</b></div></label>
+    <div className="drop-factor"><span>Tubing drop factor</span><div>{[10,15,20,60].map(x=><button key={x} className={dropFactor===x?"selected":""} onClick={()=>setDropFactor(x)}>{x} gtt/mL</button>)}</div></div>
+    {valid?<div className="drip-results"><span><small>INFUSION PUMP</small><b>{fmt(mlPerHour)} mL/hr</b></span><span><small>GRAVITY TUBING</small><b>{dropsPerMinute} gtt/min</b><em>{dropsPerMinute} drops/min</em></span></div>:<div className="partial-error" role="alert">Enter the final prepared infusion volume to calculate the rate.</div>}
+    <p><b>Verify before use:</b> confirm the final prepared volume and the drop factor printed on the tubing package. If medication was added without removing saline, enter the actual total volume. Use an infusion pump when available.</p>
+  </section>;
+}
+
 function MathPicture({
   perKg,
   kg,
