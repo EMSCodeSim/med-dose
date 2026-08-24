@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 
-type SupportedDrug = "adenosine" | "fentanyl" | "midazolam";
+type SupportedDrug = "adenosine" | "fentanyl" | "midazolam" | "magnesium";
 type Tool = "meds" | "vitals" | "treatment" | "protocols" | null;
 type Props = {
   ageYears: number | null;
@@ -55,7 +55,7 @@ export default function FieldToolbar(p: Props) {
 }
 
 function MedicationPanel(p: Props & {query:string;setQuery:(x:string)=>void;openProtocol:(x:ProtocolTarget)=>void}) {
-  const supported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];
+  const supported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["magnesium","Magnesium Sulfate","Torsades, refractory bronchospasm or eclampsia"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];
   return <>
     {p.currentDrug&&<div className="current-reference"><small>CURRENT CALCULATION</small><b>{p.currentDrug}</b>{p.currentDose&&<strong>{p.currentDose}{p.currentVolume?` • ${p.currentVolume}`:""}</strong>}</div>}
     <h3>Patient calculator choices</h3><div className="drawer-med-choices">{supported.map(([id,name,note])=><button key={id} onClick={()=>p.onSelectMedication(id)}><b>{name}</b><span>{note}</span><i>›</i></button>)}</div>
@@ -74,7 +74,7 @@ function VitalsPanel({age,ageLabel,kg,drug,indication,fentanylOlderFrail,midazol
 function PatientConsiderations({age,kg,drug,indication,fentanylOlderFrail,midazolamHalfConsideration}:{age:number;kg:number|null;drug?:SupportedDrug;indication?:string;fentanylOlderFrail?:boolean;midazolamHalfConsideration?:boolean}) {
   const notes:string[]=[];
   if(age<12) notes.push("Use pediatric protocol pathways and a measured weight whenever available.");
-  if(age<12&&drug&&drug!=="adenosine"&&kg===null) notes.push("This medication pathway requires a calculation weight before a dose can be determined.");
+  if(age<12&&kg===null&&(drug==="fentanyl"||drug==="midazolam"||(drug==="magnesium"&&indication!=="Eclampsia"))) notes.push("This medication pathway requires a calculation weight before a dose can be determined.");
   if(drug==="adenosine"&&age<12) notes.push("Pediatric Adenosine requires direct verbal Base contact under DMP 9010.");
   if(drug==="fentanyl"&&age<1) notes.push("DMP 9230 does not provide a standing-order Fentanyl dose below 1 year; contact Base.");
   if(drug==="fentanyl"&&fentanylOlderFrail) notes.push("Elderly/frail Fentanyl pathway selected: the initial calculated dose is reduced to ½; cumulative limits are unchanged.");
@@ -122,6 +122,13 @@ function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,d
     {label:"REASSESSMENT",value:"Reassess sedation after 5 minutes",note:"During pacing, verify electrical and mechanical capture."},
     {label:"TRANSPORT / BASE",value:"Treat under the bradyarrhythmia pathway",note:"Contact Base before more than 2 sedation doses; pediatric pacing is rarely indicated and requires Base contact."},
   ];
+  if(drug==="magnesium") return [
+    {label:"REQUIRED MONITORING",value:"Continuous ECG, blood pressure and respiratory monitoring",note:"Watch for bradycardia, hypotension and respiratory depression."},
+    {label:"PREREQUISITES",value:indication,note:"Confirm the exact DMP 9190 indication and applicable prerequisite treatments before administration."},
+    {label:"MEDICATION OPTION",value:medication,note:"Use the route-specific dilution, administration time and site limits shown in the final cross-check."},
+    {label:"REASSESSMENT",value:"Continuously reassess rhythm, perfusion, blood pressure and ventilation",note:"DMP 9190 does not list a routine repeat dose."},
+    {label:"TRANSPORT / BASE",value:"Continue the indication-specific protocol and transport",note:"Contact Base for deterioration, diagnostic uncertainty or dosing outside DMP 9190."},
+  ];
   if(drug==="fentanyl") return [
     {label:"REQUIRED MONITORING",value:"Continuous pulse oximetry",note:"For medically complex patients or repeated dosing, add cardiac monitoring and capnography as soon as possible; keep naloxone and resuscitation equipment available."},
     {label:"PREREQUISITES",value:"Hemodynamically stable with moderate-to-severe pain",note:"Use comfort measures first; do not give with respiratory depression or shock."},
@@ -137,9 +144,15 @@ function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,d
     {label:"TRANSPORT / BASE",value:"Monitor during transport",note:age!=null&&age<12?"Pediatric Adenosine requires a direct verbal Base order.":"If the rhythm does not convert, contact Base for consultation; contact medical control for dosing beyond the additional 12 mg dose."},
   ];
 }
-function drugName(drug:SupportedDrug){return drug==="midazolam"?"Midazolam":drug[0].toUpperCase()+drug.slice(1)}
+function drugName(drug:SupportedDrug){return drug==="midazolam"?"Midazolam":drug==="magnesium"?"Magnesium Sulfate":drug[0].toUpperCase()+drug.slice(1)}
 
 function treatmentProtocol(drug:SupportedDrug,indication:string):ProtocolTarget {
+  if(drug==="magnesium") {
+    if(indication==="Eclampsia") return {id:"7010",name:"Obstetrical Complications",page:106};
+    if(indication==="Refractory severe bronchospasm") return {id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61};
+    if(indication==="Torsades — cardiac arrest") return {id:"3000",name:"Medical Pulseless Arrest",page:66};
+    return {id:"3040",name:"Tachyarrhythmia with Poor Perfusion",page:70};
+  }
   if(drug==="midazolam"&&indication==="Status epilepticus") return {id:"4040",name:"Seizure",page:80};
   if(indication.toLowerCase().includes("cardioversion")) return {id:"1090",name:"Synchronized Cardioversion",page:48};
   if(indication.toLowerCase().includes("pacing")) return {id:"1100",name:"Transcutaneous Pacing",page:49};
