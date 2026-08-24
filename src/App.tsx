@@ -262,7 +262,9 @@ export default function App() {
     dose = r?.maxSingle ? Math.min(adjustedBaseDose, r.maxSingle) : adjustedBaseDose,
     conc = Number(amt) > 0 && Number(ml) > 0 ? Number(amt) / Number(ml) : 0,
     vol = conc ? dose / conc : 0,
-    inTooHigh = drug === "fentanyl" && route === "IN" && vol > 2,
+    isIntranasal = route === "IN",
+    inVolumeOverTarget = isIntranasal && vol > 2,
+    inTooHigh = drug === "fentanyl" && inVolumeOverTarget,
     unit = drug === "fentanyl" ? "mcg" : "mg",
     maxTotal = r?.maxCumulative
       ? r.maxCumulative * kg
@@ -879,6 +881,17 @@ export default function App() {
                     onRecover={() => setStep("age")}
                   />
                 )}
+                {drug === "midazolam" && inVolumeOverTarget && (
+                  <div className="in-volume-caution" role="alert">
+                    <b>HIGH IN VOLUME</b>
+                    <strong>{fmt(vol)} mL total • {fmt(vol / 2)} mL per nostril</strong>
+                    <span>
+                      This exceeds the app's 1 mL-per-nostril atomization target. DMP 9070 does not
+                      publish a separate IN volume ceiling. Confirm the vial concentration and use a
+                      more concentrated formulation or another approved route when appropriate.
+                    </span>
+                  </div>
+                )}
                 <Next ok={valid.vial} go={next} text="Review final dose" />
               </>
             )}
@@ -909,6 +922,12 @@ export default function App() {
             {drug==="fentanyl"&&fentanylOlderFrail&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>ELDERLY/FRAIL STARTING DOSE APPLIED</b><strong>{fmt(baseDose)} mcg × ½ = GIVE {fmt(dose)} mcg</strong><span>DMP 9230 directs providers to start with ½ the traditional dose in elderly patients and strongly consider ½ typical dosing in elderly or frail patients. The cumulative protocol ceiling is unchanged.</span></div>}
             {drug==="midazolam"&&midazolamHalfConsideration&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>MIDAZOLAM ½-DOSE CONSIDERATION APPLIED</b><strong>{fmt(baseDose)} mg × ½ = GIVE {fmt(dose)} mg</strong><span>DMP 9070 states lower doses may be sufficient for patients over 65 or small adults under 50 kg. This calculation applies the protocol’s ½-dose consideration.</span></div>}
             {capped && <div className="ceiling-alert" role="alert"><b>PROTOCOL MAXIMUM APPLIED</b><strong>{fmt(baseDose)} {unit} calculated → GIVE {fmt(dose)} {unit}</strong><span>Do not administer the uncapped weight-based result.</span></div>}
+            {isIntranasal&&<div className={`in-split-card ${inVolumeOverTarget?"caution":""}`} role={inVolumeOverTarget?"alert":undefined}>
+              <small>INTRANASAL DELIVERY</small>
+              <strong>{fmt(vol/2)} mL LEFT + {fmt(vol/2)} mL RIGHT</strong>
+              <span>{fmt(vol)} mL total • Split evenly between nostrils</span>
+              {inVolumeOverTarget&&drug==="midazolam"&&<em>Above the app's 1 mL-per-nostril atomization target; verify concentration and route.</em>}
+            </div>}
             <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug).map((x)=><li key={x}>{x}</li>)}</ul></div>
             <DoseTracker
               entries={dosesGiven}
@@ -924,6 +943,7 @@ export default function App() {
               drug={drug}
               reason={reason}
               route={route||""}
+              intranasal={isIntranasal}
               record={recordDose}
             />
             <details className="calculation-details">
@@ -964,7 +984,7 @@ export default function App() {
               }
               concentration={`${fmt(conc)} ${unit}/mL`}
               calculatedDose={`${fmt(dose)} ${unit}`}
-              calculatedVolume={`${fmt(vol)} mL`}
+              calculatedVolume={isIntranasal?`${fmt(vol)} mL total (${fmt(vol/2)} mL per nostril)`:`${fmt(vol)} mL`}
               unit={unit}
               entries={dosesGiven}
               baseApproval={baseApproval||undefined}
@@ -1008,7 +1028,7 @@ export default function App() {
                 l="Repeat rule"
                 v={`${r.repeat>0?`After ${r.repeat} min`:"Per protocol"} • ${r.repeatText}`}
               />
-              {drug === "fentanyl" && route === "IN" && (
+              {isIntranasal && (
                 <Review
                   l="IN volume split"
                   v={`${fmt(vol / 2)} mL per nostril (${fmt(vol)} mL total)`}
