@@ -3,9 +3,10 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
 import FieldToolbar from "./FieldToolbar";
-type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine";
+type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
+type EncounterAdministration = {drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string};
 type Route = "IV" | "IV/IO" | "IM" | "IN" | "Nebulized";
 type AgeUnit = "years" | "months" | "days";
 type AgeClass = "adult" | "pediatric";
@@ -13,9 +14,11 @@ type Step =
   "drug" | "scanConfirm" | "reason" | "age" | "route" | "weight" | "safety" | "vial" | "review";
 const URL =
   "https://dmemsmd.org/wp-content/uploads/sites/51/2026/07/DMEMSMD-Protocols-July-2026-FINAL-2026-07-20.pdf";
-const protocolPages: Record<Drug, number> = { adenosine: 123, epinephrine: 148, midazolam: 136, magnesium: 157, fentanyl: 163 };
+const protocolPages: Record<Drug, number> = { adenosine: 123, albuterol:125, epinephrine: 148, diphenhydramine:144, midazolam: 136, magnesium: 157, methylprednisolone:158, fentanyl: 163 };
 const protocolUrl = (drug: Drug) => `${URL}#page=${protocolPages[drug]}`;
 const indicationProtocol = (drug: Drug, indication: string) => {
+  if (drug === "diphenhydramine" || drug === "methylprednisolone") return { id:"4090",name:"Allergy and Anaphylaxis",page:85 };
+  if (drug === "albuterol") return indication.includes("allergic") ? {id:"4090",name:"Allergy and Anaphylaxis",page:85} : {id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61};
   if (drug === "epinephrine") {
     if (indication.includes("Pulseless")) return { id: "3000", name: "Medical Pulseless Arrest", page: 66 };
     if (indication.includes("Bradycardia")) return { id: "3050", name: "Bradyarrhythmia with Poor Perfusion", page: 71 };
@@ -79,6 +82,9 @@ const meds = [
     brand: "Adrenalin",
     sub: "Arrest • anaphylaxis • shock • wheezing",
   },
+  {id:"albuterol" as Drug,name:"Albuterol",brand:"Proventil / Ventolin",sub:"Bronchodilator"},
+  {id:"diphenhydramine" as Drug,name:"Diphenhydramine",brand:"Benadryl",sub:"Antihistamine"},
+  {id:"methylprednisolone" as Drug,name:"Methylprednisolone",brand:"Solu-Medrol",sub:"Corticosteroid"},
 ];
 const medicationAliases: Record<string, string[]> = {
   adenosine: ["adenocard", "svt", "antiarrhythmic"],
@@ -86,6 +92,9 @@ const medicationAliases: Record<string, string[]> = {
   midazolam: ["versed", "seizure", "sedation", "benzodiazepine"],
   magnesium: ["mag", "mag sulfate", "torsades", "bronchospasm", "asthma", "eclampsia"],
   epinephrine: ["epi", "adrenalin", "anaphylaxis", "allergy", "arrest", "shock", "wheezing", "stridor"],
+  albuterol:["proventil","ventolin","neb","wheezing","bronchospasm"],
+  diphenhydramine:["benadryl","allergy","antihistamine"],
+  methylprednisolone:["solu medrol","solumedrol","steroid","allergy","asthma"],
 };
 function fuzzyMedicationMatch(med: (typeof meds)[number], query: string) {
   const q = query.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -125,6 +134,9 @@ const reasons: Record<Drug, string[]> = {
     "Stridor at rest — alternative to racemic epinephrine",
     "Systemic allergic reaction — auto-injector",
   ],
+  albuterol:["Wheezing associated with allergic reaction","Bronchospasm — single nebulizer dose","Severe bronchospasm — continuous nebulizer dose"],
+  diphenhydramine:["Allergic reaction"],
+  methylprednisolone:["Allergic reaction / anaphylaxis"],
 };
 function epinephrineReasonsForConcentration(concentrationMgMl: number) {
   const isPointOneMgMl = Math.abs(concentrationMgMl - 0.1) < 0.0001;
@@ -151,6 +163,9 @@ const routes: Record<Drug, Route[]> = {
   midazolam: ["IV/IO", "IM", "IN"],
   magnesium: ["IV/IO", "IV", "IM"],
   epinephrine: ["IV/IO", "IM", "Nebulized"],
+  albuterol:["Nebulized"],
+  diphenhydramine:["IV/IO","IM"],
+  methylprednisolone:["IV/IO"],
 };
 function epinephrineAdultOnly(reason: string) {
   return reason.includes("Hypotension") || reason.includes("infusion");
@@ -162,6 +177,7 @@ function magnesiumAdultOnly(reason: string) {
   return reason === "Torsades — stable/intermittent" || reason === "Torsades — unstable/peri-arrest";
 }
 function routesFor(drug: Drug, reason: string) {
+  if (drug === "albuterol" || drug === "diphenhydramine" || drug === "methylprednisolone") return routes[drug];
   if (drug === "epinephrine") {
     if (reason.endsWith("— IM") || reason.includes("auto-injector")) return ["IM"] as Route[];
     if (reason.includes("Stridor")) return ["Nebulized"] as Route[];
@@ -190,6 +206,16 @@ const tapeBands = [
 ];
 function rules(drug: Drug, reason: string, age: number, route: Route | null) {
   const adult = age >= 12;
+  if(drug==="albuterol") {
+    const continuous=reason.includes("continuous");
+    return {weight:false,rates:[continuous?7.5:2.5],unit:"mg",perKg:false,maxSingle:null,repeat:continuous?0:5,repeatText:continuous?"Continuous nebulizer dose uses three 2.5 mg/3 mL containers.":"May repeat twice for a total of 3 single doses.",maxCumulative:null,maxDoses:continuous?1:3,note:continuous?"NEBULIZED: 7.5 mg in 9 mL at 6–8 L/min.":"NEBULIZED: 2.5 mg in 3 mL at 6–8 L/min over 5–15 minutes."};
+  }
+  if(drug==="diphenhydramine") return adult
+    ? {weight:false,rates:[age>65?25:50],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"No routine repeat dose is listed in DMP 9100.",maxCumulative:null,maxDoses:1,note:age>65?"DMP half-dose applied because the patient is over 65.":"Administer IV/IO/IM. For mild reactions, consider PO administration per protocol."}
+    : {weight:true,rates:[1],unit:"mg",perKg:true,maxSingle:50,repeat:0,repeatText:"No routine repeat dose is listed in DMP 9100.",maxCumulative:null,maxDoses:1,note:"Administer slow IV/IO/IM; maximum 50 mg."};
+  if(drug==="methylprednisolone") return adult
+    ? {weight:false,rates:[125],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"No routine repeat dose is listed in DMP 9200.",maxCumulative:null,maxDoses:1,note:"Slow IV/IO bolus over 2 minutes. Reconstitute and use immediately."}
+    : {weight:true,rates:[2],unit:"mg",perKg:true,maxSingle:125,repeat:0,repeatText:"No routine repeat dose is listed in DMP 9200.",maxCumulative:null,maxDoses:1,note:"Slow IV/IO bolus over 2 minutes; maximum 125 mg. Do not delay transport."};
   if(drug==="adenosine")return{weight:false,rates:[12],unit:"mg",perKg:false,maxSingle:null,repeat:0,repeatText:"One additional 12 mg rapid IV dose; contact medical control for further considerations.",maxCumulative:null,maxDoses:2,note:"Administer rapid IV bolus followed immediately by a normal saline flush. Continuous ECG monitoring required."};
   if (drug === "epinephrine") {
     if (reason === "Pulseless arrest") return adult
@@ -303,6 +329,9 @@ function rules(drug: Drug, reason: string, age: number, route: Route | null) {
   };
 }
 function checksFor(drug: Drug, age: number, reason: string, fentanylOlderFrail = false, midazolamHalfConsideration = false) {
+  if(drug==="albuterol") return ["Wheezing or bronchospasm is present","IM Epinephrine has been given first when wheezing is associated with anaphylaxis","Severe tachycardia has been considered as a relative contraindication","Heart rate, respiratory status and SpO₂ will be monitored"];
+  if(drug==="diphenhydramine") return ["Allergic symptoms remain present","Airway, breathing and Epinephrine priorities have already been addressed","Asthma/COPD secretion thickening and narrow-angle glaucoma precautions reviewed",...(age>65?["DMP over-65 half-dose of 25 mg confirmed"]:[])];
+  if(drug==="methylprednisolone") return ["Primary airway, ventilation, Epinephrine and beta-agonist priorities have been completed","Patient is stable enough that administration will not delay transport","Active GI bleeding precaution reviewed","Medication will be reconstituted and used immediately"];
   if (drug === "epinephrine") {
     const indication = reason === "Pulseless arrest" ? "Pulseless arrest is confirmed"
       : reason === "Bradycardia with poor perfusion" ? "Pediatric bradycardia with poor perfusion persists after oxygenation and ventilation"
@@ -334,6 +363,9 @@ function checksFor(drug: Drug, age: number, reason: string, fentanylOlderFrail =
   return base;
 }
 function monitoringCautions(drug: Drug, reason = "", route: Route | null = null, adult = true) {
+  if(drug==="albuterol") return ["Nebulized medication — monitor respiratory effort, breath sounds, SpO₂ and heart rate","Watch for tachycardia, palpitations, dysrhythmia and angina","For anaphylaxis-associated wheezing, IM Epinephrine is the first-line treatment"];
+  if(drug==="diphenhydramine") return ["Monitor mental status, airway and respiratory status","Watch for drowsiness and additive effects with alcohol or other CNS depressants","Patients over 65 receive the DMP half-dose because of confusion, urinary retention, dizziness and fall risk"];
+  if(drug==="methylprednisolone") return ["Slow IV/IO bolus over 2 minutes","Reconstitute and use immediately","Delayed effect: do not delay transport or primary airway/ventilation treatment to administer"];
   if (drug === "epinephrine") {
     const administration = reason.includes("infusion") ? "IV/IO INFUSION — NOT PUSH: 1 mg in 1000 mL NS = 0.001 mg/mL; label the bag"
       : reason.includes("push dose") ? "IV PUSH DOSE: use agency-specific mixing guidance; dosing error is common"
@@ -373,6 +405,7 @@ export default function App() {
     [ageClass, setAgeClass] = useState<AgeClass | "">(""),
     [fentanylOlderFrail, setFentanylOlderFrail] = useState(false),
     [midazolamSmallAdult, setMidazolamSmallAdult] = useState<boolean | null>(null),
+    [diphenhydramineOlder, setDiphenhydramineOlder] = useState<boolean | null>(null),
     [age, setAge] = useState(""),
     [au, setAu] = useState<AgeUnit | "">(""),
     [route, setRoute] = useState<Route | null>(null),
@@ -390,6 +423,7 @@ export default function App() {
     [dosesGiven, setDosesGiven] = useState<
       { dose: number; volume: number; time: number }[]
     >([]),
+    [encounterAdministrations, setEncounterAdministrations] = useState<EncounterAdministration[]>([]),
     [now, setNow] = useState(Date.now()),
     [scannedVial, setScannedVial] = useState<StockVial | null>(null),
     [scanMedOk, setScanMedOk] = useState(false),
@@ -416,10 +450,11 @@ export default function App() {
     adult = an >= 12,
     midazolamHalfConsideration = drug==="midazolam"&&adult&&(an>65||midazolamSmallAdult===true),
     midazolamSizeAnswered = drug!=="midazolam"||ageClass!=="adult"||an>65||midazolamSmallAdult!==null,
+    diphenhydramineAgeAnswered = drug!=="diphenhydramine"||ageClass!=="adult"||diphenhydramineOlder!==null,
     tapeEligible = !adult && an < 10,
     underOne = age !== "" && an < 1,
     epiWheezingTooYoung = drug === "epinephrine" && reason === "Wheezing — IM" && age !== "" && an < 1,
-    ageText = drug==="adenosine"&&ageClass==="adult"?"12 years or older":drug==="fentanyl"&&fentanylOlderFrail?"Adult • elderly/frail":ageClass==="adult"?(drug==="midazolam"?(an>65?"over 65 years":"12–65 years"):"Adult 12+"):au ? `${age} ${au}` : age,
+    ageText = drug==="adenosine"&&ageClass==="adult"?"12 years or older":drug==="fentanyl"&&fentanylOlderFrail?"Adult • elderly/frail":ageClass==="adult"?(drug==="midazolam"?(an>65?"over 65 years":"12–65 years"):drug==="diphenhydramine"?(diphenhydramineOlder?"over 65 years":"12–65 years"):"Adult 12+"):au ? `${age} ${au}` : age,
     weightSuggestion = suggestedWeight(an),
     r = drug && reason && route ? rules(drug, reason, an, route) : null,
     epiVariableDose = drug === "epinephrine" && !!r && r.rates.length > 1,
@@ -503,7 +538,7 @@ export default function App() {
   useEffect(() => {
     setRate(r?.rates.length === 1 ? r.rates[0] : null);
     setCustomRate("");
-  }, [drug, reason, route, adult]);
+  }, [drug, reason, route, adult, an>65]);
   useEffect(() => setDosesGiven([]), [drug, reason, route, dose, conc]);
   useEffect(()=>{setBaseApproval(null);setBasePhysician("");setBaseAttested(false);setBaseContactOpen(false)},[drug,reason,ageClass,underOne]);
   useEffect(() => {
@@ -557,6 +592,7 @@ export default function App() {
       setAgeClass("");
       setFentanylOlderFrail(false);
       setMidazolamSmallAdult(null);
+      setDiphenhydramineOlder(null);
       setAge("");
       setAu("");
       setRoute(null);
@@ -568,6 +604,7 @@ export default function App() {
       setAmt("");
       setMl("");
       setDosesGiven([]);
+      setEncounterAdministrations([]);
       setScannedVial(null);
       setScanMedOk(false);
       setScanConcOk(false);
@@ -598,22 +635,34 @@ export default function App() {
     },
     recordDose = (amount: number) => {
       const time = Date.now();
+      const volume = amount / administrationConcentration;
       setNow(time);
       setDosesGiven((x) => [
         ...x,
-        { dose: amount, volume: amount / administrationConcentration, time },
+        { dose: amount, volume, time },
       ]);
+      if (drug) setEncounterAdministrations((entries) => [...entries, {
+        drug: medName(drug), reason, route: administrationRoute || "",
+        dose: amount, unit, volume, time,
+        concentration: `${fmt(administrationConcentration)} ${unit}/mL`,
+      }]);
     },
-    beginMedication = (selectedDrug: Drug) => {
+    beginMedication = (selectedDrug: Drug, preservePatient = false) => {
       setDrug(selectedDrug);
       setFentanylOlderFrail(false);
       setMidazolamSmallAdult(null);
-      setAgeClass(selectedDrug==="adenosine"?"adult":"");
-      setAge(selectedDrug==="adenosine"?"12":"");
-      setAu(selectedDrug==="adenosine"?"years":"");
+      setDiphenhydramineOlder(null);
+      if (!preservePatient) {
+        setAgeClass(selectedDrug==="adenosine"?"adult":"");
+        setAge(selectedDrug==="adenosine"?"12":"");
+        setAu(selectedDrug==="adenosine"?"years":"");
+        setWeight("");
+        setWs("actual");
+        setTapeColor("");
+        setEncounterAdministrations([]);
+      }
       setReason(reasons[selectedDrug].length===1?reasons[selectedDrug][0]:"");
       setRoute(null);
-      setWeight("");
       setChecks([]);
       setCustomRate("");
       setAmt("");
@@ -704,7 +753,7 @@ export default function App() {
               {meds
                 .filter((m) => fuzzyMedicationMatch(m, search))
                 .map((m) => {
-                        const active = m.id === "fentanyl" || m.id === "midazolam" || m.id === "adenosine" || m.id === "magnesium" || m.id === "epinephrine";
+                        const active = m.id === "fentanyl" || m.id === "midazolam" || m.id === "adenosine" || m.id === "magnesium" || m.id === "epinephrine" || m.id === "albuterol" || m.id === "diphenhydramine" || m.id === "methylprednisolone";
                   return (
                     <button
                       key={m.id}
@@ -797,13 +846,14 @@ export default function App() {
                 {age!==""&&!au?<div className="input-guidance"><b>Select the age unit</b><span>Choose years, months or days to continue.</span></div>:age!==""&&!ageWithinRange?<div className="input-guidance"><b>Check the age entry</b><span>Use days through 365, months through 143, or years below 12.</span></div>:epiWheezingTooYoung?<HardStop title="AGE OUTSIDE THIS INDICATION" reason="DMP 9120 lists pediatric wheezing Epinephrine only for ages 1 through 12 years." source="DMP 9120 Epinephrine" action="Correct the age or choose the systemic allergic reaction indication when that is the actual clinical reason." recoveryLabel="Correct age or indication" onRecover={()=>{setAge("");setAu("")}}/>:baseRequirement?<BaseContactGate reason={baseRequirement} source={drug==="fentanyl"?"DMP 9230 Opioids":drug==="epinephrine"?"DMP 9120 Epinephrine":"DMP 1100 Transcutaneous Cardiac Pacing"} open={baseContactOpen} physician={basePhysician} attested={baseAttested} approval={baseApproval?.reason===baseRequirement?baseApproval:null} setOpen={setBaseContactOpen} setPhysician={setBasePhysician} setAttested={setBaseAttested} approve={()=>setBaseApproval({physician:basePhysician.trim(),time:Date.now(),reason:baseRequirement})} clear={()=>{setBaseApproval(null);setBaseAttested(false);setBaseContactOpen(true)}}/>:null}
               </>}
             </>}</>}
-            {!!reason&&ageOk&&!ageBlocked&&baseClear&&midazolamSizeAnswered&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routesFor(drug,reason).map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>{setRoute(x);setWeight("");setTapeColor("")}}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Status epilepticus"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}{drug==="magnesium"&&route&&r?.note&&<div className="source-note">{r.note}</div>}</div>}
+            {drug==="diphenhydramine"&&ageClass==="adult"&&<div className="adaptive-section"><small>MEDICATION-SPECIFIC AGE CHECK</small><b className="compact-question">Is this patient over 65 years old?</b><div className="compact-choice-grid"><button className={diphenhydramineOlder===false?"selected":""} onClick={()=>{setDiphenhydramineOlder(false);setAge("12");setAu("years");setRoute(null)}}>No</button><button className={diphenhydramineOlder===true?"selected":""} onClick={()=>{setDiphenhydramineOlder(true);setAge("66");setAu("years");setRoute(null)}}>Yes — use 25 mg</button></div></div>}
+            {!!reason&&ageOk&&!ageBlocked&&baseClear&&midazolamSizeAnswered&&diphenhydramineAgeAnswered&&<div className="adaptive-section"><small>ROUTE</small><div className="route-grid compact-routes">{routesFor(drug,reason).map((x)=><button key={x} className={route===x?"selected":""} onClick={()=>setRoute(x)}>{x}</button>)}</div>{drug==="midazolam"&&reason==="Status epilepticus"&&<div className="source-note">IN is preferred over IM when IV cannot be safely or rapidly obtained.</div>}{drug==="magnesium"&&route&&r?.note&&<div className="source-note">{r.note}</div>}</div>}
             {!!route&&needWeight&&<div className="adaptive-section"><small>CALCULATION WEIGHT</small><div className="source-grid compact-sources">{[["actual","Actual"],["estimated","Estimated"],...(tapeEligible?[["tape","Length-based tape"]]:[])].map(([id,x])=><button key={id} className={ws===id?"selected":""} onClick={()=>{setWs(id);setWeight("");setTapeColor("");if(id==="tape")setWu("kg")}}>{x}</button>)}</div>
               {weightSuggestion!==null&&ws!=="tape"&&<button className="quick-estimate" onClick={useSuggestedWeight}>Use DMP age-band estimate: {weightSuggestion} kg</button>}
               {ws==="tape"&&tapeEligible?<><div className="tape-heading"><b>Select tape color</b><span>Use only when the child physically fits the tape.</span></div><div className="tape-grid">{tapeBands.map((b)=><button key={b.name} className={tapeColor===b.name?"selected":""} style={{background:b.color,color:b.text}} onClick={()=>selectTapeBand(b.name,b.kg)}><b>{b.name}</b><span>{b.kg} kg</span></button>)}</div></>:<><div className="unit-toggle compact-unit"><button className={wu==="kg"?"selected":""} onClick={()=>setUnit("kg")}>kg</button><button className={wu==="lb"?"selected":""} onClick={()=>setUnit("lb")}>lb</button></div><label className="giant-input compact-weight"><span>Patient weight ({wu})</span><input inputMode="decimal" value={weight} onChange={(e)=>{setWeight(e.target.value);if(ws==="age")setWs("estimated")}} placeholder="0"/></label>{Number(weight)>0&&<div className="kg-lock" role="status"><small>CALCULATION WEIGHT</small><b>{fmt(kg)} kg</b><span>{wu==="lb"?`${weight} lb ÷ 2.2046`:"Entered in kilograms"}</span></div>}</>}
               {ws==="age"&&<div className="estimate-warning"><b>Age-based estimate selected</b><span>Replace it if a better weight becomes available before administration.</span></div>}
             </div>}
-            {!!reason&&ageOk&&!ageBlocked&&baseClear&&midazolamSizeAnswered&&<Next ok={!!route&&weightOk} go={()=>setStep("safety")} text="Continue to safety checks"/>}
+            {!!reason&&ageOk&&!ageBlocked&&baseClear&&midazolamSizeAnswered&&diphenhydramineAgeAnswered&&<Next ok={!!route&&weightOk} go={()=>setStep("safety")} text="Continue to safety checks"/>}
           </Screen>
         )}
         {step === "route" && drug && (
@@ -1169,8 +1219,8 @@ export default function App() {
               {inVolumeOverTarget&&drug==="midazolam"&&<em>Above the app's 1 mL-per-nostril atomization target; verify concentration and route.</em>}
             </div>}
             {drug==="magnesium"&&reason==="Eclampsia"&&route==="IM"&&<div className="in-split-card"><small>IM SITE SPLIT</small><strong>5 g LEFT + 5 g RIGHT BUTTOCK</strong><span>{fmt(vol/2)} mL per site • {fmt(vol)} mL total stock volume</span></div>}
-            {magInfusion&&<MagnesiumDripCalculator durationMinutes={magInfusionMinutes}/>} 
-            {epiInfusion&&<EpinephrineInfusionCalculator rate={rate||0} stockConcentration={conc}/>} 
+            {magInfusion&&<MagnesiumDripCalculator durationMinutes={magInfusionMinutes}/>}
+            {epiInfusion&&<EpinephrineInfusionCalculator rate={rate||0} stockConcentration={conc}/>}
             {epiPediatricDilution&&<section className="mag-drip-calculator" aria-label="Pediatric Epinephrine push-dose dilution"><header><small>PEDIATRIC PUSH-DOSE DILUTION</small><strong>BASE CONTACT REQUIRED</strong><span>Prepare 0.01 mg/mL before giving</span></header><div className="drip-results"><span><small>DRAW</small><b>1 mL of 0.1 mg/mL Epinephrine</b></span><span><small>ADD</small><b>9 mL Normal Saline</b></span></div><p><b>Final syringe: 0.01 mg/mL.</b> Give {fmt(dose)} mg ({fmt(vol)} mL) by slow IV/IO push under the recorded Base authorization.</p></section>}
             <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug,reason,route,adult).map((x)=><li key={x}>{x}</li>)}</ul></div>
             {!epiInfusion&&<DoseTracker
@@ -1221,7 +1271,7 @@ export default function App() {
                     ? `${tapeColor} length-based band`
                     : ws
               }
-              protocol={drug==="fentanyl"?"DMP 9230 • July 2026":drug==="adenosine"?"DMP 9010 • July 2026":drug==="magnesium"?"DMP 9190 • July 2026":drug==="epinephrine"?"DMP 9120 • July 2026":"DMP 9070 • July 2026"}
+              protocol={`${protocolId(drug)} • July 2026`}
               doseRule={
                 (epiWeightBandDose
                   ? `${fmt(kg)} kg ${kg<25?"<":"≥"} 25 kg = ${formatDose(drug,dose,unit)}`
@@ -1234,6 +1284,7 @@ export default function App() {
               calculatedVolume={epiInfusion?`${fmt(vol)} mL/min from prepared 0.001 mg/mL bag`:isIntranasal?`${fmt(vol)} mL total (${fmt(vol/2)} mL per nostril)`:`${fmt(vol)} mL`}
               unit={unit}
               entries={dosesGiven}
+              encounterEntries={encounterAdministrations}
               baseApproval={baseApproval||undefined}
               openSignal={reportSignal}
               hideLauncher
@@ -1353,6 +1404,7 @@ export default function App() {
         currentDose={drug&&r&&rate!==null?doseText:undefined}
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
         onSelectMedication={beginMedication}
+        onSelectSuggestedMedication={(selectedDrug)=>beginMedication(selectedDrug,true)}
         reportReady={Boolean(drug&&r&&rate!==null&&epiEnteredDoseValid&&conc>0&&!volumeBlocked)}
         onOpenReport={()=>{
           setStep("review");
@@ -1635,8 +1687,8 @@ function formatDose(drug: Drug, dose: number, unit: string) {
     : `${fmt(dose)} ${unit}`;
 }
 function medName(d: Drug) {
-  return d === "fentanyl" ? "Fentanyl" : d==="adenosine"?"Adenosine (Adenocard)":d==="magnesium"?"Magnesium Sulfate":d==="epinephrine"?"Epinephrine (Adrenalin)":"Midazolam (Versed)";
+  return d === "fentanyl" ? "Fentanyl" : d==="adenosine"?"Adenosine (Adenocard)":d==="magnesium"?"Magnesium Sulfate":d==="epinephrine"?"Epinephrine (Adrenalin)":d==="diphenhydramine"?"Diphenhydramine (Benadryl)":d==="methylprednisolone"?"Methylprednisolone (Solu-Medrol)":d==="albuterol"?"Albuterol":"Midazolam (Versed)";
 }
 function protocolId(d: Drug) {
-  return d==="fentanyl"?"DMP 9230":d==="adenosine"?"DMP 9010":d==="magnesium"?"DMP 9190":d==="epinephrine"?"DMP 9120":"DMP 9070";
+  return d==="fentanyl"?"DMP 9230":d==="adenosine"?"DMP 9010":d==="magnesium"?"DMP 9190":d==="epinephrine"?"DMP 9120":d==="albuterol"?"DMP 9020":d==="diphenhydramine"?"DMP 9100":d==="methylprednisolone"?"DMP 9200":"DMP 9070";
 }
