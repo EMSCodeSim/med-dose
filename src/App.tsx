@@ -96,6 +96,17 @@ const meds:MedicationCatalogItem[] = [
   {id:"sodium-bicarbonate",name:"Sodium Bicarbonate",brand:"Sodium bicarbonate",sub:"Alkalinizing agent",protocol:{id:"9280",name:"Sodium Bicarbonate",page:169}},
   {id:"ophthalmic-anesthetics",name:"Topical Ophthalmic Anesthetics",brand:"Tetracaine / Proparacaine",sub:"Eye pain / irrigation",protocol:{id:"9290",name:"Topical Ophthalmic Anesthetics",page:170}},
 ];
+const VISIBLE_MEDICATIONS_KEY = "metro-med-dose-visible-medications";
+function savedVisibleMedications() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VISIBLE_MEDICATIONS_KEY) || "null");
+    if (Array.isArray(saved)) {
+      const valid = saved.filter((id): id is string => typeof id === "string" && meds.some((med) => med.id === id));
+      if (valid.length || saved.length === 0) return valid;
+    }
+  } catch {}
+  return meds.map((med) => med.id);
+}
 const medicationAliases: Record<string, string[]> = {
   adenosine: ["adenocard", "svt", "antiarrhythmic"],
   fentanyl: ["sublimaze", "pain", "opioid"],
@@ -452,8 +463,13 @@ function ClinicalApp() {
     [baseApproval, setBaseApproval] = useState<{physician:string;time:number;reason:string}|null>(null),
     [catalogProtocol, setCatalogProtocol] = useState<ProtocolTarget|null>(null),
     [genericMedId, setGenericMedId] = useState<string|null>(null),
+    [settingsOpen, setSettingsOpen] = useState(false),
+    [visibleMedicationIds, setVisibleMedicationIds] = useState<string[]>(savedVisibleMedications),
     [encounterReportOpen, setEncounterReportOpen] = useState(false),
     [reportSignal, setReportSignal] = useState(0);
+  useEffect(() => {
+    try { localStorage.setItem(VISIBLE_MEDICATIONS_KEY, JSON.stringify(visibleMedicationIds)); } catch {}
+  }, [visibleMedicationIds]);
   useEffect(() => {
     setOnline(navigator.onLine);
     setWu(localStorage.getItem("preferredWeightUnit") || "kg");
@@ -717,6 +733,7 @@ function ClinicalApp() {
           <span className={`connection ${online ? "online" : "offline"}`}>
             {online ? "Online" : "Offline ready"}
           </span>
+          <button onClick={() => setSettingsOpen(true)} aria-label="Open drug list settings">Settings</button>
           <button onClick={() => setInstall(true)}>Install</button>
         </div>
       </header>
@@ -765,7 +782,10 @@ function ClinicalApp() {
             t="Which medication was requested?"
             h="Search every current Denver Metro medication monograph. Each medication opens a pathway-specific dose or administration calculator with a direct link to its source protocol."
           >
-            <div className="catalog-status"><span><b>33</b> current DMP medication monographs</span><span><b>{meds.length}</b> searchable medication entries</span></div>
+            <div className="catalog-controls">
+              <div className="catalog-status"><span><b>{visibleMedicationIds.length}</b> of {meds.length} medications shown</span></div>
+              <button className="drug-settings-button" onClick={() => setSettingsOpen(true)}><span aria-hidden="true">⚙</span> Drug list settings</button>
+            </div>
             <label className="drug-search">
               <span>Search generic or brand name</span>
               <input
@@ -777,6 +797,7 @@ function ClinicalApp() {
             </label>
             <div className="choice-grid medication-order">
               {meds
+                .filter((m) => visibleMedicationIds.includes(m.id))
                 .filter((m) => fuzzyMedicationMatch(m, search))
                 .map((m) => {
                   return (
@@ -797,6 +818,7 @@ function ClinicalApp() {
                   );
                 })}
             </div>
+            {visibleMedicationIds.length === 0 && <div className="empty-medication-list"><b>No medications are currently shown.</b><span>Open Drug list settings to choose which medications appear on this screen.</span><button onClick={() => setSettingsOpen(true)}>Choose medications</button></div>}
           </Screen>
         )}
         {step === "scanConfirm" && scannedVial && (
@@ -1437,9 +1459,36 @@ function ClinicalApp() {
       />
       {catalogProtocol&&<ProtocolViewer target={catalogProtocol} close={()=>setCatalogProtocol(null)}/>} 
       {genericMedId&&genericMedication(genericMedId)&&<DmpMedicationCalculator medication={genericMedication(genericMedId)} close={()=>setGenericMedId(null)} openProtocol={()=>setCatalogProtocol(genericMedication(genericMedId).paths.length?{id:genericMedication(genericMedId).protocolId,name:genericMedication(genericMedId).name,page:genericMedication(genericMedId).page}:{id:"9000",name:"Medication Administration Guidelines",page:121})} record={(entry)=>setEncounterAdministrations(x=>[...x,entry])}/>} 
+      {settingsOpen&&<MedicationVisibilitySettings visibleIds={visibleMedicationIds} setVisibleIds={setVisibleMedicationIds} close={()=>setSettingsOpen(false)}/>} 
       {encounterReportOpen&&<EncounterReport entries={encounterAdministrations} close={()=>setEncounterReportOpen(false)}/>} 
     </main>
   );
+}
+
+function MedicationVisibilitySettings({visibleIds,setVisibleIds,close}:{visibleIds:string[];setVisibleIds:(ids:string[])=>void;close:()=>void}) {
+  const visible = new Set(visibleIds);
+  const toggle = (id:string) => setVisibleIds(visible.has(id) ? visibleIds.filter((item)=>item!==id) : [...visibleIds,id]);
+  return <div className="modal-backdrop medication-settings-backdrop" onClick={close}>
+    <section className="medication-settings-modal" role="dialog" aria-modal="true" aria-labelledby="medication-settings-title" onClick={(event)=>event.stopPropagation()}>
+      <header>
+        <span><small>SETTINGS</small><h2 id="medication-settings-title">Medications shown on home screen</h2></span>
+        <button className="close" onClick={close} aria-label="Close settings">×</button>
+      </header>
+      <p>Choose the medications your agency carries or that you want available in the main chart. This changes only the list shown on this device; medication and protocol data are not deleted.</p>
+      <div className="medication-settings-summary"><b>{visibleIds.length} shown</b><span>{meds.length-visibleIds.length} hidden</span></div>
+      <div className="medication-settings-actions">
+        <button onClick={()=>setVisibleIds(meds.map((med)=>med.id))}>Show all</button>
+        <button onClick={()=>setVisibleIds([])}>Hide all</button>
+      </div>
+      <div className="medication-settings-list">
+        {meds.map((med)=><label key={med.id} className={visible.has(med.id)?"selected":""}>
+          <input type="checkbox" checked={visible.has(med.id)} onChange={()=>toggle(med.id)}/>
+          <span><b>{med.name}</b><small>{med.brand} • DMP {med.protocol.id}</small></span>
+        </label>)}
+      </div>
+      <footer><span>Saved automatically on this device</span><button onClick={close}>Done</button></footer>
+    </section>
+  </div>;
 }
 
 const CLINICAL_REVIEW_LOCKED = true;
