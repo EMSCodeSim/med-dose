@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
 import FieldToolbar from "./FieldToolbar";
+import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
@@ -50,41 +51,41 @@ const indicationProtocolUrl = (drug: Drug, indication: string) =>
   `${URL}#page=${indicationProtocol(drug, indication).page}`;
 const medicationPhoto = (drug: Drug) =>
   drug === "adenosine" ? "/medications/adenosine-vial.webp" : undefined;
-const meds = [
-  {id:"adenosine" as Drug,name:"Adenosine",brand:"Adenocard",sub:"Adult standing order • age 12+"},
-  {
-    id: "fentanyl" as Drug,
-    name: "Fentanyl",
-    brand: "Sublimaze",
-    sub: "Opioid analgesic",
-  },
-  {
-    id: "midazolam" as Drug,
-    name: "Midazolam",
-    brand: "Versed",
-    sub: "Benzodiazepine",
-  },
-  {
-    id: "magnesium" as Drug,
-    name: "Magnesium Sulfate",
-    brand: "Magnesium Sulfate",
-    sub: "Antiarrhythmic • bronchodilator • eclampsia",
-  },
-  {
-    id: "ketorolac",
-    name: "Ketorolac",
-    brand: "Toradol",
-    sub: "Pending review",
-  },
-  {
-    id: "epinephrine" as Drug,
-    name: "Epinephrine",
-    brand: "Adrenalin",
-    sub: "Arrest • anaphylaxis • shock • wheezing",
-  },
-  {id:"albuterol" as Drug,name:"Albuterol",brand:"Proventil / Ventolin",sub:"Bronchodilator"},
-  {id:"diphenhydramine" as Drug,name:"Diphenhydramine",brand:"Benadryl",sub:"Antihistamine"},
-  {id:"methylprednisolone" as Drug,name:"Methylprednisolone",brand:"Solu-Medrol",sub:"Corticosteroid"},
+type MedicationCatalogItem={id:string;name:string;brand:string;sub:string;protocol:ProtocolTarget;calculator?:Drug};
+const meds:MedicationCatalogItem[] = [
+  {id:"acetaminophen",name:"Acetaminophen",brand:"Tylenol",sub:"Analgesic / antipyretic",protocol:{id:"9005",name:"Acetaminophen",page:122}},
+  {id:"adenosine",name:"Adenosine",brand:"Adenocard",sub:"Antiarrhythmic",protocol:{id:"9010",name:"Adenosine",page:123},calculator:"adenosine"},
+  {id:"albuterol",name:"Albuterol",brand:"Proventil / Ventolin",sub:"Bronchodilator",protocol:{id:"9020",name:"Albuterol",page:125},calculator:"albuterol"},
+  {id:"amiodarone",name:"Amiodarone",brand:"Cordarone",sub:"Antiarrhythmic",protocol:{id:"9030",name:"Amiodarone",page:127}},
+  {id:"antiemetics",name:"Antiemetics",brand:"Ondansetron • Droperidol",sub:"Nausea and vomiting",protocol:{id:"9040",name:"Antiemetics",page:128}},
+  {id:"antipsychotics",name:"Antipsychotics",brand:"Droperidol • Haloperidol • Olanzapine",sub:"Agitation / behavioral emergency",protocol:{id:"9045",name:"Antipsychotics",page:129}},
+  {id:"aspirin",name:"Aspirin",brand:"ASA",sub:"Antiplatelet",protocol:{id:"9050",name:"Aspirin",page:134}},
+  {id:"atropine",name:"Atropine",brand:"Atropine",sub:"Anticholinergic",protocol:{id:"9060",name:"Atropine",page:135}},
+  {id:"midazolam",name:"Benzodiazepines / Midazolam",brand:"Versed",sub:"Seizure / sedation",protocol:{id:"9070",name:"Benzodiazepines / Midazolam",page:136},calculator:"midazolam"},
+  {id:"calcium",name:"Calcium",brand:"Calcium chloride / gluconate",sub:"Electrolyte / membrane stabilization",protocol:{id:"9080",name:"Calcium",page:140}},
+  {id:"dextrose",name:"Dextrose",brand:"D10 / D25 / D50",sub:"Hypoglycemia",protocol:{id:"9090",name:"Dextrose",page:142}},
+  {id:"diltiazem",name:"Diltiazem",brand:"Cardizem",sub:"Calcium-channel blocker",protocol:{id:"9095",name:"Diltiazem",page:143}},
+  {id:"diphenhydramine",name:"Diphenhydramine",brand:"Benadryl",sub:"Antihistamine",protocol:{id:"9100",name:"Diphenhydramine",page:144},calculator:"diphenhydramine"},
+  {id:"dopamine",name:"Dopamine",brand:"Intropin",sub:"Vasopressor infusion",protocol:{id:"9110",name:"Dopamine",page:145}},
+  {id:"duodote",name:"DuoDote",brand:"Atropine / pralidoxime",sub:"Nerve-agent antidote",protocol:{id:"9115",name:"DuoDote",page:146}},
+  {id:"epinephrine",name:"Epinephrine",brand:"Adrenalin",sub:"Arrest • anaphylaxis • shock • wheezing",protocol:{id:"9120",name:"Epinephrine",page:148},calculator:"epinephrine"},
+  {id:"glucagon",name:"Glucagon",brand:"GlucaGen",sub:"Hypoglycemia / beta-blocker toxicity",protocol:{id:"9130",name:"Glucagon",page:151}},
+  {id:"hemostatic-agents",name:"Hemostatic Agents",brand:"Agency-approved product",sub:"Hemorrhage control",protocol:{id:"9150",name:"Hemostatic Agents",page:152}},
+  {id:"hydroxocobalamin",name:"Hydroxocobalamin",brand:"Cyanokit",sub:"Cyanide antidote",protocol:{id:"9160",name:"Hydroxocobalamin",page:153}},
+  {id:"ipratropium",name:"Ipratropium",brand:"Atrovent",sub:"Bronchodilator",protocol:{id:"9170",name:"Ipratropium",page:155}},
+  {id:"lidocaine",name:"Lidocaine 2%",brand:"Xylocaine",sub:"Local anesthetic",protocol:{id:"9180",name:"Lidocaine 2%",page:156}},
+  {id:"magnesium",name:"Magnesium Sulfate",brand:"Magnesium Sulfate",sub:"Antiarrhythmic • bronchodilator • eclampsia",protocol:{id:"9190",name:"Magnesium Sulfate",page:157},calculator:"magnesium"},
+  {id:"methylprednisolone",name:"Methylprednisolone",brand:"Solu-Medrol",sub:"Corticosteroid",protocol:{id:"9200",name:"Methylprednisolone",page:158},calculator:"methylprednisolone"},
+  {id:"naloxone",name:"Naloxone",brand:"Narcan",sub:"Opioid antagonist",protocol:{id:"9210",name:"Naloxone",page:159}},
+  {id:"nitroglycerin",name:"Nitroglycerin",brand:"Nitrostat",sub:"Vasodilator",protocol:{id:"9220",name:"Nitroglycerin",page:161}},
+  {id:"nsaids",name:"NSAIDs",brand:"Ketorolac / Ibuprofen",sub:"Non-opioid analgesics",protocol:{id:"9225",name:"NSAIDs",page:162}},
+  {id:"fentanyl",name:"Opioids / Fentanyl",brand:"Fentanyl",sub:"Opioid analgesic",protocol:{id:"9230",name:"Opioids / Fentanyl",page:163},calculator:"fentanyl"},
+  {id:"oral-glucose",name:"Oral Glucose",brand:"Glucose gel",sub:"Hypoglycemia",protocol:{id:"9240",name:"Oral Glucose",page:165}},
+  {id:"oxygen",name:"Oxygen",brand:"Medical oxygen",sub:"Respiratory support",protocol:{id:"9250",name:"Oxygen",page:166}},
+  {id:"phenylephrine",name:"Phenylephrine",brand:"Neo-Synephrine",sub:"Vasopressor",protocol:{id:"9260",name:"Phenylephrine",page:167}},
+  {id:"racemic-epinephrine",name:"Racemic Epinephrine",brand:"Vaponefrin",sub:"Nebulized upper-airway therapy",protocol:{id:"9270",name:"Racemic Epinephrine",page:168}},
+  {id:"sodium-bicarbonate",name:"Sodium Bicarbonate",brand:"Sodium bicarbonate",sub:"Alkalinizing agent",protocol:{id:"9280",name:"Sodium Bicarbonate",page:169}},
+  {id:"ophthalmic-anesthetics",name:"Topical Ophthalmic Anesthetics",brand:"Tetracaine / Proparacaine",sub:"Eye pain / irrigation",protocol:{id:"9290",name:"Topical Ophthalmic Anesthetics",page:170}},
 ];
 const medicationAliases: Record<string, string[]> = {
   adenosine: ["adenocard", "svt", "antiarrhythmic"],
@@ -432,6 +433,7 @@ export default function App() {
     [basePhysician, setBasePhysician] = useState(""),
     [baseAttested, setBaseAttested] = useState(false),
     [baseApproval, setBaseApproval] = useState<{physician:string;time:number;reason:string}|null>(null),
+    [catalogProtocol, setCatalogProtocol] = useState<ProtocolTarget|null>(null),
     [reportSignal, setReportSignal] = useState(0);
   useEffect(() => {
     setOnline(navigator.onLine);
@@ -738,8 +740,9 @@ export default function App() {
           <Screen
             e="START"
             t="Which medication was requested?"
-            h="Only advisor-review pathways are selectable."
+            h="Search every current Denver Metro medication monograph. Calculator-labeled medications open the guided dose workflow; all others open the exact offline DMP reference page."
           >
+            <div className="catalog-status"><span><b>{meds.length}</b> current DMP medication monographs</span><span><b>{meds.filter(x=>x.calculator).length}</b> guided calculators</span></div>
             <label className="drug-search">
               <span>Search generic or brand name</span>
               <input
@@ -753,13 +756,12 @@ export default function App() {
               {meds
                 .filter((m) => fuzzyMedicationMatch(m, search))
                 .map((m) => {
-                        const active = m.id === "fentanyl" || m.id === "midazolam" || m.id === "adenosine" || m.id === "magnesium" || m.id === "epinephrine" || m.id === "albuterol" || m.id === "diphenhydramine" || m.id === "methylprednisolone";
+                        const active = Boolean(m.calculator);
                   return (
                     <button
                       key={m.id}
-                      disabled={!active}
-                      className="choice"
-                      onClick={() => beginMedication(m.id as Drug)}
+                      className={`choice ${active?"calculator-med":"protocol-only-med"}`}
+                      onClick={() => active ? beginMedication(m.calculator!) : setCatalogProtocol(m.protocol)}
                     >
                       <span className="rx">{meds.findIndex(x=>x.id===m.id)+1}</span>
                       <span>
@@ -768,7 +770,7 @@ export default function App() {
                           {m.brand} • {m.sub}
                         </small>
                       </span>
-                      {active ? <i>›</i> : <em>Pending review</em>}
+                      {active ? <><em>Dose calculator</em><i>›</i></> : <em>Protocol reference ›</em>}
                     </button>
                   );
                 })}
@@ -1411,6 +1413,7 @@ export default function App() {
           setReportSignal(x=>x+1);
         }}
       />
+      {catalogProtocol&&<ProtocolViewer target={catalogProtocol} close={()=>setCatalogProtocol(null)}/>} 
     </main>
   );
 }
