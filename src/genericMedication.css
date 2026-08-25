@@ -1,0 +1,21 @@
+.generic-dose-adjustment {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 2px solid #c47400;
+  border-radius: 10px;
+  background: #fff1d9;
+  color: #654006;
+}
+
+.generic-dose-adjustment b {
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+
+.generic-dose-adjustment span {
+  font-size: 11px;
+  line-height: 1.4;
+}
