@@ -413,3 +413,23 @@
 @media (max-width: 380px) {
   .generic-checks.generic-compact-confirmations { grid-template-columns: 1fr; }
 }
+
+/* Render newer calculators inside the shared application shell. */
+.generic-hidden { display: none; }
+.generic-calculator-host { padding-top: 0; }
+.generic-calculator-host .generic-calc {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  background: transparent;
+}
+.generic-calculator-host .generic-patient-strip { margin: 0 0 12px; }
+.generic-calculator-host .generic-calc > .clinical-banner { margin: 0 0 13px; }
+.generic-calculator-host .generic-body { margin: 0; }
+
+@media (max-width: 780px) {
+  .generic-calculator-host .generic-calc { height: auto; }
+  .generic-calculator-host .generic-calc > .clinical-banner { margin: 0 0 10px; }
+  .generic-calculator-host .generic-patient-strip { margin: 0 0 10px; }
+  .generic-calculator-host .generic-body { margin: 0; }
+}

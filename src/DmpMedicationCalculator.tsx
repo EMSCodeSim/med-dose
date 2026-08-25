@@ -45,7 +45,7 @@ export default function DmpMedicationCalculator({medication,close,record,openPro
   const totalSteps=needsWeight?5:4,stepNumber=step==="medication"?1:step==="patient"?2:step==="weight"?3:step==="safety"?(needsWeight?4:3):(needsWeight?5:4);
   const back=()=>setStep(step==="patient"?"medication":step==="weight"?"patient":step==="safety"?(needsWeight?"weight":"patient"):"safety");
 
-  return <div className="generic-calc-backdrop"><main className="generic-calc" role="dialog" aria-modal="true" aria-label={`${medication.name} calculator`}>
+  return <main className="generic-calc" aria-label={`${medication.name} calculator`}>
     {path&&<nav className="patient-strip generic-patient-strip" aria-label="Current medication calculation"><button onClick={()=>setStep("medication")}><small>MED</small><b>{path.agent}</b>{conc>0&&<span>{fmt(conc)} {result?.unit||concentrationUnit}/mL</span>}</button><button onClick={()=>setStep("patient")}><small>USE</small><b>{path.label}</b></button>{patientText&&<button onClick={()=>setStep("patient")}><small>PATIENT</small><b>{path.patient==="adult"?"Adult":path.patient==="pediatric"?"Pediatric":"All ages"} • {patientText}</b></button>}{selectedRoute&&<button onClick={()=>setStep("patient")}><small>ROUTE</small><b>{selectedRoute}</b></button>}</nav>}
     <div className="wizard-top generic-wizard-top"><button className="back" onClick={step==="medication"?close:back}>‹ Back</button><span>Step {stepNumber} of {totalSteps}</span><button className="start-over" onClick={openProtocol}>Protocol §</button></div>
     <div className="progress generic-progress" aria-label={`Step ${stepNumber} of ${totalSteps}`}><i style={{width:`${stepNumber/totalSteps*100}%`}}/></div>
@@ -70,7 +70,7 @@ export default function DmpMedicationCalculator({medication,close,record,openPro
         <button className="new-calc" onClick={close}>{administrations.length?"Return to medication list":"Close without recording"}</button>
       </>}
     </section>
-  </main></div>;
+  </main>;
 }
 
 export function calculateGenericDose(path:GenericDosePath,age:number,weight:number,medicationId:string){

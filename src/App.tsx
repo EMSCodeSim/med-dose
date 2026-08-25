@@ -773,7 +773,7 @@ function ClinicalApp() {
           <button onClick={() => setInstall(true)}>Install</button>
         </div>
       </header>
-      <section className="wizard-shell">
+      <section className={`wizard-shell${genericMedId ? " generic-hidden" : ""}`}>
         {drug && step !== "drug" && (
           <nav className="patient-strip" aria-label="Current medication calculation">
             <button onClick={() => setStep("scanConfirm")} aria-label="Edit medication and concentration">
@@ -1458,6 +1458,20 @@ function ClinicalApp() {
           </Screen>
         )}
       </section>
+      {genericMedId && genericMedication(genericMedId) && (
+        <section className="wizard-shell generic-calculator-host">
+          <DmpMedicationCalculator
+            medication={genericMedication(genericMedId)}
+            close={() => setGenericMedId(null)}
+            openProtocol={() => setCatalogProtocol({
+              id: genericMedication(genericMedId).protocolId,
+              name: genericMedication(genericMedId).name,
+              page: genericMedication(genericMedId).page,
+            })}
+            record={(entry) => setEncounterAdministrations((items) => [...items, entry])}
+          />
+        </section>
+      )}
       {install && (
         <div className="modal-backdrop" onClick={() => setInstall(false)}>
           <section className="install-modal">
@@ -1496,7 +1510,6 @@ function ClinicalApp() {
         }}
       />
       {catalogProtocol&&<ProtocolViewer target={catalogProtocol} close={()=>setCatalogProtocol(null)}/>}
-      {genericMedId&&genericMedication(genericMedId)&&<DmpMedicationCalculator medication={genericMedication(genericMedId)} close={()=>setGenericMedId(null)} openProtocol={()=>setCatalogProtocol(genericMedication(genericMedId).paths.length?{id:genericMedication(genericMedId).protocolId,name:genericMedication(genericMedId).name,page:genericMedication(genericMedId).page}:{id:"9000",name:"Medication Administration Guidelines",page:121})} record={(entry)=>setEncounterAdministrations(x=>[...x,entry])}/>}
       {settingsOpen&&<MedicationVisibilitySettings visibleIds={visibleMedicationIds} setVisibleIds={setVisibleMedicationIds} reviews={medicationReviews} openReview={setReviewMedicationId} close={()=>setSettingsOpen(false)}/>}
       {reviewMedicationId&&meds.find((med)=>med.id===reviewMedicationId)&&<MedicationReviewModal medication={meds.find((med)=>med.id===reviewMedicationId)!} reviews={medicationReviews} setReviews={setMedicationReviews} close={()=>setReviewMedicationId(null)}/>}
       {encounterReportOpen&&<EncounterReport entries={encounterAdministrations} close={()=>setEncounterReportOpen(false)}/>}
