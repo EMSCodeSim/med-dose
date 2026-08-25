@@ -1500,10 +1500,9 @@ export default function App(){
     if(approved){try{localStorage.setItem(REVIEW_SESSION_KEY,String(Date.now()+REVIEW_SESSION_MS))}catch{}setAuthorized(true)}
     return approved;
   };
-  const endSession=()=>{try{localStorage.removeItem(REVIEW_SESSION_KEY)}catch{}setAuthorized(false)};
   if(!CLINICAL_REVIEW_LOCKED)return <ClinicalApp/>;
   if(!authorized)return <ReviewLock authorize={authorize}/>;
-  return <><button className="review-session-end" onClick={endSession}>End reviewer session</button><ClinicalApp/></>;
+  return <ClinicalApp/>;
 }
 function reviewSessionActive(){try{return Number(localStorage.getItem(REVIEW_SESSION_KEY))>Date.now()}catch{return false}}
 async function sha256(value:string){const bytes=new TextEncoder().encode(value),hash=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,"0")).join("")}
