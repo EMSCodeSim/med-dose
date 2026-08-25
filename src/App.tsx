@@ -4,10 +4,13 @@ import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
 import FieldToolbar from "./FieldToolbar";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
+import DmpMedicationCalculator from "./DmpMedicationCalculator";
+import {genericMedication} from "./dmpMedicationData";
+import EncounterReport from "./EncounterReport";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
-type EncounterAdministration = {drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string};
+type EncounterAdministration = {drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string;patient?:string};
 type Route = "IV" | "IV/IO" | "IM" | "IN" | "Nebulized";
 type AgeUnit = "years" | "months" | "days";
 type AgeClass = "adult" | "pediatric";
@@ -18,8 +21,9 @@ const URL =
 const protocolPages: Record<Drug, number> = { adenosine: 123, albuterol:125, epinephrine: 148, diphenhydramine:144, midazolam: 136, magnesium: 157, methylprednisolone:158, fentanyl: 163 };
 const protocolUrl = (drug: Drug) => `${URL}#page=${protocolPages[drug]}`;
 const indicationProtocol = (drug: Drug, indication: string) => {
-  if (drug === "diphenhydramine" || drug === "methylprednisolone") return { id:"4090",name:"Allergy and Anaphylaxis",page:85 };
-  if (drug === "albuterol") return indication.includes("allergic") ? {id:"4090",name:"Allergy and Anaphylaxis",page:85} : {id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61};
+  if (drug === "diphenhydramine") return indication.includes("Dystonic") ? {id:"9100",name:"Diphenhydramine",page:144}:{ id:"4090",name:"Allergy and Anaphylaxis",page:85 };
+  if (drug === "methylprednisolone") return indication.includes("Addisonian")?{id:"4120",name:"Adrenal Insufficiency",page:88}:indication.includes("asthma")||indication.includes("COPD")?{id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61}:{ id:"4090",name:"Allergy and Anaphylaxis",page:85 };
+  if (drug === "albuterol") return indication.includes("allergic") ? {id:"4090",name:"Allergy and Anaphylaxis",page:85}:indication.includes("Hyperkalemia")||indication.includes("Crush")?{id:"4150",name:"Hyperkalemia",page:91}:{id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61};
   if (drug === "epinephrine") {
     if (indication.includes("Pulseless")) return { id: "3000", name: "Medical Pulseless Arrest", page: 66 };
     if (indication.includes("Bradycardia")) return { id: "3050", name: "Bradyarrhythmia with Poor Perfusion", page: 71 };
@@ -61,7 +65,9 @@ const meds:MedicationCatalogItem[] = [
   {id:"antipsychotics",name:"Antipsychotics",brand:"Droperidol • Haloperidol • Olanzapine",sub:"Agitation / behavioral emergency",protocol:{id:"9045",name:"Antipsychotics",page:129}},
   {id:"aspirin",name:"Aspirin",brand:"ASA",sub:"Antiplatelet",protocol:{id:"9050",name:"Aspirin",page:134}},
   {id:"atropine",name:"Atropine",brand:"Atropine",sub:"Anticholinergic",protocol:{id:"9060",name:"Atropine",page:135}},
-  {id:"midazolam",name:"Benzodiazepines / Midazolam",brand:"Versed",sub:"Seizure / sedation",protocol:{id:"9070",name:"Benzodiazepines / Midazolam",page:136},calculator:"midazolam"},
+  {id:"midazolam",name:"Midazolam",brand:"Versed",sub:"Benzodiazepine • seizure / sedation",protocol:{id:"9070",name:"Benzodiazepines / Midazolam",page:136},calculator:"midazolam"},
+  {id:"diazepam",name:"Diazepam",brand:"Valium",sub:"Benzodiazepine • seizure / sedation",protocol:{id:"9070",name:"Benzodiazepines / Diazepam",page:136}},
+  {id:"lorazepam",name:"Lorazepam",brand:"Ativan",sub:"Benzodiazepine • seizure / sedation",protocol:{id:"9070",name:"Benzodiazepines / Lorazepam",page:136}},
   {id:"calcium",name:"Calcium",brand:"Calcium chloride / gluconate",sub:"Electrolyte / membrane stabilization",protocol:{id:"9080",name:"Calcium",page:140}},
   {id:"dextrose",name:"Dextrose",brand:"D10 / D25 / D50",sub:"Hypoglycemia",protocol:{id:"9090",name:"Dextrose",page:142}},
   {id:"diltiazem",name:"Diltiazem",brand:"Cardizem",sub:"Calcium-channel blocker",protocol:{id:"9095",name:"Diltiazem",page:143}},
@@ -79,7 +85,9 @@ const meds:MedicationCatalogItem[] = [
   {id:"naloxone",name:"Naloxone",brand:"Narcan",sub:"Opioid antagonist",protocol:{id:"9210",name:"Naloxone",page:159}},
   {id:"nitroglycerin",name:"Nitroglycerin",brand:"Nitrostat",sub:"Vasodilator",protocol:{id:"9220",name:"Nitroglycerin",page:161}},
   {id:"nsaids",name:"NSAIDs",brand:"Ketorolac / Ibuprofen",sub:"Non-opioid analgesics",protocol:{id:"9225",name:"NSAIDs",page:162}},
-  {id:"fentanyl",name:"Opioids / Fentanyl",brand:"Fentanyl",sub:"Opioid analgesic",protocol:{id:"9230",name:"Opioids / Fentanyl",page:163},calculator:"fentanyl"},
+  {id:"fentanyl",name:"Fentanyl",brand:"Fentanyl",sub:"Opioid analgesic",protocol:{id:"9230",name:"Opioids / Fentanyl",page:163},calculator:"fentanyl"},
+  {id:"morphine",name:"Morphine",brand:"Morphine sulfate",sub:"Opioid analgesic",protocol:{id:"9230",name:"Opioids / Morphine",page:163}},
+  {id:"hydromorphone",name:"Hydromorphone",brand:"Dilaudid",sub:"Opioid analgesic",protocol:{id:"9230",name:"Opioids / Hydromorphone",page:163}},
   {id:"oral-glucose",name:"Oral Glucose",brand:"Glucose gel",sub:"Hypoglycemia",protocol:{id:"9240",name:"Oral Glucose",page:165}},
   {id:"oxygen",name:"Oxygen",brand:"Medical oxygen",sub:"Respiratory support",protocol:{id:"9250",name:"Oxygen",page:166}},
   {id:"phenylephrine",name:"Phenylephrine",brand:"Neo-Synephrine",sub:"Vasopressor",protocol:{id:"9260",name:"Phenylephrine",page:167}},
@@ -91,11 +99,19 @@ const medicationAliases: Record<string, string[]> = {
   adenosine: ["adenocard", "svt", "antiarrhythmic"],
   fentanyl: ["sublimaze", "pain", "opioid"],
   midazolam: ["versed", "seizure", "sedation", "benzodiazepine"],
+  diazepam:["valium","seizure","sedation","benzodiazepine"],
+  lorazepam:["ativan","seizure","sedation","benzodiazepine"],
   magnesium: ["mag", "mag sulfate", "torsades", "bronchospasm", "asthma", "eclampsia"],
   epinephrine: ["epi", "adrenalin", "anaphylaxis", "allergy", "arrest", "shock", "wheezing", "stridor"],
   albuterol:["proventil","ventolin","neb","wheezing","bronchospasm"],
   diphenhydramine:["benadryl","allergy","antihistamine"],
   methylprednisolone:["solu medrol","solumedrol","steroid","allergy","asthma"],
+  antiemetics:["ondansetron","zofran","promethazine","phenergan","metoclopramide","reglan","droperidol","nausea","vomiting"],
+  antipsychotics:["droperidol","inapsine","haloperidol","haldol","olanzapine","zyprexa","agitation"],
+  calcium:["calcium chloride","calcium gluconate","hyperkalemia","overdose"],
+  nsaids:["ibuprofen","motrin","advil","ketorolac","toradol","pain","fever"],
+  morphine:["opioid","pain","analgesic"],
+  hydromorphone:["dilaudid","opioid","pain","analgesic"],
 };
 function fuzzyMedicationMatch(med: (typeof meds)[number], query: string) {
   const q = query.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -135,9 +151,9 @@ const reasons: Record<Drug, string[]> = {
     "Stridor at rest — alternative to racemic epinephrine",
     "Systemic allergic reaction — auto-injector",
   ],
-  albuterol:["Wheezing associated with allergic reaction","Bronchospasm — single nebulizer dose","Severe bronchospasm — continuous nebulizer dose"],
-  diphenhydramine:["Allergic reaction"],
-  methylprednisolone:["Allergic reaction / anaphylaxis"],
+  albuterol:["Wheezing associated with allergic reaction","Bronchospasm — single nebulizer dose","Severe bronchospasm — continuous nebulizer dose","Hyperkalemia or crush injury — continuous nebulizer dose"],
+  diphenhydramine:["Allergic reaction","Dystonic medication reaction or akathisia"],
+  methylprednisolone:["Allergic reaction / anaphylaxis","Severe asthma or COPD","Suspected Addisonian crisis"],
 };
 function epinephrineReasonsForConcentration(concentrationMgMl: number) {
   const isPointOneMgMl = Math.abs(concentrationMgMl - 0.1) < 0.0001;
@@ -331,8 +347,8 @@ function rules(drug: Drug, reason: string, age: number, route: Route | null) {
 }
 function checksFor(drug: Drug, age: number, reason: string, fentanylOlderFrail = false, midazolamHalfConsideration = false) {
   if(drug==="albuterol") return ["Wheezing or bronchospasm is present","IM Epinephrine has been given first when wheezing is associated with anaphylaxis","Severe tachycardia has been considered as a relative contraindication","Heart rate, respiratory status and SpO₂ will be monitored"];
-  if(drug==="diphenhydramine") return ["Allergic symptoms remain present","Airway, breathing and Epinephrine priorities have already been addressed","Asthma/COPD secretion thickening and narrow-angle glaucoma precautions reviewed",...(age>65?["DMP over-65 half-dose of 25 mg confirmed"]:[])];
-  if(drug==="methylprednisolone") return ["Primary airway, ventilation, Epinephrine and beta-agonist priorities have been completed","Patient is stable enough that administration will not delay transport","Active GI bleeding precaution reviewed","Medication will be reconstituted and used immediately"];
+  if(drug==="diphenhydramine") return [reason.includes("Dystonic")?"Dystonic medication reaction or akathisia is confirmed":"Allergic symptoms remain present",reason.includes("Dystonic")?"Causative antipsychotic/antiemetic and airway status have been reviewed":"Airway, breathing and Epinephrine priorities have already been addressed","Asthma/COPD secretion thickening and narrow-angle glaucoma precautions reviewed",...(age>65?["DMP over-65 half-dose of 25 mg confirmed"]:[])];
+  if(drug==="methylprednisolone") return [reason.includes("Addisonian")?"Suspected adrenal insufficiency with cardiovascular collapse is confirmed":"Primary airway, ventilation, Epinephrine and beta-agonist priorities have been completed","Patient is stable enough that administration will not delay transport","Active GI bleeding precaution reviewed","Medication will be reconstituted and used immediately"];
   if (drug === "epinephrine") {
     const indication = reason === "Pulseless arrest" ? "Pulseless arrest is confirmed"
       : reason === "Bradycardia with poor perfusion" ? "Pediatric bradycardia with poor perfusion persists after oxygenation and ventilation"
@@ -434,6 +450,8 @@ export default function App() {
     [baseAttested, setBaseAttested] = useState(false),
     [baseApproval, setBaseApproval] = useState<{physician:string;time:number;reason:string}|null>(null),
     [catalogProtocol, setCatalogProtocol] = useState<ProtocolTarget|null>(null),
+    [genericMedId, setGenericMedId] = useState<string|null>(null),
+    [encounterReportOpen, setEncounterReportOpen] = useState(false),
     [reportSignal, setReportSignal] = useState(0);
   useEffect(() => {
     setOnline(navigator.onLine);
@@ -607,6 +625,8 @@ export default function App() {
       setMl("");
       setDosesGiven([]);
       setEncounterAdministrations([]);
+      setEncounterReportOpen(false);
+      setGenericMedId(null);
       setScannedVial(null);
       setScanMedOk(false);
       setScanConcOk(false);
@@ -647,6 +667,7 @@ export default function App() {
         drug: medName(drug), reason, route: administrationRoute || "",
         dose: amount, unit, volume, time,
         concentration: `${fmt(administrationConcentration)} ${unit}/mL`,
+        patient: `${adult?"Adult":"Pediatric"} • ${ageText}${needWeight?` • ${fmt(kg)} kg`:""}`,
       }]);
     },
     beginMedication = (selectedDrug: Drug, preservePatient = false) => {
@@ -740,9 +761,9 @@ export default function App() {
           <Screen
             e="START"
             t="Which medication was requested?"
-            h="Search every current Denver Metro medication monograph. Calculator-labeled medications open the guided dose workflow; all others open the exact offline DMP reference page."
+            h="Search every current Denver Metro medication monograph. Each medication opens a pathway-specific dose or administration calculator with a direct link to its source protocol."
           >
-            <div className="catalog-status"><span><b>{meds.length}</b> current DMP medication monographs</span><span><b>{meds.filter(x=>x.calculator).length}</b> guided calculators</span></div>
+            <div className="catalog-status"><span><b>33</b> current DMP medication monographs</span><span><b>{meds.length}</b> searchable medication entries</span></div>
             <label className="drug-search">
               <span>Search generic or brand name</span>
               <input
@@ -756,12 +777,11 @@ export default function App() {
               {meds
                 .filter((m) => fuzzyMedicationMatch(m, search))
                 .map((m) => {
-                        const active = Boolean(m.calculator);
                   return (
                     <button
                       key={m.id}
-                      className={`choice ${active?"calculator-med":"protocol-only-med"}`}
-                      onClick={() => active ? beginMedication(m.calculator!) : setCatalogProtocol(m.protocol)}
+                      className="choice calculator-med"
+                      onClick={() => m.calculator ? beginMedication(m.calculator) : setGenericMedId(m.id)}
                     >
                       <span className="rx">{meds.findIndex(x=>x.id===m.id)+1}</span>
                       <span>
@@ -770,7 +790,7 @@ export default function App() {
                           {m.brand} • {m.sub}
                         </small>
                       </span>
-                      {active ? <><em>Dose calculator</em><i>›</i></> : <em>Protocol reference ›</em>}
+                      <><em>Dose calculator</em><i>›</i></>
                     </button>
                   );
                 })}
@@ -1407,13 +1427,15 @@ export default function App() {
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
         onSelectMedication={beginMedication}
         onSelectSuggestedMedication={(selectedDrug)=>beginMedication(selectedDrug,true)}
-        reportReady={Boolean(drug&&r&&rate!==null&&epiEnteredDoseValid&&conc>0&&!volumeBlocked)}
+        reportReady={encounterAdministrations.length>0||Boolean(drug&&r&&rate!==null&&epiEnteredDoseValid&&conc>0&&!volumeBlocked)}
         onOpenReport={()=>{
-          setStep("review");
-          setReportSignal(x=>x+1);
+          if(encounterAdministrations.length)setEncounterReportOpen(true);
+          else {setStep("review");setReportSignal(x=>x+1)}
         }}
       />
       {catalogProtocol&&<ProtocolViewer target={catalogProtocol} close={()=>setCatalogProtocol(null)}/>} 
+      {genericMedId&&genericMedication(genericMedId)&&<DmpMedicationCalculator medication={genericMedication(genericMedId)} close={()=>setGenericMedId(null)} openProtocol={()=>setCatalogProtocol(genericMedication(genericMedId).paths.length?{id:genericMedication(genericMedId).protocolId,name:genericMedication(genericMedId).name,page:genericMedication(genericMedId).page}:{id:"9000",name:"Medication Administration Guidelines",page:121})} record={(entry)=>setEncounterAdministrations(x=>[...x,entry])}/>} 
+      {encounterReportOpen&&<EncounterReport entries={encounterAdministrations} close={()=>setEncounterReportOpen(false)}/>} 
     </main>
   );
 }
