@@ -7,6 +7,7 @@ import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 import DmpMedicationCalculator from "./DmpMedicationCalculator";
 import {genericMedication} from "./dmpMedicationData";
 import EncounterReport from "./EncounterReport";
+import ReviewLock from "./ReviewLock";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
@@ -414,7 +415,7 @@ function suggestedWeight(ageYears: number) {
   if (ageYears < 11) return 31;
   return 38;
 }
-export default function App() {
+function ClinicalApp() {
   const [step, setStep] = useState<Step>("drug"),
     [drug, setDrug] = useState<Drug | null>(null),
     [search, setSearch] = useState(""),
@@ -1440,6 +1441,9 @@ export default function App() {
     </main>
   );
 }
+
+const CLINICAL_REVIEW_LOCKED = true;
+export default function App(){return CLINICAL_REVIEW_LOCKED?<ReviewLock/>:<ClinicalApp/>}
 function Screen({
   e,
   t,
