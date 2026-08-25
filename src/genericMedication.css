@@ -270,6 +270,9 @@
   background: transparent;
 }
 
+.generic-calc > .clinical-banner { margin: 0 16px 13px; }
+.generic-patient-strip { top: 0; margin: 0 16px 12px; }
+
 .generic-wizard-top {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -362,11 +365,30 @@
 .generic-continue { min-height: 58px; font-size: 17px; }
 .generic-continue span { margin-left: 8px; font-size: 22px; }
 
+.selected-generic-path {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #c8dce7;
+  border-left: 4px solid #0873b5;
+  border-radius: 9px;
+}
+
+.selected-generic-path > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.selected-generic-path > span small { color: #607b8c; font-size: 8px; font-weight: 900; letter-spacing: .1em; }
+.selected-generic-path > button { min-height: 40px; padding: 0 12px; border: 0; border-radius: 8px; background: #0873b5; color: #fff; font-size: 10px; font-weight: 900; }
+.generic-body .actual-generic { margin: 13px 0; }
+.generic-body .actual-generic input { border-radius: 13px; }
+.generic-body .full-cross-check .generic-summary { margin: 0 12px; }
+
 @media (max-width: 780px) {
   .generic-calc-backdrop { inset: 58px 0 0; }
   .generic-calc { height: calc(100dvh - 58px); }
   .generic-wizard-top { padding: 7px 8px 4px; }
   .generic-progress { margin: 0 8px 10px; }
+  .generic-calc > .clinical-banner { margin: 0 8px 10px; }
+  .generic-patient-strip { margin: 0 8px 10px; }
   .generic-field-strip { margin: 0 8px 10px; }
   .generic-body { margin: 0 8px; padding: 18px 13px calc(110px + env(safe-area-inset-bottom)); border-radius: 13px; }
   .generic-body h1 { font-size: 23px; }
