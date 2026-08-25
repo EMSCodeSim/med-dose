@@ -1443,7 +1443,21 @@ function ClinicalApp() {
 }
 
 const CLINICAL_REVIEW_LOCKED = true;
-export default function App(){return CLINICAL_REVIEW_LOCKED?<ReviewLock/>:<ClinicalApp/>}
+const REVIEW_PASSWORD_HASH="44099822f339d924177c5e9491735ef0c6b59e73af2c7f0dfe5e9a04a16ee34c",REVIEW_SESSION_KEY="metro-med-dose-review-session",REVIEW_SESSION_MS=8*60*60*1000;
+export default function App(){
+  const [authorized,setAuthorized]=useState(()=>reviewSessionActive());
+  const authorize=async(password:string)=>{
+    const digest=await sha256(password),approved=digest===REVIEW_PASSWORD_HASH;
+    if(approved){try{localStorage.setItem(REVIEW_SESSION_KEY,String(Date.now()+REVIEW_SESSION_MS))}catch{}setAuthorized(true)}
+    return approved;
+  };
+  const endSession=()=>{try{localStorage.removeItem(REVIEW_SESSION_KEY)}catch{}setAuthorized(false)};
+  if(!CLINICAL_REVIEW_LOCKED)return <ClinicalApp/>;
+  if(!authorized)return <ReviewLock authorize={authorize}/>;
+  return <><button className="review-session-end" onClick={endSession}>End reviewer session</button><ClinicalApp/></>;
+}
+function reviewSessionActive(){try{return Number(localStorage.getItem(REVIEW_SESSION_KEY))>Date.now()}catch{return false}}
+async function sha256(value:string){const bytes=new TextEncoder().encode(value),hash=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,"0")).join("")}
 function Screen({
   e,
   t,
