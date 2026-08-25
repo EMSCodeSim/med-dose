@@ -255,3 +255,133 @@
   .generic-administration-log p { grid-template-columns: 55px 1fr; }
   .generic-administration-log time { grid-column: 2; }
 }
+
+/* Keep every medication calculator visually aligned with the original
+   Adenosine / Fentanyl / Magnesium guided workflow. */
+.generic-calc-backdrop {
+  inset: 72px 0 0;
+  z-index: 30;
+  background: radial-gradient(circle at 50% 0, #f8fbfd 0, #edf2f5 42%);
+}
+
+.generic-calc {
+  width: min(760px, 100%);
+  height: calc(100dvh - 72px);
+  background: transparent;
+}
+
+.generic-wizard-top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 14px 16px 7px;
+}
+
+.generic-wizard-top button {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: #486071;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: left;
+}
+
+.generic-wizard-top button:last-child { text-align: right; color: #076aa7; }
+.generic-wizard-top span { color: #667b89; font-size: 12px; font-weight: 800; }
+
+.generic-progress {
+  display: block;
+  height: 6px;
+  margin: 0 16px 13px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 9px;
+  background: #d9e3e9;
+}
+
+.generic-progress i {
+  display: block;
+  height: 100%;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #0877bd, #14a28a);
+  transition: width .25s;
+}
+
+.generic-field-strip {
+  position: sticky;
+  top: 0;
+  margin: 0 16px 12px;
+  overflow: hidden;
+  border: 1px solid #a8d8cb;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 5px 15px #16364916;
+}
+
+.generic-body {
+  margin: 0 16px;
+  padding: 32px 32px calc(105px + env(safe-area-inset-bottom));
+  border: 1px solid #d6e0e6;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 35px #15374d12;
+}
+
+.generic-body h1 { margin: 7px 0; font-size: 29px; color: #172736; }
+.generic-screen-help { margin: 0 0 20px !important; color: #607382; font-size: 14px !important; line-height: 1.55; }
+.generic-eyebrow { font-size: 11px; }
+
+.generic-med-identity {
+  grid-template-columns: 180px 1fr;
+  gap: 14px;
+  padding: 14px;
+  border: 2px solid #17364c;
+  border-radius: 14px;
+  background: #f6f9fa;
+}
+
+.generic-vial-placeholder { min-height: 190px; border: 0; border-radius: 10px; background: #eaf0f3; }
+.generic-med-identity small { font-size: 9px; }
+.generic-med-identity strong { font-size: 26px; }
+.generic-med-identity > span > b { color: #607582; font-size: 15px; }
+.generic-med-identity em { margin-top: 8px; padding: 10px; border-radius: 9px; background: #fff4dc; font-size: 12px; }
+
+.generic-label-heading { margin: 20px 0 9px; color: #435867; font-size: 12px; }
+.generic-vial-entry { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.generic-vial-entry label > span { color: #4b5f6c; font-size: 11px; font-weight: 900; }
+.generic-vial-entry label > div { display: flex; margin-top: 6px; }
+.generic-vial-entry input { min-width: 0; width: 100%; height: 57px; padding: 0 12px; border: 2px solid #c2d0d8; border-radius: 10px 0 0 10px; font-size: 22px; font-weight: 800; }
+.generic-vial-entry label div b { display: grid; min-width: 74px; place-items: center; padding: 0 12px; border: 2px solid #c2d0d8; border-left: 0; border-radius: 0 10px 10px 0; background: #e8eef2; color: #405662; }
+.generic-concentration-result { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 12px 14px; border-radius: 9px; background: #edf7fd; color: #3c5869; font-size: 12px; }
+.generic-concentration-result b { color: #0b659d; }
+
+.generic-checks.generic-compact-confirmations { grid-template-columns: 1fr 1fr; gap: 8px; }
+.generic-compact-confirmations label { min-height: 76px; padding: 10px; border: 2px solid #d4dfe5; }
+.generic-compact-confirmations label.checked { border-color: #15967e; background: #eaf8f5; }
+.generic-compact-confirmations span b { font-size: 12px; }
+.generic-continue { min-height: 58px; font-size: 17px; }
+.generic-continue span { margin-left: 8px; font-size: 22px; }
+
+@media (max-width: 780px) {
+  .generic-calc-backdrop { inset: 58px 0 0; }
+  .generic-calc { height: calc(100dvh - 58px); }
+  .generic-wizard-top { padding: 7px 8px 4px; }
+  .generic-progress { margin: 0 8px 10px; }
+  .generic-field-strip { margin: 0 8px 10px; }
+  .generic-body { margin: 0 8px; padding: 18px 13px calc(110px + env(safe-area-inset-bottom)); border-radius: 13px; }
+  .generic-body h1 { font-size: 23px; }
+  .generic-screen-help { margin-bottom: 16px !important; font-size: 13px !important; }
+  .generic-med-identity { grid-template-columns: 90px 1fr; padding: 10px; }
+  .generic-vial-placeholder { min-height: 120px; }
+  .generic-med-identity strong { font-size: 18px; }
+  .generic-med-identity > span > b { font-size: 12px; }
+  .generic-med-identity em { margin-top: 3px; padding: 8px; font-size: 10px; }
+  .generic-vial-entry { grid-template-columns: 1fr; }
+  .generic-checks.generic-compact-confirmations { grid-template-columns: 1fr 1fr; }
+  .generic-compact-confirmations label { align-items: flex-start; gap: 7px; padding: 8px; }
+  .generic-compact-confirmations input { width: 22px; height: 22px; flex-basis: 22px; }
+}
+
+@media (max-width: 380px) {
+  .generic-checks.generic-compact-confirmations { grid-template-columns: 1fr; }
+}
