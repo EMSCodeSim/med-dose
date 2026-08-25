@@ -145,16 +145,30 @@ function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,d
     {label:"REASSESSMENT",value:route==="IN"?"Reassess after 10 minutes":"Reassess after 5 minutes",note:"Recheck pain, respiratory status and perfusion before recording or repeating a dose."},
     {label:"TRANSPORT / BASE",value:"Transport in position of comfort and reassess",note:"Additional dosing beyond the DMP cumulative limit requires Base. Opioid plus benzodiazepine requires a direct physician verbal order."},
   ];
-  if(drug==="diphenhydramine"||drug==="methylprednisolone") return [
+  if((drug==="diphenhydramine"||drug==="methylprednisolone")&&/allergic|anaphylaxis/.test(indication.toLowerCase())) return [
     {label:"REQUIRED MONITORING",value:"Airway, breathing, circulation, pulse oximetry and perfusion",note:"Continue close reassessment for progression or recurrence of anaphylaxis."},
     {label:"PREREQUISITES",value:"Allergic reaction / anaphylaxis",note:"These are adjuncts if time and patient stability permit; they do not replace IM Epinephrine for anaphylaxis."},
     {label:"MEDICATION OPTION",value:medication,note:drug==="methylprednisolone"?"Delayed onset; do not delay transport. Reconstitute and use immediately.":"Administer slow IV/IO when using an IV/IO route."},
     {label:"REASSESSMENT",value:"Continuously reassess airway, respiratory status, skin findings and perfusion"},
     {label:"TRANSPORT / BASE",value:"Transport without delay",note:"Follow DMP 4090 and contact Base for deterioration, uncertainty, or dosing outside the medication monograph."},
   ];
+  if(drug==="diphenhydramine") return [
+    {label:"REQUIRED MONITORING",value:"Airway, mental status, pulse oximetry and perfusion"},
+    {label:"PREREQUISITES",value:"Dystonic medication reaction or akathisia",note:"Review the causative antipsychotic or antiemetic exposure."},
+    {label:"MEDICATION OPTION",value:medication,note:"Administer slow IV/IO when using an IV/IO route."},
+    {label:"REASSESSMENT",value:"Reassess abnormal movements, restlessness, airway and mental status"},
+    {label:"TRANSPORT / BASE",value:"Transport and monitor for medication-related recurrence"},
+  ];
+  if(drug==="methylprednisolone") return [
+    {label:"REQUIRED MONITORING",value:"Airway, respiratory status, ECG, blood pressure and perfusion"},
+    {label:"PREREQUISITES",value:indication,note:"Complete the indication-specific first-line airway, ventilation, bronchodilator, fluid or shock treatment first."},
+    {label:"MEDICATION OPTION",value:medication,note:"Reconstitute immediately before use; slow IV/IO over 2 minutes."},
+    {label:"REASSESSMENT",value:"Reassess respiratory status, blood pressure and perfusion",note:"Clinical steroid effect is delayed for several hours."},
+    {label:"TRANSPORT / BASE",value:"Do not delay transport to administer"},
+  ];
   if(drug==="albuterol") return [
     {label:"REQUIRED MONITORING",value:"Airway, work of breathing, pulse oximetry, heart rate and lung sounds"},
-    {label:"PREREQUISITES",value:indication.includes("allergic")?"Wheezing with allergic reaction; IM Epinephrine first":"Bronchospasm / wheezing",note:"Do not use Albuterol as a substitute for IM Epinephrine in anaphylaxis."},
+    {label:"PREREQUISITES",value:indication.includes("allergic")?"Wheezing with allergic reaction; IM Epinephrine first":indication.includes("Hyperkalemia")||indication.includes("Crush")?"Known/suspected hyperkalemia or crush/suspension injury":"Bronchospasm / wheezing",note:indication.includes("allergic")?"Do not use Albuterol as a substitute for IM Epinephrine in anaphylaxis.":undefined},
     {label:"MEDICATION OPTION",value:medication,note:"Administer by nebulizer over 5–15 minutes."},
     {label:"REASSESSMENT",value:"Reassess work of breathing and lung sounds after each treatment"},
     {label:"TRANSPORT / BASE",value:"Continue the applicable wheezing or allergy protocol and transport"},
@@ -170,8 +184,9 @@ function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,d
 function drugName(drug:SupportedDrug){return drug==="midazolam"?"Midazolam":drug==="magnesium"?"Magnesium Sulfate":drug==="epinephrine"?"Epinephrine":drug==="methylprednisolone"?"Methylprednisolone":drug==="diphenhydramine"?"Diphenhydramine":drug==="albuterol"?"Albuterol":drug[0].toUpperCase()+drug.slice(1)}
 
 function treatmentProtocol(drug:SupportedDrug,indication:string):ProtocolTarget {
-  if(drug==="diphenhydramine"||drug==="methylprednisolone") return {id:"4090",name:"Allergy and Anaphylaxis",page:85};
-  if(drug==="albuterol") return indication.includes("allergic")?{id:"4090",name:"Allergy and Anaphylaxis",page:85}:{id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61};
+  if(drug==="diphenhydramine") return indication.includes("Dystonic")?{id:"9100",name:"Diphenhydramine",page:144}:{id:"4090",name:"Allergy and Anaphylaxis",page:85};
+  if(drug==="methylprednisolone") return indication.includes("Addisonian")?{id:"4120",name:"Adrenal Insufficiency",page:88}:indication.includes("asthma")||indication.includes("COPD")?{id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61}:{id:"4090",name:"Allergy and Anaphylaxis",page:85};
+  if(drug==="albuterol") return indication.includes("allergic")?{id:"4090",name:"Allergy and Anaphylaxis",page:85}:indication.includes("Hyperkalemia")||indication.includes("Crush")?{id:"4150",name:"Hyperkalemia",page:91}:{id:"2030/2040",name:"Adult/Pediatric Wheezing",page:61};
   if(drug==="epinephrine") {
     if(indication.includes("Pulseless")) return {id:"3000",name:"Medical Pulseless Arrest",page:66};
     if(indication.includes("Bradycardia")) return {id:"3050",name:"Bradyarrhythmia with Poor Perfusion",page:71};
