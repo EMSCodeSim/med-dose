@@ -1,10 +1,38 @@
 import {useMemo,useState} from "react";
-type Entry={drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string;patient?:string};
+
+type Entry={
+  drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string;patient?:string;
+  baseAuthorization?:{physician:string;time:number;reason:string};
+};
+
 export default function EncounterReport({entries,close}:{entries:Entry[];close:()=>void}){
   const [incident,setIncident]=useState(""),[provider,setProvider]=useState(""),[status,setStatus]=useState("");
-  const text=useMemo(()=>[`METRO MED DOSE — ENCOUNTER MEDICATION REPORT`,`Created: ${new Date().toLocaleString()}`,`Incident/ePCR: ${incident||"Not entered"}`,`Provider: ${provider||"Not entered"}`,``,...entries.map((x,i)=>`${i+1}. ${new Date(x.time).toLocaleString()} — ${x.drug} — ${x.reason} — ${x.route} — ${fmt(x.dose)} ${x.unit}${x.volume?` — ${volumeLabel(x)}`:""} — ${x.concentration}${x.patient?` — Patient ${x.patient}`:""}`),``,`Reconcile with the agency ePCR and current protocol before finalizing documentation.`].join("\n"),[entries,incident,provider]);
-  const share=async()=>{try{if(navigator.share){await navigator.share({title:"Medication encounter report",text})}else{await navigator.clipboard.writeText(text);setStatus("Report copied to clipboard.")}}catch(e){if((e as Error).name!=="AbortError")setStatus("Sharing unavailable. Use Print / PDF.")}};
-  return <div className="encounter-report-backdrop"><section className="encounter-report-modal" role="dialog" aria-modal="true"><header><span><small>ONE ENCOUNTER • {entries.length} ADMINISTRATION{entries.length===1?"":"S"}</small><h2>Medication report</h2></span><button onClick={close}>×</button></header><div className="encounter-report-inputs"><label>Incident / ePCR number<input value={incident} onChange={e=>setIncident(e.target.value)} placeholder="Optional"/></label><label>Provider identifier<input value={provider} onChange={e=>setProvider(e.target.value)} placeholder="Optional"/></label></div><article className="encounter-print" id="encounter-print"><header><b>Metro Med Dose</b><span>Encounter medication report</span></header><div className="encounter-print-meta"><span><small>Created</small><b>{new Date().toLocaleString()}</b></span><span><small>Incident / ePCR</small><b>{incident||"Not entered"}</b></span><span><small>Provider</small><b>{provider||"Not entered"}</b></span><span><small>Status</small><b>{entries.length} recorded administration{entries.length===1?"":"s"}</b></span></div><h3>Medication administration history</h3><table><thead><tr><th>Time</th><th>Medication / indication</th><th>Patient / route</th><th>Dose / volume</th></tr></thead><tbody>{entries.map((x,i)=><tr key={`${x.time}-${i}`}><td>{new Date(x.time).toLocaleString()}</td><td><b>{x.drug}</b><small>{x.reason}</small></td><td><b>{x.patient||"See ePCR"}</b><small>{x.route}</small></td><td><b>{fmt(x.dose)} {x.unit}</b><small>{x.volume?`${fmt(x.volume)} mL • `:""}{x.concentration}</small></td></tr>)}</tbody></table><div className="encounter-documentation"><span>□ Pre/post vital signs</span><span>□ Clinical response</span><span>□ Adverse effects</span><span>□ Base authorization</span><span>□ Waste / witness</span><span>□ ePCR reconciled</span></div><footer>Clinical decision-support record only • Verify physical medication, concentration, route, current agency protocol and ePCR.</footer></article><div className="encounter-report-actions"><button onClick={share}>Send / share</button><button onClick={()=>window.print()}>Print / save PDF</button></div>{status&&<p>{status}</p>}</section></div>;
+  const text=useMemo(()=>[
+    "METRO MED DOSE — ENCOUNTER MEDICATION REPORT",
+    `Created: ${new Date().toLocaleString()}`,
+    `Incident/ePCR: ${incident||"Not entered"}`,
+    `Provider: ${provider||"Not entered"}`,
+    "",
+    ...entries.map((x,i)=>`${i+1}. ${new Date(x.time).toLocaleString()} — ${x.drug} — ${x.reason} — ${x.route} — ${fmt(x.dose)} ${x.unit}${x.volume?` — ${volumeLabel(x)}`:""} — ${x.concentration}${x.patient?` — Patient ${x.patient}`:""}${x.baseAuthorization?` — Base approved by ${x.baseAuthorization.physician} at ${new Date(x.baseAuthorization.time).toLocaleString()}`:""}`),
+    "",
+    "Reconcile with the agency ePCR and current protocol before finalizing documentation.",
+  ].join("\n"),[entries,incident,provider]);
+  const share=async()=>{try{if(navigator.share)await navigator.share({title:"Medication encounter report",text});else{await navigator.clipboard.writeText(text);setStatus("Report copied to clipboard.")}}catch(e){if((e as Error).name!=="AbortError")setStatus("Sharing unavailable. Use Print / PDF.")}};
+
+  return <div className="encounter-report-backdrop"><section className="encounter-report-modal" role="dialog" aria-modal="true">
+    <header><span><small>ONE ENCOUNTER • {entries.length} ADMINISTRATION{entries.length===1?"":"S"}</small><h2>Medication report</h2></span><button onClick={close}>×</button></header>
+    <div className="encounter-report-inputs"><label>Incident / ePCR number<input value={incident} onChange={e=>setIncident(e.target.value)} placeholder="Optional"/></label><label>Provider identifier<input value={provider} onChange={e=>setProvider(e.target.value)} placeholder="Optional"/></label></div>
+    <article className="encounter-print" id="encounter-print">
+      <header><b>Metro Med Dose</b><span>Encounter medication report</span></header>
+      <div className="encounter-print-meta"><span><small>Created</small><b>{new Date().toLocaleString()}</b></span><span><small>Incident / ePCR</small><b>{incident||"Not entered"}</b></span><span><small>Provider</small><b>{provider||"Not entered"}</b></span><span><small>Status</small><b>{entries.length} recorded administration{entries.length===1?"":"s"}</b></span></div>
+      <h3>Medication administration history</h3>
+      <table><thead><tr><th>Time</th><th>Medication / indication</th><th>Patient / route</th><th>Dose / volume</th></tr></thead><tbody>{entries.map((x,i)=><tr key={`${x.time}-${i}`}><td>{new Date(x.time).toLocaleString()}</td><td><b>{x.drug}</b><small>{x.reason}</small>{x.baseAuthorization&&<small><strong>BASE APPROVED</strong><br/>{x.baseAuthorization.physician} • {new Date(x.baseAuthorization.time).toLocaleTimeString()}</small>}</td><td><b>{x.patient||"See ePCR"}</b><small>{x.route}</small></td><td><b>{fmt(x.dose)} {x.unit}</b><small>{x.volume?`${volumeLabel(x)} • `:""}{x.concentration}</small></td></tr>)}</tbody></table>
+      <div className="encounter-documentation"><span>□ Pre/post vital signs</span><span>□ Clinical response</span><span>□ Adverse effects</span><span>□ Base authorization</span><span>□ Waste / witness</span><span>□ ePCR reconciled</span></div>
+      <footer>Clinical decision-support record only • Verify physical medication, concentration, route, current agency protocol and ePCR.</footer>
+    </article>
+    <div className="encounter-report-actions"><button onClick={share}>Send / share</button><button onClick={()=>window.print()}>Print / save PDF</button></div>{status&&<p>{status}</p>}
+  </section></div>;
 }
+
 function fmt(n:number){const d=Math.abs(n)>0&&Math.abs(n)<1?3:2;return Number(n.toFixed(d)).toString()}
 function volumeLabel(entry:Entry){return `${fmt(entry.volume)} mL${entry.unit.endsWith("/min")?"/min":""}`}
