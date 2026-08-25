@@ -381,6 +381,12 @@
 .generic-body .actual-generic { margin: 13px 0; }
 .generic-body .actual-generic input { border-radius: 13px; }
 .generic-body .full-cross-check .generic-summary { margin: 0 12px; }
+.generic-protocol-link { display: block; width: 100%; padding: 8px 10px; border: 0; background: #f6f9fa; color: #0873b5; font-size: 9px; font-weight: 900; text-align: left; }
+.generic-calculation { margin: 0 12px; overflow: hidden; border: 1px solid #cfdae0; border-radius: 9px; background: #fff; }
+.generic-calculation p { display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 10px 11px; border-bottom: 1px solid #dce4e8; font-size: 10px; }
+.generic-calculation p:last-child { border-bottom: 0; }
+.generic-calculation span { color: #617582; }
+.generic-calculation b { text-align: right; }
 
 @media (max-width: 780px) {
   .generic-calc-backdrop { inset: 58px 0 0; }
