@@ -117,6 +117,13 @@ function treatmentChecklist(drug:SupportedDrug,indication:string,route?:string,d
     {label:"REASSESSMENT",value:"Reassess sedation after 5 minutes",note:"A second protocol dose may be given if additional sedation is needed."},
     {label:"TRANSPORT / BASE",value:"Continue under the tachycardia-with-poor-perfusion pathway",note:"Contact Base before more than 2 sedation doses."},
   ];
+  if(drug==="midazolam"&&(indication.includes("Agitated/combative")||indication.includes("Imminent risk"))) return [
+    {label:"REQUIRED MONITORING",value:"ECG, SpO₂, ventilation and sedation score",note:"Apply waveform capnography and establish IV access as soon as safely possible."},
+    {label:"PREREQUISITES",value:indication,note:"Routine EMS care must be impossible. The 10 mg IM pathway additionally requires IMC-RASS +4 and imminent risk of bodily harm."},
+    {label:"MEDICATION OPTION",value:medication,note:"For the standard +3/+4 pathway, reassess at 5 minutes and switch to an antipsychotic if still agitated/disruptive."},
+    {label:"REASSESSMENT",value:"Reassess IMC-RASS, airway, ventilation, BP and perfusion at 5 minutes"},
+    {label:"TRANSPORT / BASE",value:"Follow DMP 6010 Post Sedation requirements",note:"Contact Base for additional sedation; pediatric patients under 8 require Base."},
+  ];
   if(drug==="midazolam") return [
     {label:"REQUIRED MONITORING",value:"ECG, perfusion and continuous respiratory reassessment",note:"Have suction and advanced-airway equipment available."},
     {label:"PREREQUISITES",value:"Symptomatic bradyarrhythmia with poor perfusion",note:"TCP is contraindicated in pulseless arrest. Sedate with benzodiazepine only if BP allows (>80 mmHg)."},
@@ -202,6 +209,7 @@ function treatmentProtocol(drug:SupportedDrug,indication:string):ProtocolTarget 
     return {id:"3040",name:"Tachyarrhythmia with Poor Perfusion",page:70};
   }
   if(drug==="midazolam"&&indication==="Status epilepticus") return {id:"4040",name:"Seizure",page:80};
+  if(drug==="midazolam"&&(indication.includes("Agitated/combative")||indication.includes("Imminent risk"))) return {id:"6010",name:"Agitated/Combative Patient",page:100};
   if(indication.toLowerCase().includes("cardioversion")) return {id:"1090",name:"Synchronized Cardioversion",page:48};
   if(indication.toLowerCase().includes("pacing")) return {id:"1100",name:"Transcutaneous Pacing",page:49};
   if(drug==="fentanyl") return {id:"1160",name:"Pain Management",page:56};
