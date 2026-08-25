@@ -97,6 +97,15 @@ const meds:MedicationCatalogItem[] = [
   {id:"ophthalmic-anesthetics",name:"Topical Ophthalmic Anesthetics",brand:"Tetracaine / Proparacaine",sub:"Eye pain / irrigation",protocol:{id:"9290",name:"Topical Ophthalmic Anesthetics",page:170}},
 ];
 const VISIBLE_MEDICATIONS_KEY = "metro-med-dose-visible-medications";
+const MEDICATION_REVIEWS_KEY = "metro-med-dose-medication-reviews";
+type ReviewStage = "owner" | "lineSafety" | "medicalDirector";
+type ReviewApproval = {reviewer:string;approvedAt:number};
+type MedicationReviews = Record<string,Partial<Record<ReviewStage,ReviewApproval>>>;
+const reviewStages:{id:ReviewStage;step:number;label:string;short:string}[] = [
+  {id:"owner",step:1,label:"Project owner review",short:"Owner"},
+  {id:"lineSafety",step:2,label:"Line Safety Chief review",short:"Safety"},
+  {id:"medicalDirector",step:3,label:"Medical Director approval",short:"Medical"},
+];
 function savedVisibleMedications() {
   try {
     const saved = JSON.parse(localStorage.getItem(VISIBLE_MEDICATIONS_KEY) || "null");
@@ -107,6 +116,13 @@ function savedVisibleMedications() {
   } catch {}
   return meds.map((med) => med.id);
 }
+function savedMedicationReviews():MedicationReviews {
+  try {
+    const saved=JSON.parse(localStorage.getItem(MEDICATION_REVIEWS_KEY)||"{}");
+    return saved&&typeof saved==="object"&&!Array.isArray(saved)?saved:{};
+  } catch { return {}; }
+}
+function medicationReviewCount(reviews:MedicationReviews,id:string){return reviewStages.filter((stage)=>reviews[id]?.[stage.id]).length}
 const medicationAliases: Record<string, string[]> = {
   adenosine: ["adenocard", "svt", "antiarrhythmic"],
   fentanyl: ["sublimaze", "pain", "opioid"],
@@ -465,11 +481,16 @@ function ClinicalApp() {
     [genericMedId, setGenericMedId] = useState<string|null>(null),
     [settingsOpen, setSettingsOpen] = useState(false),
     [visibleMedicationIds, setVisibleMedicationIds] = useState<string[]>(savedVisibleMedications),
+    [medicationReviews, setMedicationReviews] = useState<MedicationReviews>(savedMedicationReviews),
+    [reviewMedicationId, setReviewMedicationId] = useState<string|null>(null),
     [encounterReportOpen, setEncounterReportOpen] = useState(false),
     [reportSignal, setReportSignal] = useState(0);
   useEffect(() => {
     try { localStorage.setItem(VISIBLE_MEDICATIONS_KEY, JSON.stringify(visibleMedicationIds)); } catch {}
   }, [visibleMedicationIds]);
+  useEffect(() => {
+    try { localStorage.setItem(MEDICATION_REVIEWS_KEY, JSON.stringify(medicationReviews)); } catch {}
+  }, [medicationReviews]);
   useEffect(() => {
     setOnline(navigator.onLine);
     setWu(localStorage.getItem("preferredWeightUnit") || "kg");
@@ -800,6 +821,7 @@ function ClinicalApp() {
                 .filter((m) => visibleMedicationIds.includes(m.id))
                 .filter((m) => fuzzyMedicationMatch(m, search))
                 .map((m) => {
+                  const reviewCount=medicationReviewCount(medicationReviews,m.id);
                   return (
                     <button
                       key={m.id}
@@ -812,6 +834,7 @@ function ClinicalApp() {
                         <small>
                           {m.brand} • {m.sub}
                         </small>
+                        <span className={`med-review-state ${reviewCount===3?"approved":"pending"}`}><i>{reviewCount===3?"✓":"!"}</i>{reviewCount===3?"3-step review complete":`Clinical review ${reviewCount}/3`}</span>
                       </span>
                       <><em>Dose calculator</em><i>›</i></>
                     </button>
@@ -1459,13 +1482,14 @@ function ClinicalApp() {
       />
       {catalogProtocol&&<ProtocolViewer target={catalogProtocol} close={()=>setCatalogProtocol(null)}/>} 
       {genericMedId&&genericMedication(genericMedId)&&<DmpMedicationCalculator medication={genericMedication(genericMedId)} close={()=>setGenericMedId(null)} openProtocol={()=>setCatalogProtocol(genericMedication(genericMedId).paths.length?{id:genericMedication(genericMedId).protocolId,name:genericMedication(genericMedId).name,page:genericMedication(genericMedId).page}:{id:"9000",name:"Medication Administration Guidelines",page:121})} record={(entry)=>setEncounterAdministrations(x=>[...x,entry])}/>} 
-      {settingsOpen&&<MedicationVisibilitySettings visibleIds={visibleMedicationIds} setVisibleIds={setVisibleMedicationIds} close={()=>setSettingsOpen(false)}/>} 
+      {settingsOpen&&<MedicationVisibilitySettings visibleIds={visibleMedicationIds} setVisibleIds={setVisibleMedicationIds} reviews={medicationReviews} openReview={setReviewMedicationId} close={()=>setSettingsOpen(false)}/>} 
+      {reviewMedicationId&&meds.find((med)=>med.id===reviewMedicationId)&&<MedicationReviewModal medication={meds.find((med)=>med.id===reviewMedicationId)!} reviews={medicationReviews} setReviews={setMedicationReviews} close={()=>setReviewMedicationId(null)}/>} 
       {encounterReportOpen&&<EncounterReport entries={encounterAdministrations} close={()=>setEncounterReportOpen(false)}/>} 
     </main>
   );
 }
 
-function MedicationVisibilitySettings({visibleIds,setVisibleIds,close}:{visibleIds:string[];setVisibleIds:(ids:string[])=>void;close:()=>void}) {
+function MedicationVisibilitySettings({visibleIds,setVisibleIds,reviews,openReview,close}:{visibleIds:string[];setVisibleIds:(ids:string[])=>void;reviews:MedicationReviews;openReview:(id:string)=>void;close:()=>void}) {
   const visible = new Set(visibleIds);
   const toggle = (id:string) => setVisibleIds(visible.has(id) ? visibleIds.filter((item)=>item!==id) : [...visibleIds,id]);
   return <div className="modal-backdrop medication-settings-backdrop" onClick={close}>
@@ -1481,12 +1505,46 @@ function MedicationVisibilitySettings({visibleIds,setVisibleIds,close}:{visibleI
         <button onClick={()=>setVisibleIds([])}>Hide all</button>
       </div>
       <div className="medication-settings-list">
-        {meds.map((med)=><label key={med.id} className={visible.has(med.id)?"selected":""}>
-          <input type="checkbox" checked={visible.has(med.id)} onChange={()=>toggle(med.id)}/>
-          <span><b>{med.name}</b><small>{med.brand} • DMP {med.protocol.id}</small></span>
-        </label>)}
+        {meds.map((med)=>{const reviewCount=medicationReviewCount(reviews,med.id);return <div key={med.id} className={`medication-setting-row ${visible.has(med.id)?"selected":""}`}>
+          <label><input type="checkbox" checked={visible.has(med.id)} onChange={()=>toggle(med.id)}/><span><b>{med.name}</b><small>{med.brand} • DMP {med.protocol.id}</small></span></label>
+          <button className={reviewCount===3?"complete":""} onClick={()=>openReview(med.id)}><span>{reviewCount===3?"✓":"REVIEW"}</span><b>{reviewCount}/3</b></button>
+        </div>})}
       </div>
       <footer><span>Saved automatically on this device</span><button onClick={close}>Done</button></footer>
+    </section>
+  </div>;
+}
+
+function MedicationReviewModal({medication,reviews,setReviews,close}:{medication:MedicationCatalogItem;reviews:MedicationReviews;setReviews:(reviews:MedicationReviews)=>void;close:()=>void}) {
+  const approvals=reviews[medication.id]||{},completeCount=medicationReviewCount(reviews,medication.id),nextStage=reviewStages[completeCount];
+  const [reviewer,setReviewer]=useState(""),[attested,setAttested]=useState(false);
+  const approve=()=>{
+    if(!nextStage||!reviewer.trim()||!attested)return;
+    setReviews({...reviews,[medication.id]:{...approvals,[nextStage.id]:{reviewer:reviewer.trim(),approvedAt:Date.now()}}});
+    setReviewer("");setAttested(false);
+  };
+  const undoLatest=()=>{
+    if(!completeCount||!confirm(`Remove the most recent ${reviewStages[completeCount-1].label} sign-off for ${medication.name}?`))return;
+    const updated={...approvals};delete updated[reviewStages[completeCount-1].id];
+    setReviews({...reviews,[medication.id]:updated});
+  };
+  return <div className="modal-backdrop medication-review-backdrop" onClick={close}>
+    <section className="medication-review-modal" role="dialog" aria-modal="true" aria-labelledby="medication-review-title" onClick={(event)=>event.stopPropagation()}>
+      <header><span><small>3-STEP CLINICAL REVIEW</small><h2 id="medication-review-title">{medication.name}</h2><b>DMP {medication.protocol.id}</b></span><button onClick={close} aria-label="Close medication review">×</button></header>
+      <div className={`review-overall-status ${completeCount===3?"complete":"pending"}`}><strong>{completeCount===3?"CLINICALLY APPROVED":"REVIEW IN PROGRESS"}</strong><span>{completeCount} of 3 required approvals complete</span></div>
+      <div className="review-stage-list">
+        {reviewStages.map((stage,index)=>{const approval=approvals[stage.id],locked=index>completeCount;return <article key={stage.id} className={approval?"complete":locked?"locked":"current"}>
+          <i>{approval?"✓":stage.step}</i><span><small>STEP {stage.step}</small><b>{stage.label}</b>{approval?<em>{approval.reviewer} • {new Date(approval.approvedAt).toLocaleString()}</em>:locked?<em>Locked until Step {stage.step-1} is complete</em>:<em>Ready for sign-off</em>}</span>
+        </article>})}
+      </div>
+      {nextStage?<div className="review-signoff">
+        <small>NEXT REQUIRED APPROVAL</small><h3>{nextStage.label}</h3>
+        <label><span>Reviewer’s full name</span><input value={reviewer} onChange={(event)=>setReviewer(event.target.value)} autoComplete="name" placeholder="Enter full name"/></label>
+        <label className="review-attestation"><input type="checkbox" checked={attested} onChange={(event)=>setAttested(event.target.checked)}/><span>I reviewed this medication’s indications, age logic, routes, dosing, concentration math, contraindications, ceilings, repeat-dose rules, monitoring cautions and protocol links.</span></label>
+        <button className="approve-review" disabled={!reviewer.trim()||!attested} onClick={approve}>Approve Step {nextStage.step}</button>
+      </div>:<div className="review-complete-message"><b>All three reviews are complete.</b><span>This medication now displays a completed clinical-review check.</span></div>}
+      <div className="review-local-warning"><b>Device-local record</b><span>These sign-offs are stored on this device and do not yet synchronize between reviewers’ phones or computers.</span></div>
+      <footer>{completeCount>0&&<button className="undo-review" onClick={undoLatest}>Correct latest sign-off</button>}<button className="done-review" onClick={close}>Done</button></footer>
     </section>
   </div>;
 }
