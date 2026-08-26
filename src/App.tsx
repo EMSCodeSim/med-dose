@@ -118,6 +118,8 @@ function savedMedicationReviews():MedicationReviews {
   } catch { return {}; }
 }
 function medicationReviewCount(reviews:MedicationReviews,id:string){return reviewStages.filter((stage)=>reviews[id]?.[stage.id]?.revision===DMP_REVIEW_REVISION).length}
+const PILOT_RELEASED_MEDICATION_IDS=["midazolam"];
+function medicationReleased(reviews:MedicationReviews,id:string){return PILOT_RELEASED_MEDICATION_IDS.includes(id)||medicationReviewCount(reviews,id)===3}
 const medicationAliases: Record<string, string[]> = {
   adenosine: ["adenocard", "svt", "antiarrhythmic"],
   fentanyl: ["sublimaze", "pain", "opioid"],
@@ -527,7 +529,7 @@ function ClinicalApp() {
     needWeight = !!r?.weight,
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
     items = drug ? checksFor(drug, an, reason, fentanylOlderFrail, midazolamHalfConsideration) : [],
-    approvedMedicationIds = meds.filter((med)=>medicationReviewCount(medicationReviews,med.id)===3).map((med)=>med.id),
+    approvedMedicationIds = meds.filter((med)=>medicationReleased(medicationReviews,med.id)).map((med)=>med.id),
     safetyComplete = items.length > 0 && items.every((_, index) => checks[index] === true),
     baseRequirement = drug==="adenosine"&&!adult&&age!==""?"Pediatric Adenosine administration":drug==="fentanyl"&&underOne?"Fentanyl administration for a pediatric patient under 1 year":drug==="midazolam"&&reason==="Sedation for transcutaneous pacing"&&!adult?"Transcutaneous pacing for a patient under 12 years":drug==="epinephrine"&&reason==="Pediatric severe anaphylaxis — Base push dose"?"Pediatric severe anaphylaxis refractory to 3 IM Epinephrine doses and 60 mL/kg NS":null,
     baseClear = !baseRequirement||(baseApproval?.reason===baseRequirement),
@@ -815,7 +817,7 @@ function ClinicalApp() {
             h="Search every current Denver Metro medication monograph. Each medication opens a pathway-specific dose or administration calculator with a direct link to its source protocol."
           >
             <div className="catalog-controls">
-              <div className="catalog-status"><span><b>{approvedMedicationIds.length}</b> clinically checked • {meds.length-approvedMedicationIds.length} awaiting review</span></div>
+              <div className="catalog-status"><span><b>{approvedMedicationIds.length}</b> released • {meds.length-approvedMedicationIds.length} awaiting review</span></div>
               <button className="drug-settings-button" onClick={() => setSettingsOpen(true)}><span aria-hidden="true">⚙</span> Medication review settings</button>
             </div>
             <label className="drug-search">
@@ -832,7 +834,7 @@ function ClinicalApp() {
                 .filter((m) => approvedMedicationIds.includes(m.id))
                 .filter((m) => fuzzyMedicationMatch(m, search))
                 .map((m) => {
-                  const reviewCount=medicationReviewCount(medicationReviews,m.id);
+                  const reviewCount=medicationReviewCount(medicationReviews,m.id),pilotReleased=PILOT_RELEASED_MEDICATION_IDS.includes(m.id);
                   return (
                     <button
                       key={m.id}
@@ -853,7 +855,7 @@ function ClinicalApp() {
                         <small>
                           {m.brand} • {m.sub}
                         </small>
-                        <span className={`med-review-state ${reviewCount===3?"approved":"pending"}`}><i>{reviewCount===3?"✓":"!"}</i>{reviewCount===3?"3-step review complete":`Clinical review ${reviewCount}/3`}</span>
+                        <span className={`med-review-state ${reviewCount===3||pilotReleased?"approved":"pending"}`}><i>{reviewCount===3||pilotReleased?"✓":"!"}</i>{reviewCount===3?"3-step review complete":pilotReleased?"Versed pilot released":`Clinical review ${reviewCount}/3`}</span>
                       </span>
                       <><em>Dose calculator</em><i>›</i></>
                     </button>
@@ -1533,8 +1535,8 @@ function ClinicalApp() {
 }
 
 function MedicationVisibilitySettings({reviews,openReview,close}:{reviews:MedicationReviews;openReview:(id:string)=>void;close:()=>void}) {
-  const approvedCount=meds.filter((med)=>medicationReviewCount(reviews,med.id)===3).length;
-  const ordered=[...meds].sort((a,b)=>medicationReviewCount(reviews,a.id)-medicationReviewCount(reviews,b.id)||a.name.localeCompare(b.name));
+  const approvedCount=meds.filter((med)=>medicationReleased(reviews,med.id)).length;
+  const ordered=[...meds].sort((a,b)=>Number(medicationReleased(reviews,a.id))-Number(medicationReleased(reviews,b.id))||a.name.localeCompare(b.name));
   return <div className="modal-backdrop medication-settings-backdrop" onClick={close}>
     <section className="medication-settings-modal" role="dialog" aria-modal="true" aria-labelledby="medication-settings-title" onClick={(event)=>event.stopPropagation()}>
       <header>
@@ -1544,9 +1546,9 @@ function MedicationVisibilitySettings({reviews,openReview,close}:{reviews:Medica
       <p>Unchecked medications stay here and are hidden from the main medication screen. Completing every required review check automatically releases the medication to the main screen.</p>
       <div className="medication-settings-summary"><b>{approvedCount} released</b><span>{meds.length-approvedCount} awaiting review</span></div>
       <div className="medication-settings-list">
-        {ordered.map((med)=>{const reviewCount=medicationReviewCount(reviews,med.id);return <div key={med.id} className={`medication-setting-row ${reviewCount===3?"selected":"pending"}`}>
-          <div className="medication-setting-info"><i>{reviewCount===3?"✓":"!"}</i><span><b>{med.name}</b><small>{med.brand} • DMP {med.protocol.id}</small><em>{reviewCount===3?"Released to main screen":"Hidden until review is complete"}</em></span></div>
-          <button className={reviewCount===3?"complete":""} onClick={()=>openReview(med.id)}><span>{reviewCount===3?"CHECKED":"REVIEW"}</span><b>{reviewCount}/3</b></button>
+        {ordered.map((med)=>{const reviewCount=medicationReviewCount(reviews,med.id),pilotReleased=PILOT_RELEASED_MEDICATION_IDS.includes(med.id),released=medicationReleased(reviews,med.id);return <div key={med.id} className={`medication-setting-row ${released?"selected":"pending"}`}>
+          <div className="medication-setting-info"><i>{released?"✓":"!"}</i><span><b>{med.name}</b><small>{med.brand} • DMP {med.protocol.id}</small><em>{reviewCount===3?"Reviewed and released to main screen":pilotReleased?"Pilot released to main screen • review still available":"Hidden until review is complete"}</em></span></div>
+          <button className={released?"complete":""} onClick={()=>openReview(med.id)}><span>{reviewCount===3?"CHECKED":pilotReleased?"PILOT":"REVIEW"}</span><b>{reviewCount}/3</b></button>
         </div>})}
       </div>
       <footer><span>Review status is saved automatically on this device</span><button onClick={close}>Done</button></footer>
