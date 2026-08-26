@@ -1485,6 +1485,13 @@ function ClinicalApp() {
           openProtocol={() => setCatalogProtocol({id:"9070",name:"Midazolam",page:136})}
           record={(entry) => setEncounterAdministrations((items) => [...items, entry])}
           onContextChange={setGenericTreatmentContext}
+          medicationOptions={meds.map((m)=>({id:m.id,name:m.name,brand:m.brand,released:approvedMedicationIds.includes(m.id)}))}
+          selectMedication={(id)=>{
+            const selected=meds.find((m)=>m.id===id);
+            if(!selected||!approvedMedicationIds.includes(id))return;
+            if(selected.calculator)beginMedication(selected.calculator);
+            else {setDrug(null);setVersedBuilderOpen(false);setGenericTreatmentContext(null);setGenericMedId(selected.id)}
+          }}
         />
       )}
       {install && (
