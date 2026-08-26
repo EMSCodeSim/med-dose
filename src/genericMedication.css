@@ -395,6 +395,20 @@
 .dopamine-infusion select { min-height: 36px; border: 1px solid #9eb5c2; border-radius: 7px; background: #fff; font-weight: 800; }
 .dopamine-infusion .initial-record-dose strong { font-size: 25px; }
 .linked-dose-sequence .initial-record-dose:disabled { opacity: .58; cursor: not-allowed; }
+.final-dose-answer { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 0 0 14px; overflow: hidden; border: 2px solid #08745f; border-radius: 13px; background: #c9ddd8; }
+.final-dose-answer > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 12px 14px; background: #f5fbf9; }
+.final-dose-answer small { color: #587169; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
+.final-dose-answer b { color: #173f36; font-size: 15px; }
+.final-dose-answer .final-give,
+.final-dose-answer .final-draw { background: #08745f; color: #fff; }
+.final-dose-answer .final-give small,
+.final-dose-answer .final-draw small { color: #bfe8dd; }
+.final-dose-answer strong { font-size: 25px; line-height: 1.1; }
+.result-collapsible { margin: 10px 0; overflow: hidden; border: 1px solid #cfdae0; border-radius: 9px; background: #fff; }
+.result-collapsible > summary { padding: 12px; color: #365565; font-size: 11px; font-weight: 900; cursor: pointer; }
+.result-collapsible .entered-summary,
+.result-collapsible .monitoring-cautions,
+.result-collapsible .generic-summary { margin: 0; border: 0; border-top: 1px solid #dce4e8; border-radius: 0; }
 
 @media (max-width: 780px) {
   .generic-calc-backdrop { inset: 58px 0 0; }
@@ -405,6 +419,7 @@
   .generic-patient-strip { margin: 0 8px 10px; }
   .generic-field-strip { margin: 0 8px 10px; }
   .generic-body { margin: 0 8px; padding: 18px 13px calc(110px + env(safe-area-inset-bottom)); border-radius: 13px; }
+  .final-dose-answer { grid-template-columns: 1fr; }
   .generic-body h1 { font-size: 23px; }
   .generic-screen-help { margin-bottom: 16px !important; font-size: 13px !important; }
   .generic-med-identity { grid-template-columns: 90px 1fr; padding: 10px; }
