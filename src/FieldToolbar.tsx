@@ -18,6 +18,7 @@ type Props = {
   currentDose?: string;
   currentVolume?: string;
   genericTreatment?: GenericTreatmentContext|null;
+  approvedMedicationIds?: string[];
   onSelectMedication: (drug: SupportedDrug) => void;
   onSelectSuggestedMedication: (drug: SupportedDrug) => void;
   reportReady: boolean;
@@ -60,7 +61,8 @@ export default function FieldToolbar(p: Props) {
 }
 
 function MedicationPanel(p: Props & {query:string;setQuery:(x:string)=>void;openProtocol:(x:ProtocolTarget)=>void}) {
-  const supported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["albuterol","Albuterol","Wheezing / bronchospasm"],["diphenhydramine","Diphenhydramine","Allergic reaction adjunct"],["epinephrine","Epinephrine","Arrest, anaphylaxis, shock, wheezing or stridor"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["magnesium","Magnesium Sulfate","Torsades, refractory bronchospasm or eclampsia"],["methylprednisolone","Methylprednisolone","Allergic reaction adjunct"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];
+  const allSupported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["albuterol","Albuterol","Wheezing / bronchospasm"],["diphenhydramine","Diphenhydramine","Allergic reaction adjunct"],["epinephrine","Epinephrine","Arrest, anaphylaxis, shock, wheezing or stridor"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["magnesium","Magnesium Sulfate","Torsades, refractory bronchospasm or eclampsia"],["methylprednisolone","Methylprednisolone","Allergic reaction adjunct"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];
+  const supported=allSupported.filter(([id])=>!p.approvedMedicationIds||p.approvedMedicationIds.includes(id));
   return <>
     {p.currentDrug&&<div className="current-reference"><small>CURRENT CALCULATION</small><b>{p.currentDrug}</b>{p.currentDose&&<strong>{p.currentDose}{p.currentVolume?` • ${p.currentVolume}`:""}</strong>}</div>}
     <h3>Patient calculator choices</h3><div className="drawer-med-choices">{supported.map(([id,name,note])=><button key={id} onClick={()=>p.onSelectMedication(id)}><b>{name}</b><span>{note}</span><i>›</i></button>)}</div>

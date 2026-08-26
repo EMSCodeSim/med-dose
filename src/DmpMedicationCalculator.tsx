@@ -1,6 +1,7 @@
 import {useEffect,useMemo,useState} from "react";
 import type {GenericMedication,GenericDosePath} from "./dmpMedicationData";
 import DoseTracker from "./DoseTracker";
+import CalculationBoard from "./CalculationBoard";
 import "./genericMedication.css";
 
 type RecordedAdministration={drug:string;reason:string;route:string;dose:number;unit:string;volume:number;volumeUnit?:string;time:number;concentration:string;patient?:string;baseAuthorization?:{physician:string;time:number;reason:string}};
@@ -56,8 +57,17 @@ export default function DmpMedicationCalculator({medication,close,record,openPro
   const visibleSteps:Step[]=["medication","indication",...(needsPatientInfo?["patient" as Step]:[]),...(needsConcentrationStep?["concentration" as Step]:[]),"safety","result"],stepNumber=Math.max(1,visibleSteps.indexOf(step)+1),totalSteps=visibleSteps.length;
   const back=()=>{const index=visibleSteps.indexOf(step);setStep(visibleSteps[Math.max(0,index-1)])};
 
+  const patientComplete=!!path&&(!needsPatientInfo||((!ageChangesDose||age!=="")&&(!needsWeight||kg>0)&&!eligibility));
   return <main className="generic-calc" aria-label={`${medication.name} calculator`}>
-    {path&&<nav className="patient-strip generic-patient-strip" aria-label="Current medication calculation"><button onClick={()=>setStep("medication")}><small>MED</small><b>{path.agent}</b>{conc>0&&<span>{fmt(conc)} {result?.unit||concentrationUnit}/mL</span>}</button><button onClick={()=>setStep("indication")}><small>USE</small><b>{path.label}</b></button>{needsPatientInfo&&<button onClick={()=>setStep("patient")}><small>PATIENT</small><b>{path.patient==="adult"?"Adult":path.patient==="pediatric"?"Pediatric":"All ages"} • {patientText}</b></button>}{selectedRoute&&<button onClick={()=>setStep("indication")}><small>ROUTE</small><b>{selectedRoute}</b></button>}</nav>}
+    <CalculationBoard className="generic-status-board" boxes={[
+      {id:"medication",label:"MEDICATION",value:selectedAgent||medication.name,detail:medConfirmed?"Physical medication confirmed":"Confirm physical medication",complete:medConfirmed,active:step==="medication",available:true,onClick:()=>setStep("medication")},
+      {id:"concentration",label:"CONCENTRATION",value:conc>0?`${fmt(conc)} ${concentrationUnit}/mL`:"",detail:concConfirmed?"Physical label confirmed":"Confirm physical label",complete:agentHasConcentration&&concConfirmed,notRequired:!agentHasConcentration,active:step==="concentration",available:medConfirmed,onClick:()=>setStep("medication")},
+      {id:"indication",label:"INDICATION",value:path?.label||"",detail:path?"DMP pathway selected":"Select reason for use",complete:!!path,active:step==="indication",available:medConfirmed&&(!agentRequiresConcentration||concConfirmed),onClick:()=>setStep("indication")},
+      {id:"route",label:"ROUTE",value:selectedRoute,detail:path&&routeChoices.length===1?"Auto-filled":"Select approved route",complete:!!path&&!!selectedRoute,active:step==="indication"&&!!path,available:!!path,onClick:()=>setStep("indication")},
+      {id:"patient",label:"PATIENT",value:patientText,detail:needsPatientInfo?"Dose-changing information":"No patient entry changes dose",complete:needsPatientInfo&&patientComplete,notRequired:!!path&&!needsPatientInfo,active:step==="patient",available:!!path&&!!selectedRoute,onClick:()=>needsPatientInfo&&setStep("patient")},
+      {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyComplete?"One confirmation":"Review complete safety list",complete:(contraindications.length>0||specialChecksText.length>0||!!path?.baseContact)&&safetyComplete,notRequired:!!path&&contraindications.length===0&&specialChecksText.length===0&&!path.baseContact,active:step==="safety",available:patientComplete,onClick:()=>setStep("safety")},
+      {id:"result",label:"FINAL DOSE",value:result?`${finalGiveText} • ${finalVolumeText}`:"",detail:safetyComplete?selectedRoute:"Complete required checks",complete:step==="result"&&safetyComplete,active:step==="result",available:safetyComplete,onClick:()=>setStep("result")},
+    ]}/>
     <div className="wizard-top generic-wizard-top"><button className="back" onClick={step==="medication"?close:back}>‹ Back</button><span>Step {stepNumber} of {totalSteps}</span><button className="start-over" onClick={openProtocol}>Protocol §</button></div>
     <div className="progress generic-progress" aria-label={`Step ${stepNumber} of ${totalSteps}`}><i style={{width:`${stepNumber/totalSteps*100}%`}}/></div>
     <div className="clinical-banner"><b>DMP verified</b><span>July 2026 • Medication {medication.protocolId}</span></div>

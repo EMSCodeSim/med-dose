@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import type {GenericTreatmentContext} from "./DmpMedicationCalculator";
+import CalculationBoard, {type CalculationBox} from "./CalculationBoard";
 import "./versedBuilder.css";
 
 type RecordedAdministration={drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string;patient?:string};
@@ -79,20 +80,20 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
     else {setPatient("");setHalfDose(null);setPediatricAge("");setWeight("");setStage("route");}
   };
   const editBox=(next:Stage)=>{setStage(next);setRecorded(false)};
-  const board=[
-    medConfirmed&&{stage:"medication" as Stage,label:"MEDICATION",value:"Midazolam (Versed)",detail:"Physical medication confirmed"},
-    concentration&&{stage:"concentration" as Stage,label:"CONCENTRATION",value:`${fmt(concentration)} mg/mL`,detail:"Physical label confirmed"},
-    indication&&{stage:"indication" as Stage,label:"INDICATION",value:indication,detail:"DMP pathway selected"},
-    route&&{stage:"route" as Stage,label:"ROUTE",value:route,detail:routeChoices(indication).length===1?"Auto-filled":"Selected"},
-    patientComplete&&{stage:"patient" as Stage,label:"PATIENT",value:patientLabel,detail:needsWeight?"Weight changes dose":"Only dose-changing information shown"},
-    safetyConfirmed&&{stage:"safety" as Stage,label:"SAFETY",value:"All checks confirmed",detail:"One confirmation"},
-    stage==="result"&&{stage:"result" as Stage,label:"FINAL DOSE",value:`Give ${fmt(dose)} mg`,detail:`Draw ${fmt(volume)} mL • ${route}`},
-  ].filter(Boolean) as {stage:Stage;label:string;value:string;detail:string}[];
+  const board:CalculationBox[]=[
+    {id:"medication",label:"MEDICATION",value:"Midazolam (Versed)",detail:medConfirmed?"Physical medication confirmed":"Confirm physical medication",complete:medConfirmed,active:stage==="medication",available:true,onClick:()=>editBox("medication")},
+    {id:"concentration",label:"CONCENTRATION",value:`${fmt(concentration||0)} mg/mL`,detail:labelConfirmed?"Physical label confirmed":"Confirm physical label",complete:!!concentration&&labelConfirmed,active:stage==="concentration",available:medConfirmed,onClick:()=>editBox("concentration")},
+    {id:"indication",label:"INDICATION",value:indication,detail:indication?"DMP pathway selected":"Select reason for use",complete:!!indication,active:stage==="indication",available:!!concentration&&labelConfirmed,onClick:()=>editBox("indication")},
+    {id:"route",label:"ROUTE",value:route,detail:route&&routeChoices(indication).length===1?"Auto-filled":"Select approved route",complete:!!route,active:stage==="route",available:!!indication,onClick:()=>editBox("route")},
+    {id:"patient",label:"PATIENT",value:patientLabel,detail:patientComplete?(needsWeight?"Weight changes dose":"Only dose-changing information shown"):"Enter dose-changing information",complete:patientComplete,active:stage==="patient",available:!!route,onClick:()=>editBox("patient")},
+    {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyConfirmed?"One confirmation":"Review complete safety list",complete:safetyConfirmed,active:stage==="safety",available:patientComplete,onClick:()=>editBox("safety")},
+    {id:"result",label:"FINAL DOSE",value:`${fmt(dose)} mg • ${fmt(volume)} mL`,detail:safetyConfirmed?route:"Complete required checks",complete:stage==="result"&&safetyConfirmed,active:stage==="result",available:safetyConfirmed,onClick:()=>editBox("result")},
+  ];
 
   return <main className="versed-builder">
     <div className="versed-builder-top"><button onClick={close}>‹ Medication list</button><span>VERSED FORMAT PILOT</span><button onClick={close}>Start over</button></div>
     <div className="versed-layout">
-      <aside className="calculation-board" aria-label="Calculation board"><header><small>LIVE CALCULATION BOARD</small><h2>Your cross-check builds here</h2><p>Tap any completed box to change it.</p></header><div className="board-boxes">{board.map(item=><button key={item.stage} className={stage===item.stage?"active":""} onClick={()=>editBox(item.stage)}><small>{item.label}</small><b>{item.value}</b><span>{item.detail}</span><i>Change</i></button>)}{board.length===0&&<div className="empty-board"><b>No boxes yet</b><span>Confirm Versed to place the first box.</span></div>}</div></aside>
+      <CalculationBoard boxes={board} className="versed-status-board"/>
       <section className="builder-workspace">
         {stage==="medication"&&<><small className="eyebrow">1 • MEDICATION</small><h1>Confirm Versed</h1><p className="screen-help">Compare the physical medication with this selection.</p><div className="versed-med-display"><div className="versed-vial"><span>VERSED</span><b>midazolam</b><small>REFERENCE VIAL</small></div><div><small>SELECTED MEDICATION</small><h2>Midazolam (Versed)</h2><p>Use the physical vial label for the concentration check next.</p></div></div><label className={medConfirmed?"builder-confirm checked":"builder-confirm"}><input type="checkbox" checked={medConfirmed} onChange={e=>setMedConfirmed(e.target.checked)}/><span><b>Medication matches</b>The vial in hand is Midazolam (Versed).</span></label><button className="continue" disabled={!medConfirmed} onClick={()=>setStage("concentration")}>Place medication box and continue <span>→</span></button></>}
         {stage==="concentration"&&<><small className="eyebrow">2 • CONCENTRATION</small><h1>Confirm the vial concentration</h1><p className="screen-help">Choose a common concentration or enter exactly what the physical label says.</p><div className="builder-options concentration-options"><button className={concentration===1?"selected":""} onClick={()=>{setConcentration(1);setLabelConfirmed(false);setRecorded(false)}}><b>1 mg/mL</b><span>Common concentration</span></button><button className={concentration===5?"selected":""} onClick={()=>{setConcentration(5);setLabelConfirmed(false);setRecorded(false)}}><b>5 mg/mL</b><span>Common concentration</span></button><button className={concentration===0?"selected":""} onClick={()=>{setConcentration(0);setLabelConfirmed(false);setRecorded(false)}}><b>Custom label</b><span>Enter total drug and volume</span></button></div>{concentration===0&&<div className="builder-custom"><label>Total drug<input inputMode="decimal" value={customAmount} onChange={e=>{setCustomAmount(e.target.value);setLabelConfirmed(false)}}/><b>mg</b></label><label>Total volume<input inputMode="decimal" value={customVolume} onChange={e=>{setCustomVolume(e.target.value);setLabelConfirmed(false)}}/><b>mL</b></label>{customConcentration>0&&<strong>{fmt(customConcentration)} mg/mL</strong>}</div>}<label className={labelConfirmed?"builder-confirm checked":"builder-confirm"}><input type="checkbox" disabled={concentration===null||(concentration===0&&!customConcentration)} checked={labelConfirmed} onChange={e=>setLabelConfirmed(e.target.checked)}/><span><b>Concentration matches the physical label</b>{concentration===0&&customConcentration?`${customAmount} mg in ${customVolume} mL`:concentration?`${fmt(concentration)} mg/mL`:"Select a concentration"}</span></label><button className="continue" disabled={!labelConfirmed} onClick={()=>{if(concentration===0)setConcentration(customConcentration);setStage(safetyConfirmed?"result":"indication")}}>{safetyConfirmed?"Update calculation":"Place concentration box and continue"} <span>→</span></button></>}
