@@ -539,7 +539,6 @@ function ClinicalApp() {
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
     items = drug ? checksFor(drug, an, reason, fentanylOlderFrail, midazolamHalfConsideration) : [],
     safetyComplete = items.length > 0 && items.every((_, index) => checks[index] === true),
-    safetyCompletedCount = items.reduce((count, _, index) => count + (checks[index] === true ? 1 : 0), 0),
     baseRequirement = drug==="adenosine"&&!adult&&age!==""?"Pediatric Adenosine administration":drug==="fentanyl"&&underOne?"Fentanyl administration for a pediatric patient under 1 year":drug==="midazolam"&&reason==="Sedation for transcutaneous pacing"&&!adult?"Transcutaneous pacing for a patient under 12 years":drug==="epinephrine"&&reason==="Pediatric severe anaphylaxis — Base push dose"?"Pediatric severe anaphylaxis refractory to 3 IM Epinephrine doses and 60 mL/kg NS":null,
     baseClear = !baseRequirement||(baseApproval?.reason===baseRequirement),
     ageBlocked = !!au&&(((drug === "fentanyl" && underOne)&&!baseClear)||epiWheezingTooYoung||midazolamAgitationTooYoung),
@@ -1127,24 +1126,18 @@ function ClinicalApp() {
             t="Confirm applicable safety checks"
             h={`Only checks applicable to ${medName(drug)} are shown.`}
           >
-            <div className="safety-list">
+            <div className="safety-review-list">
               {items.map((x, i) => (
-                <label key={x} className={checks[i] ? "checked" : ""}>
-                  <input
-                    type="checkbox"
-                    checked={!!checks[i]}
-                    onChange={(e) => setChecks(current => items.map((_, n) => n === i ? e.target.checked : current[n] === true))}
-                  />
-                  <span>
-                    <b>{i + 1}</b>
-                    {x}
-                  </span>
-                </label>
+                <div key={x}><b>{i + 1}</b><span>{x}</span></div>
               ))}
             </div>
+            <label className={safetyComplete?"safety-master-confirm checked":"safety-master-confirm"}>
+              <input type="checkbox" checked={safetyComplete} onChange={(e)=>setChecks(Array(items.length).fill(e.target.checked))}/>
+              <span><b>Confirm all safety checks</b>I reviewed every item above. No listed contraindication is present, and all required conditions are met.</span>
+            </label>
             <div className={safetyComplete?"checklist-progress complete":"checklist-progress"} role="status">
-              <b>{safetyCompletedCount} of {items.length} confirmed</b>
-              <span>{safetyComplete?"Safety checklist complete — continue to the final dose.":"Confirm every applicable item to continue."}</span>
+              <b>{safetyComplete?"Contraindications confirmed":"Confirmation required"}</b>
+              <span>{safetyComplete?"Safety checklist complete — continue to the final dose.":"Review the list and confirm once to continue."}</span>
             </div>
             <a
               className="protocol-link"
