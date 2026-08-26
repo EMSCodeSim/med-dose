@@ -5,6 +5,7 @@ import MedicationReport from "./MedicationReport";
 import FieldToolbar from "./FieldToolbar";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 import DmpMedicationCalculator, { type GenericTreatmentContext } from "./DmpMedicationCalculator";
+import VersedBuilder from "./VersedBuilder";
 import {genericMedication} from "./dmpMedicationData";
 import EncounterReport from "./EncounterReport";
 import ReviewLock from "./ReviewLock";
@@ -493,6 +494,7 @@ function ClinicalApp() {
     [baseApproval, setBaseApproval] = useState<{physician:string;time:number;reason:string}|null>(null),
     [catalogProtocol, setCatalogProtocol] = useState<ProtocolTarget|null>(null),
     [genericMedId, setGenericMedId] = useState<string|null>(null),
+    [versedBuilderOpen, setVersedBuilderOpen] = useState(false),
     [genericTreatmentContext, setGenericTreatmentContext] = useState<GenericTreatmentContext|null>(null),
     [settingsOpen, setSettingsOpen] = useState(false),
     [visibleMedicationIds, setVisibleMedicationIds] = useState<string[]>(savedVisibleMedications),
@@ -680,6 +682,7 @@ function ClinicalApp() {
       setEncounterAdministrations([]);
       setEncounterReportOpen(false);
       setGenericMedId(null);
+      setVersedBuilderOpen(false);
       setGenericTreatmentContext(null);
       setScannedVial(null);
       setScanMedOk(false);
@@ -728,6 +731,13 @@ function ClinicalApp() {
     beginMedication = (selectedDrug: Drug, preservePatient = false) => {
       setGenericTreatmentContext(null);
       setGenericMedId(null);
+      if (selectedDrug === "midazolam") {
+        setDrug(null);
+        setVersedBuilderOpen(true);
+        if (!preservePatient) setEncounterAdministrations([]);
+        return;
+      }
+      setVersedBuilderOpen(false);
       setDrug(selectedDrug);
       setFentanylOlderFrail(false);
       setMidazolamSmallAdult(null);
@@ -776,7 +786,7 @@ function ClinicalApp() {
           <button onClick={() => setInstall(true)}>Install</button>
         </div>
       </header>
-      <section className={`wizard-shell${genericMedId ? " generic-hidden" : ""}`}>
+      <section className={`wizard-shell${genericMedId || versedBuilderOpen ? " generic-hidden" : ""}`}>
         {drug && step !== "drug" && (
           <nav className="patient-strip" aria-label="Current medication calculation">
             <button onClick={() => setStep("scanConfirm")} aria-label="Edit medication and concentration">
@@ -848,6 +858,7 @@ function ClinicalApp() {
                         if (m.calculator) beginMedication(m.calculator);
                         else {
                           setDrug(null);
+                          setVersedBuilderOpen(false);
                           setGenericTreatmentContext(null);
                           setGenericMedId(m.id);
                         }
@@ -1479,6 +1490,17 @@ function ClinicalApp() {
             onContextChange={setGenericTreatmentContext}
           />
         </section>
+      )}
+      {versedBuilderOpen && (
+        <VersedBuilder
+          close={() => {
+            setGenericTreatmentContext(null);
+            setVersedBuilderOpen(false);
+          }}
+          openProtocol={() => setCatalogProtocol({id:"9070",name:"Midazolam",page:136})}
+          record={(entry) => setEncounterAdministrations((items) => [...items, entry])}
+          onContextChange={setGenericTreatmentContext}
+        />
       )}
       {install && (
         <div className="modal-backdrop" onClick={() => setInstall(false)}>
