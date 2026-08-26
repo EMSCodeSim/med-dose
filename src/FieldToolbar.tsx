@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 import type { GenericTreatmentContext } from "./DmpMedicationCalculator";
 
@@ -38,21 +39,22 @@ export default function FieldToolbar(p: Props) {
   const treatmentReady = Boolean((p.currentDrugId && p.currentIndication)||p.genericTreatment);
   const treatmentHint = p.currentDrugId && !p.currentIndication ? "Select why the medication is being given first" : "Select a medication and indication first";
   const close=()=>{setTool(null);setQuery("")};
+  const drawer=tool&&<div className="quick-drawer-backdrop" onClick={close}><section className="quick-drawer" role="dialog" aria-modal="true" aria-label={`${tool} quick reference`} onClick={e=>e.stopPropagation()}>
+    <div className="drawer-handle"/><header><span><small>QUICK REFERENCE</small><h2>{tool==="meds"?"Denver Metro medications":tool==="vitals"?(p.ageYears!==null?"Current patient":"Vital-sign thresholds"):tool==="treatment"?"Treatment calculations":"Protocol lookup"}</h2></span><button type="button" onClick={close} aria-label="Close">×</button></header>
+    <div className="drawer-patient">{context}</div>
+    {tool==="meds"&&<MedicationPanel {...p} onSelectMedication={(drug)=>{p.onSelectMedication(drug);close()}} query={query} setQuery={setQuery} openProtocol={setProtocol}/>}
+    {tool==="vitals"&&<VitalsPanel age={age} ageLabel={p.ageLabel} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} fentanylOlderFrail={p.fentanylOlderFrail} midazolamHalfConsideration={p.midazolamHalfConsideration} lookupAge={lookupAge} setLookupAge={setLookupAge} hasPatient={p.ageYears!==null}/>}
+    {tool==="treatment"&&p.genericTreatment?<GenericTreatmentPanel context={p.genericTreatment} openProtocol={setProtocol}/>:tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} route={p.currentRoute} dose={p.currentDose} openProtocol={setProtocol} selectSuggested={(drug)=>{p.onSelectSuggestedMedication(drug);close()}}/>}
+    {tool==="protocols"&&<LookupList title="Search protocol number or name" items={protocols} query={query} setQuery={setQuery} openProtocol={setProtocol}/>}
+    <a className="drawer-protocol-link" href={DMP_URL} target="_blank" rel="noreferrer">Open current July 2026 DMP PDF ↗</a>
+  </section></div>;
   return <>
     <nav className="field-toolbar" aria-label="Quick clinical reference">
-      <button disabled={!p.reportReady} title={!p.reportReady?"Complete the medication calculation first":undefined} aria-label={p.reportReady?"Open medication report":"Report unavailable — complete the medication calculation first"} onClick={p.onOpenReport}><span>▤</span><b>Report</b></button>
-      <button disabled={!treatmentReady} title={!treatmentReady?treatmentHint:undefined} aria-label={treatmentReady?"Treatment":"Treatment unavailable — "+treatmentHint} onClick={()=>setTool("treatment")}><span>✚</span><b>Treatment</b></button>
-      <button onClick={()=>setTool("protocols")}><span>§</span><b>Protocols</b></button>
+      <button type="button" disabled={!p.reportReady} title={!p.reportReady?"Complete the medication calculation first":undefined} aria-label={p.reportReady?"Open medication report":"Report unavailable — complete the medication calculation first"} onClick={p.onOpenReport}><span>▤</span><b>Report</b></button>
+      <button type="button" disabled={!treatmentReady} title={!treatmentReady?treatmentHint:undefined} aria-label={treatmentReady?"Treatment":"Treatment unavailable — "+treatmentHint} onClick={()=>setTool("treatment")}><span>✚</span><b>Treatment</b></button>
+      <button type="button" onClick={()=>setTool("protocols")}><span>§</span><b>Protocols</b></button>
     </nav>
-    {tool&&<div className="quick-drawer-backdrop" onClick={close}><section className="quick-drawer" role="dialog" aria-modal="true" aria-label={`${tool} quick reference`} onClick={e=>e.stopPropagation()}>
-      <div className="drawer-handle"/><header><span><small>QUICK REFERENCE</small><h2>{tool==="meds"?"Denver Metro medications":tool==="vitals"?(p.ageYears!==null?"Current patient":"Vital-sign thresholds"):tool==="treatment"?"Treatment calculations":"Protocol lookup"}</h2></span><button onClick={close} aria-label="Close">×</button></header>
-      <div className="drawer-patient">{context}</div>
-      {tool==="meds"&&<MedicationPanel {...p} onSelectMedication={(drug)=>{p.onSelectMedication(drug);close()}} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
-      {tool==="vitals"&&<VitalsPanel age={age} ageLabel={p.ageLabel} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} fentanylOlderFrail={p.fentanylOlderFrail} midazolamHalfConsideration={p.midazolamHalfConsideration} lookupAge={lookupAge} setLookupAge={setLookupAge} hasPatient={p.ageYears!==null}/>} 
-      {tool==="treatment"&&p.genericTreatment?<GenericTreatmentPanel context={p.genericTreatment} openProtocol={setProtocol}/>:tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} route={p.currentRoute} dose={p.currentDose} openProtocol={setProtocol} selectSuggested={(drug)=>{p.onSelectSuggestedMedication(drug);close()}}/>}
-      {tool==="protocols"&&<LookupList title="Search protocol number or name" items={protocols} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
-      <a className="drawer-protocol-link" href={DMP_URL} target="_blank" rel="noreferrer">Open current July 2026 DMP PDF ↗</a>
-    </section></div>}
+    {drawer&&typeof document!=="undefined"&&createPortal(drawer,document.body)}
     {protocol&&<ProtocolViewer target={protocol} close={()=>setProtocol(null)}/>} 
   </>;
 }
