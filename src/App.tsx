@@ -11,7 +11,7 @@ import ReviewLock from "./ReviewLock";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
-type EncounterAdministration = {drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string;patient?:string;baseAuthorization?:{physician:string;time:number;reason:string}};
+type EncounterAdministration = {drug:string;reason:string;route:string;dose:number;unit:string;volume:number;volumeUnit?:string;time:number;concentration:string;patient?:string;baseAuthorization?:{physician:string;time:number;reason:string}};
 type Route = "IV" | "IV/IO" | "IM" | "IN" | "Nebulized";
 type AgeUnit = "years" | "months" | "days";
 type AgeClass = "adult" | "pediatric";

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Entry = { dose: number; volume: number; time: number };
-type EncounterEntry = {drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string};
+type EncounterEntry = {drug:string;reason:string;route:string;dose:number;unit:string;volume:number;volumeUnit?:string;time:number;concentration:string};
 type Props = {
   drug: string;
   reason: string;
@@ -249,7 +249,7 @@ function MedicationReportBody(
         </div>
         {p.baseApproval&&<div className="base-report-row"><dt>Base authorization</dt><dd><b>APPROVED</b> • {p.baseApproval.physician} • {new Date(p.baseApproval.time).toLocaleString()}<br/>{p.baseApproval.reason}</dd></div>}
       </dl>
-      {encounterEntries.length>0&&<><h3>Encounter medication history</h3><table className="encounter-table"><thead><tr><th>Time</th><th>Medication / indication</th><th>Route</th><th>Dose / volume</th></tr></thead><tbody>{encounterEntries.map((x,i)=><tr key={`${x.time}-${i}`}><td>{new Date(x.time).toLocaleTimeString()}</td><td><b>{x.drug}</b><br/><small>{x.reason}<br/>{x.concentration}</small></td><td>{x.route}</td><td><b>{fmt(x.dose)} {x.unit}</b><br/>{fmt(x.volume)} mL</td></tr>)}</tbody></table></>}
+      {encounterEntries.length>0&&<><h3>Encounter medication history</h3><table className="encounter-table"><thead><tr><th>Time</th><th>Medication / indication</th><th>Route</th><th>Dose / volume</th></tr></thead><tbody>{encounterEntries.map((x,i)=><tr key={`${x.time}-${i}`}><td>{new Date(x.time).toLocaleTimeString()}</td><td><b>{x.drug}</b><br/><small>{x.reason}<br/>{x.concentration}</small></td><td>{x.route}</td><td><b>{fmt(x.dose)} {x.unit}</b><br/>{fmt(x.volume)} {x.volumeUnit||"mL"}</td></tr>)}</tbody></table></>}
       {!encounterEntries.length&&<><h3>Administration record</h3>
       {p.entries.length ? (
         <>
@@ -331,7 +331,7 @@ function buildReport(
     ...(p.baseApproval?[`Base authorization: APPROVED`,`Approving physician: ${p.baseApproval.physician}`,`Approval time: ${new Date(p.baseApproval.time).toLocaleString()}`,`Base-contact reason: ${p.baseApproval.reason}`]:[]),
     ``,
     `ADMINISTRATION RECORD`,
-    ...(p.encounterEntries?.length?["ENCOUNTER MEDICATION HISTORY",...p.encounterEntries.map((x,i)=>`${i+1}. ${new Date(x.time).toLocaleString()} — ${x.drug} — ${x.reason} — ${x.route} — ${fmt(x.dose)} ${x.unit} (${fmt(x.volume)} mL) — ${x.concentration}`),``]:[]),
+    ...(p.encounterEntries?.length?["ENCOUNTER MEDICATION HISTORY",...p.encounterEntries.map((x,i)=>`${i+1}. ${new Date(x.time).toLocaleString()} — ${x.drug} — ${x.reason} — ${x.route} — ${fmt(x.dose)} ${x.unit} (${fmt(x.volume)} ${x.volumeUnit||"mL"}) — ${x.concentration}`),``]:[]),
     ...(p.entries.length
       ? p.entries.map(
           (x, i) =>

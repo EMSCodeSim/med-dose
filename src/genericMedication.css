@@ -387,6 +387,14 @@
 .generic-calculation p:last-child { border-bottom: 0; }
 .generic-calculation span { color: #617582; }
 .generic-calculation b { text-align: right; }
+.dopamine-infusion,
+.linked-dose-sequence { margin: 14px 0; }
+.dopamine-infusion p > b { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; align-items: center; }
+.dopamine-infusion p button { min-width: 42px; min-height: 36px; border: 1px solid #9eb5c2; border-radius: 8px; background: #fff; color: #244858; font-weight: 900; }
+.dopamine-infusion p button.selected { border-color: #0873b5; background: #0873b5; color: #fff; }
+.dopamine-infusion select { min-height: 36px; border: 1px solid #9eb5c2; border-radius: 7px; background: #fff; font-weight: 800; }
+.dopamine-infusion .initial-record-dose strong { font-size: 25px; }
+.linked-dose-sequence .initial-record-dose:disabled { opacity: .58; cursor: not-allowed; }
 
 @media (max-width: 780px) {
   .generic-calc-backdrop { inset: 58px 0 0; }

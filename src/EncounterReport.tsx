@@ -1,7 +1,7 @@
 import {useMemo,useState} from "react";
 
 type Entry={
-  drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string;patient?:string;
+  drug:string;reason:string;route:string;dose:number;unit:string;volume:number;volumeUnit?:string;time:number;concentration:string;patient?:string;
   baseAuthorization?:{physician:string;time:number;reason:string};
 };
 
@@ -35,4 +35,4 @@ export default function EncounterReport({entries,close}:{entries:Entry[];close:(
 }
 
 function fmt(n:number){const d=Math.abs(n)>0&&Math.abs(n)<1?3:2;return Number(n.toFixed(d)).toString()}
-function volumeLabel(entry:Entry){return `${fmt(entry.volume)} mL${entry.unit.endsWith("/min")?"/min":""}`}
+function volumeLabel(entry:Entry){return `${fmt(entry.volume)} ${entry.volumeUnit||"mL"}`}
