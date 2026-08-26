@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
+import type { GenericTreatmentContext } from "./DmpMedicationCalculator";
 
 type SupportedDrug = "adenosine" | "fentanyl" | "midazolam" | "magnesium" | "epinephrine" | "albuterol" | "diphenhydramine" | "methylprednisolone";
 type Tool = "meds" | "vitals" | "treatment" | "protocols" | null;
@@ -15,6 +16,7 @@ type Props = {
   midazolamHalfConsideration?: boolean;
   currentDose?: string;
   currentVolume?: string;
+  genericTreatment?: GenericTreatmentContext|null;
   onSelectMedication: (drug: SupportedDrug) => void;
   onSelectSuggestedMedication: (drug: SupportedDrug) => void;
   reportReady: boolean;
@@ -33,7 +35,7 @@ export default function FieldToolbar(p: Props) {
   const [tool,setTool]=useState<Tool>(null),[query,setQuery]=useState(""),[lookupAge,setLookupAge]=useState(""),[protocol,setProtocol]=useState<ProtocolTarget|null>(null);
   const age = p.ageYears ?? (lookupAge === "" ? null : Number(lookupAge));
   const context = p.ageYears !== null ? `Current patient • ${p.ageLabel}${p.weightKg ? ` • ${fmt(p.weightKg)} kg` : ""}` : "No current patient • lookup mode";
-  const treatmentReady = Boolean(p.currentDrugId && p.currentIndication);
+  const treatmentReady = Boolean((p.currentDrugId && p.currentIndication)||p.genericTreatment);
   const treatmentHint = p.currentDrugId && !p.currentIndication ? "Select why the medication is being given first" : "Select a medication and indication first";
   const close=()=>{setTool(null);setQuery("")};
   return <>
@@ -47,7 +49,7 @@ export default function FieldToolbar(p: Props) {
       <div className="drawer-patient">{context}</div>
       {tool==="meds"&&<MedicationPanel {...p} onSelectMedication={(drug)=>{p.onSelectMedication(drug);close()}} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
       {tool==="vitals"&&<VitalsPanel age={age} ageLabel={p.ageLabel} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} fentanylOlderFrail={p.fentanylOlderFrail} midazolamHalfConsideration={p.midazolamHalfConsideration} lookupAge={lookupAge} setLookupAge={setLookupAge} hasPatient={p.ageYears!==null}/>} 
-      {tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} route={p.currentRoute} dose={p.currentDose} openProtocol={setProtocol} selectSuggested={(drug)=>{p.onSelectSuggestedMedication(drug);close()}}/>}
+      {tool==="treatment"&&p.genericTreatment?<GenericTreatmentPanel context={p.genericTreatment} openProtocol={setProtocol}/>:tool==="treatment"&&p.currentDrugId&&p.currentIndication&&<TreatmentPanel age={age} kg={p.weightKg} drug={p.currentDrugId} indication={p.currentIndication} route={p.currentRoute} dose={p.currentDose} openProtocol={setProtocol} selectSuggested={(drug)=>{p.onSelectSuggestedMedication(drug);close()}}/>}
       {tool==="protocols"&&<LookupList title="Search protocol number or name" items={protocols} query={query} setQuery={setQuery} openProtocol={setProtocol}/>} 
       <a className="drawer-protocol-link" href={DMP_URL} target="_blank" rel="noreferrer">Open current July 2026 DMP PDF ↗</a>
     </section></div>}
@@ -83,6 +85,19 @@ function PatientConsiderations({age,kg,drug,indication,fentanylOlderFrail,midazo
   if(drug==="midazolam"&&midazolamHalfConsideration) notes.push("DMP 9070 ½-dose consideration is applied for this Midazolam calculation.");
   if(indication) notes.push(`Current indication: ${indication}.`);
   return <div className="patient-considerations"><small>SPECIAL CONSIDERATIONS</small>{notes.length?notes.map(x=><p key={x}>{x}</p>):<p>No additional age-specific warning is active for the current selection.</p>}</div>;
+}
+
+function GenericTreatmentPanel({context,openProtocol}:{context:GenericTreatmentContext;openProtocol:(x:ProtocolTarget)=>void}) {
+  return <div className="treatment-list">
+    <button className="smart-protocol" onClick={()=>openProtocol({id:context.protocolId,name:context.medication,page:context.protocolPage})}><small>CURRENT TREATMENT PROTOCOL</small><b>DMP {context.protocolId} • {context.protocolName}</b><span>{context.indication}</span><strong>Open page {context.protocolPage} ›</strong></button>
+    <div className="smart-checklist" aria-label="Smart treatment checklist">
+      <section><i>1</i><small>MEDICATION / ROUTE</small><b>{context.medication} • {context.route}</b></section>
+      <section><i>2</i><small>DOSE / VOLUME</small><b>{context.dose}</b><span>{context.volume}</span></section>
+      <section><i>3</i><small>ADMINISTRATION</small><b>{context.administration}</b></section>
+      <section><i>4</i><small>REASSESSMENT</small><b>{context.repeat}</b></section>
+      <section><i>5</i><small>MONITORING</small><b>{context.monitoring[0]}</b>{context.monitoring.slice(1).map(item=><span key={item}>{item}</span>)}</section>
+    </div>
+  </div>;
 }
 
 function TreatmentPanel({age,kg,drug,indication,route,dose,openProtocol,selectSuggested}:{age:number|null;kg:number|null;drug:SupportedDrug;indication:string;route?:string;dose?:string;openProtocol:(x:ProtocolTarget)=>void;selectSuggested:(drug:SupportedDrug)=>void}) {

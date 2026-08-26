@@ -4,7 +4,7 @@ import DoseTracker from "./DoseTracker";
 import MedicationReport from "./MedicationReport";
 import FieldToolbar from "./FieldToolbar";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
-import DmpMedicationCalculator from "./DmpMedicationCalculator";
+import DmpMedicationCalculator, { type GenericTreatmentContext } from "./DmpMedicationCalculator";
 import {genericMedication} from "./dmpMedicationData";
 import EncounterReport from "./EncounterReport";
 import ReviewLock from "./ReviewLock";
@@ -493,6 +493,7 @@ function ClinicalApp() {
     [baseApproval, setBaseApproval] = useState<{physician:string;time:number;reason:string}|null>(null),
     [catalogProtocol, setCatalogProtocol] = useState<ProtocolTarget|null>(null),
     [genericMedId, setGenericMedId] = useState<string|null>(null),
+    [genericTreatmentContext, setGenericTreatmentContext] = useState<GenericTreatmentContext|null>(null),
     [settingsOpen, setSettingsOpen] = useState(false),
     [visibleMedicationIds, setVisibleMedicationIds] = useState<string[]>(savedVisibleMedications),
     [medicationReviews, setMedicationReviews] = useState<MedicationReviews>(savedMedicationReviews),
@@ -680,6 +681,7 @@ function ClinicalApp() {
       setEncounterAdministrations([]);
       setEncounterReportOpen(false);
       setGenericMedId(null);
+      setGenericTreatmentContext(null);
       setScannedVial(null);
       setScanMedOk(false);
       setScanConcOk(false);
@@ -725,6 +727,8 @@ function ClinicalApp() {
       }]);
     },
     beginMedication = (selectedDrug: Drug, preservePatient = false) => {
+      setGenericTreatmentContext(null);
+      setGenericMedId(null);
       setDrug(selectedDrug);
       setFentanylOlderFrail(false);
       setMidazolamSmallAdult(null);
@@ -841,7 +845,14 @@ function ClinicalApp() {
                     <button
                       key={m.id}
                       className="choice calculator-med"
-                      onClick={() => m.calculator ? beginMedication(m.calculator) : setGenericMedId(m.id)}
+                      onClick={() => {
+                        if (m.calculator) beginMedication(m.calculator);
+                        else {
+                          setDrug(null);
+                          setGenericTreatmentContext(null);
+                          setGenericMedId(m.id);
+                        }
+                      }}
                     >
                       <span className="rx">{meds.findIndex(x=>x.id===m.id)+1}</span>
                       <span>
@@ -1462,13 +1473,17 @@ function ClinicalApp() {
         <section className="wizard-shell generic-calculator-host">
           <DmpMedicationCalculator
             medication={genericMedication(genericMedId)}
-            close={() => setGenericMedId(null)}
+            close={() => {
+              setGenericTreatmentContext(null);
+              setGenericMedId(null);
+            }}
             openProtocol={() => setCatalogProtocol({
               id: genericMedication(genericMedId).protocolId,
               name: genericMedication(genericMedId).name,
               page: genericMedication(genericMedId).page,
             })}
             record={(entry) => setEncounterAdministrations((items) => [...items, entry])}
+            onContextChange={setGenericTreatmentContext}
           />
         </section>
       )}
@@ -1501,6 +1516,7 @@ function ClinicalApp() {
         midazolamHalfConsideration={midazolamHalfConsideration}
         currentDose={drug&&r&&rate!==null?doseText:undefined}
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
+        genericTreatment={genericTreatmentContext}
         onSelectMedication={beginMedication}
         onSelectSuggestedMedication={(selectedDrug)=>beginMedication(selectedDrug,true)}
         reportReady={encounterAdministrations.length>0||Boolean(drug&&r&&rate!==null&&epiEnteredDoseValid&&conc>0&&!volumeBlocked)}
