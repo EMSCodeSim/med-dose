@@ -1704,7 +1704,7 @@ function MagnesiumDripCalculator({durationMinutes}:{durationMinutes:number}) {
   return <section className="mag-drip-calculator" aria-label="Magnesium gravity drip calculator">
     <header><small>MAGNESIUM INFUSION</small><strong>IV DRIP — NOT IV PUSH</strong><span>Infuse over {durationMinutes} minutes</span></header>
     <label><span>Confirmed final prepared volume</span><div><input inputMode="decimal" value={finalVolume} onChange={e=>setFinalVolume(e.target.value)} aria-label="Final prepared infusion volume in milliliters"/><b>mL</b></div></label>
-    <div className="drop-factor"><span>Tubing drop factor</span><div>{[10,15,20,60].map(x=><button key={x} className={dropFactor===x?"selected":""} onClick={()=>setDropFactor(x)}>{x} gtt/mL</button>)}</div></div>
+    <div className="drop-factor"><span>Tubing drop factor</span><div>{[60,10,15].map(x=><button key={x} className={dropFactor===x?"selected":""} onClick={()=>setDropFactor(x)}>{x} gtt/mL</button>)}</div></div>
     {valid?<div className="drip-results"><span><small>INFUSION PUMP</small><b>{fmt(mlPerHour)} mL/hr</b></span><span><small>GRAVITY TUBING</small><b>{dropsPerMinute} gtt/min</b><em>{dropsPerMinute} drops/min</em></span></div>:<div className="partial-error" role="alert">Enter the final prepared infusion volume to calculate the rate.</div>}
     <p><b>Verify before use:</b> confirm the final prepared volume and the drop factor printed on the tubing package. If medication was added without removing saline, enter the actual total volume. Use an infusion pump when available.</p>
   </section>;
@@ -1719,7 +1719,7 @@ function EpinephrineInfusionCalculator({rate,stockConcentration}:{rate:number;st
   return <section className="mag-drip-calculator" aria-label="Epinephrine infusion calculator">
     <header><small>EPINEPHRINE INFUSION</small><strong>IV/IO DRIP — NOT IV PUSH</strong><span>Selected rate: {fmt(rate)} mg/min</span></header>
     <div className="drip-results"><span><small>PREPARE</small><b>1 mg in 1000 mL NS</b><em>Draw {fmt(stockVolume)} mL from the confirmed stock • final concentration 0.001 mg/mL</em></span><span><small>INFUSION PUMP</small><b>{fmt(mlPerHour)} mL/hr</b><em>{fmt(mlPerMinute)} mL/min</em></span></div>
-    <div className="drop-factor"><span>Macrodrip tubing</span><div>{[10,15].map(x=><button key={x} className={dropFactor===x?"selected":""} onClick={()=>setDropFactor(x)}>{x} gtt/mL</button>)}</div></div>
+    <div className="drop-factor"><span>Tubing drop factor</span><div>{[60,10,15].map(x=><button key={x} className={dropFactor===x?"selected":""} onClick={()=>setDropFactor(x)}>{x} gtt/mL</button>)}</div></div>
     <div className="drip-results"><span><small>GRAVITY RATE</small><b>{dropsPerMinute} gtt/min</b><em>{dropFactor} gtt/mL tubing • {fmt(rate)} mg/min</em></span></div>
     <p><b>Label the bag “Epinephrine 0.001 mg/mL.”</b> Begin wide open to gravity in small aliquots and titrate to SBP &gt;90 mmHg, improved respiratory status, and improved perfusion/mentation. Confirm the drop factor printed on the tubing.</p>
   </section>;
