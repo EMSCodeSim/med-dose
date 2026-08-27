@@ -25,6 +25,19 @@
   .dashboard-required{padding:9px 7px}.dashboard-required b{font-size:11px}.dashboard-required i{display:none}
 }
 
+/* Larger field typography for rapid visual confirmation. */
+.builder-medication-banner .versed-medication-reference>span small{font-size:10px}.builder-medication-banner .versed-medication-reference>span b{font-size:26px;line-height:1.05}.builder-medication-banner .versed-medication-reference>span em{font-size:14px}
+.versed-status-board button small{font-size:11px}.versed-status-board button b{font-size:18px;line-height:1.15}.versed-status-board button span{font-size:12px;line-height:1.25}.versed-status-board button>i{width:20px;height:20px;font-size:11px}
+.dashboard-primary-dose>small{font-size:11px}.dashboard-dose-answer>strong{font-size:56px}.dashboard-dose-answer>span{font-size:21px}.dashboard-dose-answer>span b{font-size:31px}.dashboard-dose-pending{font-size:24px}.dashboard-give-now small{font-size:12px}.dashboard-give-now strong{font-size:23px}.dashboard-give-now span{font-size:10px}.dashboard-timer small{font-size:10px}.dashboard-timer strong{font-size:48px}.dashboard-timer span,.next-dose-field{font-size:11px}
+.versed-inline-workspace>h1,.versed-inline-workspace .builder-stage-form>h1{font-size:27px}.versed-inline-workspace .screen-help{font-size:13px;line-height:1.45}.versed-inline-workspace .builder-options button b{font-size:17px}.versed-inline-workspace .builder-options button span{font-size:12px}.builder-safety-list span{font-size:14px}.builder-confirm b{font-size:16px}.builder-confirm span{font-size:13px}
+
+@media(max-width:760px){
+  .builder-medication-banner .versed-medication-reference>span b{font-size:18px}.builder-medication-banner .versed-medication-reference>span em{font-size:11px}
+  .versed-status-board button small{font-size:9px}.versed-status-board button b{font-size:13px}.versed-status-board button span{font-size:9px}
+  .dashboard-primary-dose>small{font-size:9px}.dashboard-dose-answer>strong{font-size:36px}.dashboard-dose-answer>span{font-size:14px}.dashboard-dose-answer>span b{font-size:21px}.dashboard-dose-pending{font-size:17px}.dashboard-give-now strong{font-size:17px}.dashboard-give-now span{font-size:9px}.dashboard-timer strong{font-size:34px}.dashboard-timer span,.next-dose-field{font-size:9px}
+  .versed-inline-workspace>h1,.versed-inline-workspace .builder-stage-form>h1{font-size:22px}.versed-inline-workspace .screen-help{font-size:11px}.versed-inline-workspace .builder-options button b{font-size:14px}.versed-inline-workspace .builder-options button span{font-size:10px}.builder-safety-list span{font-size:12px}
+}
+
 /* Full-width field builder: calculation fields fill the screen; choices become bottom keys. */
 .versed-builder{width:min(760px,100%);padding-bottom:180px}
 .versed-layout{display:block!important}
@@ -109,3 +122,6 @@
   .versed-inline-workspace .builder-options,.versed-inline-workspace .concentration-options,.versed-inline-workspace .patient-options,.versed-inline-workspace .patient-age-quick{grid-template-columns:repeat(2,minmax(0,1fr))}
   .versed-inline-workspace .route-options{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+/* Final large-type overrides must follow the split-screen rules. */
+.builder-medication-banner .versed-medication-reference>span b{font-size:26px;line-height:1.05}.builder-medication-banner .versed-medication-reference>span em{font-size:14px}.versed-status-board button small{font-size:11px}.versed-status-board button b{font-size:18px;line-height:1.15}.versed-status-board button span{font-size:12px;line-height:1.25}.dashboard-dose-answer>strong{font-size:56px}.dashboard-dose-answer>span{font-size:21px}.dashboard-dose-answer>span b{font-size:31px}.dashboard-give-now strong{font-size:23px}.dashboard-timer strong{font-size:48px}.versed-inline-workspace>h1,.versed-inline-workspace .builder-stage-form>h1{font-size:27px}.versed-inline-workspace .screen-help{font-size:13px}.versed-inline-workspace .builder-options button b{font-size:17px}.versed-inline-workspace .builder-options button span{font-size:12px}
+@media(max-width:760px){.builder-medication-banner .versed-medication-reference>span b{font-size:18px}.builder-medication-banner .versed-medication-reference>span em{font-size:11px}.versed-status-board button small{font-size:9px}.versed-status-board button b{font-size:13px}.versed-status-board button span{font-size:9px}.dashboard-dose-answer>strong{font-size:36px}.dashboard-dose-answer>span{font-size:14px}.dashboard-dose-answer>span b{font-size:21px}.dashboard-give-now strong{font-size:17px}.dashboard-timer strong{font-size:34px}.versed-inline-workspace>h1,.versed-inline-workspace .builder-stage-form>h1{font-size:22px}.versed-inline-workspace .screen-help{font-size:11px}.versed-inline-workspace .builder-options button b{font-size:14px}.versed-inline-workspace .builder-options button span{font-size:10px}}
