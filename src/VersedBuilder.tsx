@@ -46,7 +46,7 @@ function doseFor(indication:string,route:string,patient:Patient,weight:number,pe
 
 export default function VersedBuilder({close,openProtocol,record,onContextChange,medicationOptions,selectMedication,initialPatient}:Props){
   const [stage,setStage]=useState<Stage>("result");
-  const [medConfirmed,setMedConfirmed]=useState(false);
+  const [medConfirmed,setMedConfirmed]=useState(true);
   const [concentration,setConcentration]=useState<number|null>(null);
   const [customAmount,setCustomAmount]=useState("");
   const [customVolume,setCustomVolume]=useState("");
@@ -116,7 +116,6 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
     setStage("result");
   };
   const board:CalculationBox[]=[
-    {id:"medication",label:"MEDICATION",value:"Midazolam (Versed)",detail:medConfirmed?"Physical medication confirmed":"Confirm physical medication",complete:medConfirmed,active:stage==="medication",available:!recorded,onClick:()=>editBox("medication")},
     {id:"concentration",label:"CONCENTRATION",value:`${fmt(concentration||0)} mg/mL`,detail:labelConfirmed?"Physical label confirmed":"Confirm physical label",complete:!!concentration&&labelConfirmed,active:stage==="concentration",available:!recorded,onClick:()=>editBox("concentration")},
     {id:"indication",label:"INDICATION",value:indication,detail:indication?"DMP pathway selected":"Select reason for use",complete:!!indication,active:stage==="indication",available:!recorded,onClick:()=>editBox("indication")},
     {id:"route",label:"ROUTE",value:route,detail:route&&indication&&routeChoices(indication).length===1?"Auto-filled":"Select approved route",complete:!!route,active:stage==="route",available:!recorded,onClick:()=>editBox("route")},
@@ -144,7 +143,7 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
             {editingDose?<div className="dashboard-dose-editor"><label>Actual dose to give<input autoFocus inputMode="decimal" value={plannedDose} onChange={event=>setPlannedDose(event.target.value)}/><b>mg</b></label>{!selectedDoseValid&&<span>Enter more than 0 and no more than {fmt(dose)} mg.</span>}<button onClick={()=>{setPlannedDose(fmt(dose));setEditingDose(false)}}>Use calculated dose</button></div>:!recorded&&<button className="dashboard-lower-dose" onClick={()=>setEditingDose(true)}>Change to a lesser dose</button>}
           </>:<strong className="dashboard-dose-pending">Complete required checks</strong>}
         </section>
-        {!calculationReady&&<button className="dashboard-required" onClick={()=>setStage(board.find(item=>!item.complete)?.id as Stage||"medication")}><b>Choose any red box</b><span>Complete checks in the order that is fastest for you.</span><i>Open next check ›</i></button>}
+        {!calculationReady&&<button className="dashboard-required" onClick={()=>setStage(board.find(item=>!item.complete)?.id as Stage||"concentration")}><b>Choose any red box</b><span>Complete checks in the order that is fastest for you.</span><i>Open next check ›</i></button>}
         {!recorded?<button className="dashboard-give-now" disabled={!calculationReady||!selectedDoseValid||!(volume>0)} onClick={giveNow}><small>GIVE NOW</small><strong>{selectedDoseValid?`${fmt(selectedDose)} mg • ${fmt(volume)} mL`:"Complete dose"}</strong><span>{route||"Route pending"} • records administration and starts timer</span></button>:timerSeconds===0&&!(isImminent(indication)||isAgitation(indication))&&administrationCount<2?<button className="dashboard-give-now repeat" disabled={!selectedDoseValid} onClick={giveNow}><small>GIVE NEXT DOSE NOW</small><strong>{fmt(selectedDose)} mg • {fmt(volume)} mL</strong><span>Reassess and confirm it remains indicated</span></button>:<div className="dashboard-recorded"><b>✓ Dose {administrationCount} recorded</b><span>{fmt(selectedDose)} mg • {fmt(volume)} mL saved to this encounter</span></div>}
         <section className={`dashboard-timer repeat-status ${recordedAt&&routineRepeat&&!repeatFinished?"running":""} ${!routineRepeat||repeatFinished?"unavailable":""}`}>
           {!indication?<><small>REPEAT DOSE</small><strong>—</strong><span>Select an indication to show repeat-dose availability</span></>:!routineRepeat?<><small>NO REPEAT AVAILABLE</small><strong>—</strong><span>Reassess at 5 minutes and continue the agitation pathway</span></>:repeatFinished?<><small>NO REPEAT AVAILABLE</small><strong>LIMIT</strong><span>Two protocol doses have been recorded</span></>:!recordedAt?<><small>REPEAT DOSE</small><strong>05:00</strong><span>Available five minutes after the first recorded dose</span></>:timerSeconds>0?<><small>REPEAT DOSE AVAILABLE IN</small><strong>{timerText}</strong><span>Reassess before giving the next dose</span><b className="next-dose-field">Up to {fmt(dose)} mg • {concentration?fmt(dose/concentration):"—"} mL</b></>:<><small>REPEAT DOSE</small><strong>AVAILABLE NOW</strong><span>Give only after reassessment confirms it remains indicated</span><b className="next-dose-field">Up to {fmt(dose)} mg • {concentration?fmt(dose/concentration):"—"} mL</b></>}
