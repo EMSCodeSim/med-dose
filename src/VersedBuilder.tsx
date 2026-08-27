@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 import type {GenericTreatmentContext} from "./DmpMedicationCalculator";
 import CalculationBoard, {type CalculationBox} from "./CalculationBoard";
 import WeightQuickSelect from "./WeightQuickSelect";
+import DoseSyringe from "./DoseSyringe";
 import "./versedBuilder.css";
 import "./versedForm.css";
 import "./versedConsole.css";
@@ -146,6 +147,7 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
             {editingDose?<div className="dashboard-dose-editor"><label>Actual dose to give<input autoFocus inputMode="decimal" value={plannedDose} onChange={event=>setPlannedDose(event.target.value)}/><b>mg</b></label>{!selectedDoseValid&&<span>Enter more than 0 and no more than {fmt(dose)} mg.</span>}<button onClick={()=>{setPlannedDose(fmt(dose));setEditingDose(false)}}>Use calculated dose</button></div>:!recorded&&<button className="dashboard-lower-dose" onClick={()=>setEditingDose(true)}>Change to a lesser dose</button>}
           </>:<strong className="dashboard-dose-pending">Complete required checks</strong>}
         </section>
+        {calculationReady&&<DoseSyringe volume={volume}/>}
         {calculationReady&&<section className="administration-special"><small>SPECIAL INSTRUCTIONS</small><div><span><b>Route</b>{route}</span><span><b>How to give</b>{administration}</span>{route==="IN"&&<span className="wide"><b>Intranasal split</b>{fmt(volume/2)} mL per nostril • {fmt(volume)} mL total</span>}</div></section>}
         {!calculationReady&&<button className="dashboard-required" onClick={()=>setStage(board.find(item=>!item.complete)?.id as Stage||"concentration")}><b>Choose any red box</b><span>Complete checks in the order that is fastest for you.</span><i>Open next check ›</i></button>}
         {!recorded?<button className="dashboard-give-now" disabled={!calculationReady||!selectedDoseValid||!(volume>0)} onClick={giveNow}><small>GIVE NOW</small><strong>{selectedDoseValid?`${fmt(selectedDose)} mg • ${fmt(volume)} mL`:"Complete dose"}</strong><span>{route||"Route pending"} • records administration and starts timer</span></button>:timerSeconds===0&&!(isImminent(indication)||isAgitation(indication))&&administrationCount<2?<button className="dashboard-give-now repeat" disabled={!selectedDoseValid} onClick={giveNow}><small>GIVE NEXT DOSE NOW</small><strong>{fmt(selectedDose)} mg • {fmt(volume)} mL</strong><span>Reassess and confirm it remains indicated</span></button>:<div className="dashboard-recorded"><b>✓ Dose {administrationCount} recorded</b><span>{fmt(selectedDose)} mg • {fmt(volume)} mL saved to this encounter</span></div>}
