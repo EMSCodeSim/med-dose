@@ -7,6 +7,7 @@ import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 import DmpMedicationCalculator, { type GenericTreatmentContext } from "./DmpMedicationCalculator";
 import VersedBuilder from "./VersedBuilder";
 import type {EncounterPatient} from "./VersedBuilder";
+import FentanylBuilder from "./FentanylBuilder";
 import CalculationBoard from "./CalculationBoard";
 import "./reviewGate.css";
 import "./pilotHome.css";
@@ -459,6 +460,7 @@ function ClinicalApp() {
     [catalogProtocol, setCatalogProtocol] = useState<ProtocolTarget|null>(null),
     [genericMedId, setGenericMedId] = useState<string|null>(null),
     [versedBuilderOpen, setVersedBuilderOpen] = useState(false),
+    [fentanylBuilderOpen, setFentanylBuilderOpen] = useState(false),
     [encounterPatient, setEncounterPatient] = useState<EncounterPatient|null>(null),
     [genericTreatmentContext, setGenericTreatmentContext] = useState<GenericTreatmentContext|null>(null),
     [settingsOpen, setSettingsOpen] = useState(false),
@@ -644,6 +646,7 @@ function ClinicalApp() {
       setEncounterReportOpen(false);
       setGenericMedId(null);
       setVersedBuilderOpen(false);
+      setFentanylBuilderOpen(false);
       setGenericTreatmentContext(null);
       setScannedVial(null);
       setScanMedOk(false);
@@ -699,11 +702,20 @@ function ClinicalApp() {
       if (!preservePatient) setEncounterPatient(null);
       if (selectedDrug === "midazolam") {
         setDrug(null);
+        setFentanylBuilderOpen(false);
         setVersedBuilderOpen(true);
         if (!preservePatient) setEncounterAdministrations([]);
         return;
       }
+      if (selectedDrug === "fentanyl") {
+        setDrug(null);
+        setVersedBuilderOpen(false);
+        setFentanylBuilderOpen(true);
+        if (!preservePatient) setEncounterAdministrations([]);
+        return;
+      }
       setVersedBuilderOpen(false);
+      setFentanylBuilderOpen(false);
       setDrug(selectedDrug);
       setFentanylOlderFrail(false);
       setMidazolamSmallAdult(null);
@@ -731,7 +743,7 @@ function ClinicalApp() {
       setBaseAttested(false);
       setBaseContactOpen(false);
       const selected=meds.find(x=>x.id===selectedDrug);
-      setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="fentanyl"?"mcg":selectedDrug==="magnesium"?"g":"mg",label:selected?.brand||selectedDrug,barcode:"",photo:medicationPhoto(selectedDrug)});
+      setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="magnesium"?"g":"mg",label:selected?.brand||selectedDrug,barcode:"",photo:medicationPhoto(selectedDrug)});
       setStep("scanConfirm");
     };
   return (
@@ -752,7 +764,7 @@ function ClinicalApp() {
           <button onClick={() => setInstall(true)}>Install</button>
         </div>
       </header>
-      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen ? " generic-hidden" : ""}`}>
+      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen || fentanylBuilderOpen ? " generic-hidden" : ""}`}>
         {drug && step !== "drug" && <CalculationBoard boxes={[
           {id:"medication",label:"MEDICATION",value:medName(drug),detail:scanMedOk?"Physical medication confirmed":"Confirm physical medication",complete:scanMedOk,active:step==="scanConfirm",available:true,onClick:()=>setStep("scanConfirm")},
           {id:"concentration",label:"CONCENTRATION",value:conc>0?`${fmt(conc)} ${unit}/mL`:"",detail:scanConcOk?"Physical label confirmed":"Confirm physical label",complete:scanConcOk,active:step==="scanConfirm",available:scanMedOk,onClick:()=>setStep("scanConfirm")},
@@ -1429,6 +1441,7 @@ function ClinicalApp() {
             setVersedBuilderOpen(false);
           }}
           openProtocol={() => setCatalogProtocol({id:"9070",name:"Midazolam",page:136})}
+          initialPatient={encounterPatient}
           record={(entry) => setEncounterAdministrations((items) => [...items, entry])}
           onContextChange={setGenericTreatmentContext}
           medicationOptions={meds.map((m)=>({id:m.id,name:m.name,brand:m.brand,released:approvedMedicationIds.includes(m.id)}))}
@@ -1445,6 +1458,24 @@ function ClinicalApp() {
             }
             if(selected.calculator)beginMedication(selected.calculator,!!patient);
             else {setDrug(null);setVersedBuilderOpen(false);setGenericTreatmentContext(null);setGenericMedId(selected.id)}
+          }}
+        />
+      )}
+      {fentanylBuilderOpen && (
+        <FentanylBuilder
+          close={() => {
+            setGenericTreatmentContext(null);
+            setFentanylBuilderOpen(false);
+          }}
+          initialPatient={encounterPatient}
+          record={(entry) => setEncounterAdministrations((items) => [...items, entry])}
+          onContextChange={setGenericTreatmentContext}
+          medicationOptions={meds.map((m)=>({id:m.id,name:m.name,brand:m.brand,released:approvedMedicationIds.includes(m.id)}))}
+          selectMedication={(id,patient)=>{
+            const selected=meds.find((m)=>m.id===id);
+            if(!selected||!approvedMedicationIds.includes(id))return;
+            if(patient)setEncounterPatient(patient);
+            if(selected.calculator)beginMedication(selected.calculator,!!patient);
           }}
         />
       )}
