@@ -33,7 +33,7 @@ export default function KetamineBuilder({close,record,onContextChange,medication
   const protocolDose=weightKg>0?weightKg*doseRate:0,selectedDose=Number(plannedDose),selectedDoseValid=selectedDose>0&&selectedDose<=protocolDose,volume=concentration&&selectedDoseValid?selectedDose/concentration:0;
   const patientComplete=weightKg>0,doseComplete=protocolDose>0&&selectedDoseValid,recorded=administrations.length>0,repeatAvailable=administrations.length===1;
   const calculationReady=!!concentration&&labelConfirmed&&patientComplete&&doseComplete&&safetyConfirmed&&administrations.length<2;
-  const patientLabel=weightKg?`Adult • ${fmt(weightKg)} kg${weightSource?` • ${weightSource}`:""}`:"";
+  const patientLabel=weightKg?`Adult • ${fmt(weightKg*2.20462)} lb (${fmt(weightKg)} kg)${weightSource?` • ${weightSource}`:""}`:"";
   const pumpRate=bagVolume*60/infusionMinutes,microdripRate=Math.round(bagVolume*60/infusionMinutes);
   const patientSnapshot:EncounterPatient|undefined=weightKg?{patient:"adult",weightKg}:undefined;
   const visibleMedicationOptions=medicationOptions.filter(option=>option.released);
@@ -53,7 +53,7 @@ export default function KetamineBuilder({close,record,onContextChange,medication
   ];
 
   return <main className="versed-builder ketamine-builder">
-    <div className="versed-builder-top"><button onClick={close}>‹ Medication list</button><span>KETAMINE WORKING MED</span><button onClick={close}>Start over</button></div>
+    <div className="versed-builder-top"><button className="drug-back-button" onClick={close}>‹ Back to medications</button><span>KETAMINE WORKING MED</span><button onClick={close}>Start over</button></div>
     <div className={`versed-layout${calculationReady?" calculation-complete":""}`}>
       <header className="builder-medication-banner">{medicationReference}</header>
       <aside className="versed-left-column" aria-label="Calculation controls"><CalculationBoard boxes={board} className="versed-status-board"/><div id="versed-left-tools" className="versed-left-tools"/></aside>
