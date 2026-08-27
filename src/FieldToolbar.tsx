@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 import type { GenericTreatmentContext } from "./DmpMedicationCalculator";
@@ -34,7 +34,8 @@ const protocols:ProtocolTarget[] = [
 ];
 
 export default function FieldToolbar(p: Props) {
-  const [tool,setTool]=useState<Tool>(null),[query,setQuery]=useState(""),[lookupAge,setLookupAge]=useState(""),[protocol,setProtocol]=useState<ProtocolTarget|null>(null);
+  const [tool,setTool]=useState<Tool>(null),[query,setQuery]=useState(""),[lookupAge,setLookupAge]=useState(""),[protocol,setProtocol]=useState<ProtocolTarget|null>(null),[toolbarTarget,setToolbarTarget]=useState<HTMLElement|null>(null);
+  useEffect(()=>{const target=document.getElementById("versed-left-tools");setToolbarTarget(current=>current===target?current:target)});
   const age = p.ageYears ?? (lookupAge === "" ? null : Number(lookupAge));
   const context = p.ageYears !== null ? `Current patient • ${p.ageLabel}${p.weightKg ? ` • ${fmt(p.weightKg)} kg` : ""}` : "No current patient • lookup mode";
   const treatmentReady = Boolean((p.currentDrugId && p.currentIndication)||p.genericTreatment);
@@ -49,12 +50,13 @@ export default function FieldToolbar(p: Props) {
     {tool==="protocols"&&<LookupList title="Search protocol number or name" items={protocols} query={query} setQuery={setQuery} openProtocol={setProtocol}/>}
     <a className="drawer-protocol-link" href={DMP_URL} target="_blank" rel="noreferrer">Open current July 2026 DMP PDF ↗</a>
   </section></div>;
-  return <>
-    <nav className="field-toolbar" aria-label="Quick clinical reference">
+  const toolbar=<nav className="field-toolbar" aria-label="Quick clinical reference">
       <button type="button" disabled={!p.reportReady} title={!p.reportReady?"Complete the medication calculation first":undefined} aria-label={p.reportReady?"Open medication report":"Report unavailable — complete the medication calculation first"} onClick={p.onOpenReport}><span>▤</span><b>Report</b></button>
       <button type="button" disabled={!treatmentReady} title={!treatmentReady?treatmentHint:undefined} aria-label={treatmentReady?"Treatment":"Treatment unavailable — "+treatmentHint} onClick={()=>setTool("treatment")}><span>✚</span><b>Treatment</b></button>
       <button type="button" onClick={()=>setTool("protocols")}><span>§</span><b>Protocols</b></button>
-    </nav>
+    </nav>;
+  return <>
+    {toolbarTarget?createPortal(toolbar,toolbarTarget):toolbar}
     {drawer&&typeof document!=="undefined"&&createPortal(drawer,document.body)}
     {protocol&&<ProtocolViewer target={protocol} close={()=>setProtocol(null)}/>} 
   </>;
