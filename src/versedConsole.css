@@ -29,6 +29,16 @@
 .dose-syringe header{display:flex;align-items:end;justify-content:space-between;gap:12px}.dose-syringe header span{display:flex;flex-direction:column}.dose-syringe header small{color:#0873b5;font-size:9px;font-weight:900;letter-spacing:.12em}.dose-syringe header b{font-size:17px}.dose-syringe header strong{color:#08715e;font-size:20px}.dose-syringe svg{display:block;width:100%;max-width:520px;height:auto;margin:7px auto 0}.dose-syringe p{margin:0;color:#607986;font-size:9px;text-align:center}
 @media(max-width:760px){.dose-syringe{margin-top:7px;padding:8px}.dose-syringe header{align-items:flex-start;flex-direction:column;gap:2px}.dose-syringe header small{font-size:8px}.dose-syringe header b{font-size:13px}.dose-syringe header strong{font-size:16px}.dose-syringe svg{margin-top:2px}.dose-syringe p{font-size:8px}}
 
+/* Drug-screen utilities: absent on home, compact and low-priority below administration. */
+.wizard-app:has(.pilot-home)>.field-toolbar{display:none!important}
+.versed-left-tools{display:block!important;grid-column:1/-1;grid-row:6;margin:2px 0 0!important}
+.versed-left-tools .field-toolbar{position:static!important;width:100%!important;height:auto!important;padding:5px!important;border:1px solid #c7d4da!important;border-radius:10px!important;background:#edf3f6!important;box-shadow:none!important;display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:5px!important}
+.versed-left-tools .field-toolbar button{position:static!important;min-height:42px!important;padding:5px!important;border:1px solid #b8c8d0!important;border-radius:7px!important;background:#fff!important;color:#405d70!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-direction:row!important;gap:6px!important;text-align:center!important}
+.versed-left-tools .field-toolbar button span{position:static!important;width:auto!important;height:auto!important;transform:none!important;border-radius:0!important;background:transparent!important;color:#0873b5!important;font-size:13px!important}.versed-left-tools .field-toolbar button b{font-size:10px!important}.versed-left-tools .field-toolbar button:disabled{opacity:.42}
+.drug-back-button{justify-self:start;min-height:42px!important;padding:0 12px!important;border:2px solid #0873b5!important;border-radius:9px!important;background:#fff!important;color:#086b9f!important}
+@media(max-width:760px){.versed-left-tools .field-toolbar{padding:3px!important;gap:3px!important}.versed-left-tools .field-toolbar button{min-height:38px!important;padding:3px!important}.versed-left-tools .field-toolbar button span{font-size:11px!important}.versed-left-tools .field-toolbar button b{font-size:8px!important}.drug-back-button{min-height:38px!important;padding:0 8px!important;font-size:10px!important}}
+.weight-unit-primary{grid-column:auto!important;margin-bottom:2px}.weight-unit-primary button{font-size:11px!important}.selected-calculation-weight span{line-height:1.3}
+
 /* Compact completed choices and expand the administration answer. */
 .versed-layout.calculation-complete>.builder-medication-banner,.versed-layout.calculation-complete .versed-status-board .calculation-box{min-height:72px}
 .versed-layout.calculation-complete .builder-medication-banner{padding:6px 10px}
