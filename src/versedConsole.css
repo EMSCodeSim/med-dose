@@ -75,3 +75,37 @@
 }
 .versed-status-board .calculation-box-main{min-height:70px;padding:10px 44px 8px 12px}.versed-status-board .calculation-quick{padding:0 9px 9px}.versed-status-board .calculation-quick button{min-height:42px!important;padding:7px!important;font-size:10px!important}.versed-status-board .calculation-quick button span{display:inline}
 @media(max-width:760px){.versed-status-board .calculation-box-main{min-height:58px;padding:8px 34px 6px 9px}.versed-status-board .calculation-quick{gap:5px;padding:0 7px 7px}.versed-status-board .calculation-quick button{min-height:38px!important;font-size:9px!important}}
+
+/* Screen-two layout: full-width medication identity, inputs left, result right. */
+.versed-builder{width:min(1080px,100%);padding-bottom:130px}
+.builder-medication-banner{width:100%;margin-bottom:12px;padding:10px 14px;border:2px solid #0873b5;border-radius:14px;background:#eef8fd}
+.builder-medication-banner .versed-medication-reference{position:static;float:none;width:100%;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;grid-template-columns:62px 1fr}
+.builder-medication-banner .versed-reference-vial{height:78px}
+.builder-medication-banner .versed-medication-reference>span small{font-size:8px}.builder-medication-banner .versed-medication-reference>span b{font-size:20px}.builder-medication-banner .versed-medication-reference>span em{font-size:11px}
+.versed-layout{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+.versed-left-column{grid-column:1;position:sticky!important;top:72px!important}
+.versed-layout>.versed-left-column~.versed-dashboard{grid-column:2;width:100%;margin:0;padding:0}
+.versed-status-board button{min-height:68px}
+.versed-status-board .calculation-quick{display:none!important}
+.versed-dashboard>.versed-medication-reference,.versed-inline-workspace>.versed-medication-reference{display:none!important}
+.versed-inline-workspace{position:fixed!important;z-index:270;left:50%!important;right:auto!important;top:50%!important;bottom:auto!important;width:min(650px,calc(100% - 28px))!important;max-height:calc(100dvh - 36px);transform:translate(-50%,-50%);padding:22px;border:2px solid #9eb3bf;border-radius:17px;box-shadow:0 24px 90px #07172280}
+.versed-inline-workspace:before{content:"SELECT OPTION"}
+.versed-inline-workspace .builder-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+.versed-inline-workspace .route-options{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+@media(max-width:760px){
+  .versed-builder{padding:4px 5px 125px}
+  .builder-medication-banner{margin-bottom:7px;padding:6px 8px;border-radius:10px}
+  .builder-medication-banner .versed-medication-reference{grid-template-columns:42px 1fr}
+  .builder-medication-banner .versed-reference-vial{height:57px}
+  .builder-medication-banner .versed-medication-reference>span b{font-size:14px}.builder-medication-banner .versed-medication-reference>span em{font-size:9px}
+  .versed-layout{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
+  .versed-left-column{position:static!important;top:auto!important;min-width:0}
+  .versed-layout>.versed-left-column~.versed-dashboard{grid-column:2;min-width:0;margin:0}
+  .versed-status-board>header span{display:none}
+  .versed-status-board button{min-height:58px;padding:7px 28px 7px 8px}
+  .versed-status-board button b{font-size:10px}.versed-status-board button span{font-size:8px}
+  .versed-inline-workspace{left:50%!important;right:auto!important;top:50%!important;bottom:auto!important;width:calc(100% - 16px)!important;max-height:calc(100dvh - 16px);transform:translate(-50%,-50%);padding:16px 10px max(14px,env(safe-area-inset-bottom));border-radius:14px}
+  .versed-inline-workspace .builder-options,.versed-inline-workspace .concentration-options,.versed-inline-workspace .patient-options,.versed-inline-workspace .patient-age-quick{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .versed-inline-workspace .route-options{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
