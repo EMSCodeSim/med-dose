@@ -68,6 +68,7 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
   const [editingDose,setEditingDose]=useState(false);
   const [addingMedication,setAddingMedication]=useState(false);
   const [now,setNow]=useState(Date.now());
+  const [showMath,setShowMath]=useState(false);
   const customConcentration=Number(customAmount)>0&&Number(customVolume)>0?Number(customAmount)/Number(customVolume):0;
   const kg=weightUnit==="lb"?Number(weight)/2.20462:Number(weight);
   const pediatricAgeNumber=Number(pediatricAge);
@@ -79,6 +80,8 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
   const selectedDoseValid=selectedDose>0&&selectedDose<=dose;
   const volume=concentration&&selectedDoseValid?selectedDose/concentration:0;
   const administration=route==="IV/IO"?"Administer slowly with continuous respiratory and hemodynamic monitoring.":route==="IN"?"Divide the dose equally between nostrils when feasible.":"Administer IM and begin continuous post-sedation monitoring.";
+  const weightRate=(route==="IM"||route==="IN") ? .2 : .1;
+  const doseMath=patient==="pediatric"&&!isAgitation(indication)?`${fmt(kg)} kg × ${fmt(weightRate)} mg/kg = ${fmt(kg*weightRate)} mg; protocol cap applied = ${fmt(dose)} mg`:halfDose===true?`Protocol dose before adjustment ${fmt(dose*2)} mg × ½ = ${fmt(dose)} mg`:`Fixed DMP dose for ${indication||"selected indication"} by ${route||"selected route"} = ${fmt(dose)} mg`;
   const repeat=isImminent(indication)||isAgitation(indication)?"No routine Midazolam repeat; reassess at 5 minutes and follow the agitation pathway.":"May repeat once after 5 minutes when still indicated; contact Base before more than 2 benzodiazepine doses.";
   const patientLabel=patient==="adult"?(halfDose?"Adult • ½-dose consideration":"Adult • standard dose"):needsPediatricAge?`Pediatric • ${pediatricAge} years`:`Pediatric • ${fmt(kg*2.20462)} lb (${fmt(kg)} kg)${weightSource?` • ${weightSource}`:""}`;
   const timerSeconds=recordedAt?Math.max(0,Math.ceil((recordedAt+5*60_000-now)/1000)):300;
@@ -151,6 +154,7 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
             {editingDose?<div className="dashboard-dose-editor"><label>Actual dose to give<input autoFocus inputMode="decimal" value={plannedDose} onChange={event=>setPlannedDose(event.target.value)}/><b>mg</b></label>{!selectedDoseValid&&<span>Enter more than 0 and no more than {fmt(dose)} mg.</span>}<button onClick={()=>{setPlannedDose(fmt(dose));setEditingDose(false)}}>Use calculated dose</button></div>:!recorded&&<button className="dashboard-lower-dose" onClick={()=>setEditingDose(true)}>Change to a lesser dose</button>}
           </>:<strong className="dashboard-dose-pending">Complete required checks</strong>}
         </section>
+        {dosePreviewReady&&<section className="dose-math-control"><button type="button" aria-expanded={showMath} onClick={()=>setShowMath(value=>!value)}>{showMath?"Hide math":"Show math"} <span>{showMath?"−":"+"}</span></button>{showMath&&<div className="dose-math-box"><small>DOSE CALCULATION</small><b>{doseMath}</b><span>{fmt(selectedDose)} mg ÷ {fmt(concentration||0)} mg/mL = {fmt(volume)} mL</span>{route==="IN"&&<span>{fmt(volume)} mL ÷ 2 nostrils = {fmt(volume/2)} mL per nostril</span>}</div>}</section>}
         {dosePreviewReady&&<DoseSyringe volume={volume}/>}
         {dosePreviewReady&&<section className="administration-special"><small>SPECIAL INSTRUCTIONS</small><div><span><b>Route</b>{route}</span><span><b>How to give</b>{administration}</span>{route==="IN"&&<span className="wide"><b>Intranasal split</b>{fmt(volume/2)} mL per nostril • {fmt(volume)} mL total</span>}</div></section>}
         {!calculationReady&&<button className="dashboard-required" onClick={()=>setStage(board.find(item=>!item.complete)?.id as Stage||"concentration")}><b>Choose any red box</b><span>Complete checks in the order that is fastest for you.</span><i>Open next check ›</i></button>}
