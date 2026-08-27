@@ -1,0 +1,54 @@
+.wizard-shell.pilot-home-shell{width:min(1080px,100%);padding-top:26px}
+.pilot-home{overflow:hidden;border:1px solid #bfd0d9;border-radius:22px;background:#f7fbfd;box-shadow:0 18px 48px #102f4317;animation:screen-in .22s ease}
+.pilot-home-heading{padding:28px 32px 25px;background:linear-gradient(125deg,#102b40 0%,#123b55 68%,#0d6d78 100%);color:#fff}
+.pilot-home-heading>span{display:block;margin-bottom:8px;color:#79d4ed;font-size:10px;font-weight:900;letter-spacing:.15em}
+.pilot-home-heading h1{margin:0;font-size:32px;line-height:1.1;letter-spacing:-.025em}
+.pilot-home-heading p{max-width:650px;margin:9px 0 0;color:#c9dce6;font-size:14px;line-height:1.45}
+.pilot-medication-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:24px}
+.pilot-medication-card{position:relative;min-height:190px;padding:20px 52px 20px 20px;border:2px solid #b9cbd5;border-radius:17px;background:#fff;color:#17364c;display:grid;grid-template-columns:92px minmax(0,1fr);align-items:center;gap:18px;text-align:left;box-shadow:0 7px 20px #15374d0d;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.pilot-medication-card:hover,.pilot-medication-card:focus-visible{transform:translateY(-2px);border-color:#0873b5;box-shadow:0 12px 26px #0b4d7421;outline:0}
+.pilot-medication-card:active{transform:translateY(0)}
+.pilot-vial{position:relative;width:78px;height:130px;margin:auto;border:3px solid #9fb1ba;border-radius:9px 9px 18px 18px;background:linear-gradient(#cfdce1 0 17%,#fdfefe 17% 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 0 0 5px #fff,0 5px 12px #17364c20}
+.pilot-vial:before{content:"";position:absolute;top:-10px;width:58px;height:15px;border:2px solid #899da7;border-radius:5px 5px 2px 2px;background:#bdcbd1}
+.pilot-vial i{position:absolute;inset:35px 5px 18px;border:1px solid #bdd5df;border-radius:4px;background:linear-gradient(145deg,#eaf7fb,#fff)}
+.pilot-vial b,.pilot-vial small{position:relative;z-index:1;text-align:center}
+.pilot-vial b{max-width:66px;color:#0b628f;font-size:10px;letter-spacing:.05em;overflow-wrap:anywhere}
+.pilot-vial small{margin-top:5px;color:#5b7482;font-size:6px;letter-spacing:.1em}
+.pilot-medication-card.fentanyl .pilot-vial b{color:#8c3d63}
+.pilot-medication-card.fentanyl .pilot-vial i{background:linear-gradient(145deg,#f9eef4,#fff)}
+.pilot-medication-copy{min-width:0;display:flex;flex-direction:column}
+.pilot-medication-copy>small{margin-bottom:7px;color:#0873b5;font-size:8px;font-weight:900;letter-spacing:.13em}
+.pilot-medication-copy>strong{font-size:24px;line-height:1.12}
+.pilot-medication-copy>b{margin-top:4px;color:#0c775f;font-size:14px}
+.pilot-medication-copy>span{margin-top:10px;color:#607684;font-size:11px;line-height:1.4}
+.pilot-card-arrow{position:absolute;right:20px;width:34px;height:34px;border-radius:50%;background:#e6f3fa;color:#0873b5;display:grid;place-items:center;font-size:27px;font-style:normal;line-height:1}
+.pilot-home-footer{min-height:66px;padding:12px 24px;border-top:1px solid #d5e1e7;background:#eef5f8;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.pilot-home-footer>span{color:#5e7583;font-size:11px;font-weight:800}
+.pilot-home-footer button{min-height:42px;padding:0 14px;border:1px solid #82b6d1;border-radius:10px;background:#fff;color:#145c83;font-size:11px;font-weight:900}
+.pilot-home-footer button i{margin-right:5px;font-style:normal}
+@media(max-width:700px){
+  .wizard-shell.pilot-home-shell{padding:10px 8px 110px}
+  .pilot-home{border-radius:15px}
+  .pilot-home-heading{padding:20px 18px 18px}
+  .pilot-home-heading h1{font-size:26px}
+  .pilot-home-heading p{font-size:12px}
+  .pilot-medication-grid{grid-template-columns:1fr;gap:10px;padding:12px}
+  .pilot-medication-card{min-height:142px;padding:13px 43px 13px 13px;grid-template-columns:72px minmax(0,1fr);gap:12px;border-radius:13px}
+  .pilot-vial{width:58px;height:101px;border-width:2px}
+  .pilot-vial:before{top:-7px;width:44px;height:11px}
+  .pilot-vial i{inset:27px 4px 13px}
+  .pilot-vial b{font-size:8px}
+  .pilot-medication-copy>strong{font-size:20px}
+  .pilot-medication-copy>b{font-size:12px}
+  .pilot-medication-copy>span{margin-top:7px;font-size:10px}
+  .pilot-card-arrow{right:12px;width:29px;height:29px;font-size:23px}
+  .pilot-home-footer{padding:11px 12px;align-items:stretch;flex-direction:column}
+  .pilot-home-footer button{width:100%;min-height:46px}
+}
+@media(prefers-color-scheme:dark){
+  .pilot-home{border-color:#385261;background:#102432}
+  .pilot-medication-card{border-color:#385261;background:#102432;color:#edf6fa}
+  .pilot-medication-copy>span,.pilot-home-footer>span{color:#b4c6d0}
+  .pilot-home-footer{border-color:#385261;background:#0b1d2a}
+  .pilot-home-footer button{background:#102f43;color:#bde6fa}
+}
