@@ -25,6 +25,35 @@
   .dashboard-required{padding:9px 7px}.dashboard-required b{font-size:11px}.dashboard-required i{display:none}
 }
 
+/* Compact completed choices and expand the administration answer. */
+.versed-layout.calculation-complete>.builder-medication-banner,.versed-layout.calculation-complete .versed-status-board .calculation-box{min-height:72px}
+.versed-layout.calculation-complete .builder-medication-banner{padding:6px 10px}
+.versed-layout.calculation-complete .builder-medication-banner .versed-reference-vial{height:58px}
+.versed-layout.calculation-complete .builder-medication-banner .versed-medication-reference{grid-template-columns:50px minmax(0,1fr)}
+.versed-layout.calculation-complete .builder-medication-banner .versed-medication-reference>span b{font-size:18px}
+.versed-layout.calculation-complete .versed-status-board .calculation-box-main{min-height:68px;padding:8px 40px 8px 11px}
+.versed-layout.calculation-complete .versed-status-board button small{font-size:9px}.versed-layout.calculation-complete .versed-status-board button b{font-size:14px}.versed-layout.calculation-complete .versed-status-board button span{font-size:9px}
+.versed-layout.calculation-complete .versed-status-board .calculation-box:nth-child(6),.versed-layout.calculation-complete .versed-status-board .calculation-box:nth-child(6) .calculation-box-main{min-height:64px}
+.versed-layout.calculation-complete>.versed-left-column~.versed-dashboard{padding:15px}
+.versed-layout.calculation-complete .administration-area-heading{margin:-15px -15px 14px}
+.administration-special{margin-top:10px;padding:13px;border:2px solid #3a7fa5;border-radius:12px;background:#eef8fd;color:#173f58}
+.administration-special>small{display:block;margin-bottom:9px;color:#0873b5;font-size:10px;font-weight:900;letter-spacing:.12em}
+.administration-special>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.administration-special span{min-width:0;padding:10px;border-radius:9px;background:#fff;display:flex;flex-direction:column;gap:3px;font-size:12px;line-height:1.35}
+.administration-special span.wide{grid-column:1/-1}.administration-special span>b{color:#607986;font-size:9px;letter-spacing:.08em;text-transform:uppercase}
+.setup-picks{margin-bottom:8px}.administration-special .setup-picks span{background:#dceef7}.setup-picks i{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-style:normal}.setup-picks button{min-height:43px;border:2px solid #97b5c5;border-radius:8px;background:#fff;color:#24485e;font-weight:900}.setup-picks button.selected{border-color:#0873b5;background:#0873b5;color:#fff}
+
+@media(max-width:760px){
+  .versed-layout.calculation-complete>.builder-medication-banner,.versed-layout.calculation-complete .versed-status-board .calculation-box{min-height:62px}
+  .versed-layout.calculation-complete .builder-medication-banner .versed-reference-vial{height:48px}
+  .versed-layout.calculation-complete .builder-medication-banner .versed-medication-reference{grid-template-columns:38px minmax(0,1fr)}
+  .versed-layout.calculation-complete .builder-medication-banner .versed-medication-reference>span b{font-size:14px}
+  .versed-layout.calculation-complete .versed-status-board .calculation-box-main{min-height:58px;padding:6px 29px 6px 7px}
+  .versed-layout.calculation-complete .versed-status-board button small{font-size:8px}.versed-layout.calculation-complete .versed-status-board button b{font-size:11px}.versed-layout.calculation-complete .versed-status-board button span{font-size:8px}
+  .versed-layout.calculation-complete>.versed-left-column~.versed-dashboard{padding:8px}.versed-layout.calculation-complete .administration-area-heading{margin:-8px -8px 9px}
+  .administration-special{padding:8px;margin-top:7px}.administration-special>small{font-size:8px}.administration-special>div{grid-template-columns:1fr;gap:5px}.administration-special span,.administration-special span.wide{grid-column:1;padding:7px;font-size:10px}.administration-special span>b{font-size:8px}.setup-picks button{min-height:38px;font-size:10px}
+}
+
 /* Larger field typography for rapid visual confirmation. */
 .builder-medication-banner .versed-medication-reference>span small{font-size:10px}.builder-medication-banner .versed-medication-reference>span b{font-size:26px;line-height:1.05}.builder-medication-banner .versed-medication-reference>span em{font-size:14px}
 .versed-status-board button small{font-size:11px}.versed-status-board button b{font-size:18px;line-height:1.15}.versed-status-board button span{font-size:12px;line-height:1.25}.versed-status-board button>i{width:20px;height:20px;font-size:11px}
