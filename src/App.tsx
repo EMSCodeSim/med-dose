@@ -792,8 +792,8 @@ function ClinicalApp() {
           <section className="pilot-home" aria-labelledby="pilot-home-title">
             <div className="pilot-home-heading">
               <span>NEW CALCULATION DESIGN • FIELD TEST</span>
-              <h1 id="pilot-home-title">Select medication</h1>
-              <p>Build the calculation with fixed controls on the left and live choices and dose information on the right.</p>
+              <h1 id="pilot-home-title">Select med</h1>
+              <p>Choose a medication to start the visual calculator.</p>
             </div>
             <div className="pilot-medication-grid">
               {meds.filter((med)=>TESTING_VISIBLE_MEDICATION_IDS.includes(med.id)).map((med)=>(
