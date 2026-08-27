@@ -80,7 +80,7 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
   const volume=concentration&&selectedDoseValid?selectedDose/concentration:0;
   const administration=route==="IV/IO"?"Administer slowly with continuous respiratory and hemodynamic monitoring.":route==="IN"?"Divide the dose equally between nostrils when feasible.":"Administer IM and begin continuous post-sedation monitoring.";
   const repeat=isImminent(indication)||isAgitation(indication)?"No routine Midazolam repeat; reassess at 5 minutes and follow the agitation pathway.":"May repeat once after 5 minutes when still indicated; contact Base before more than 2 benzodiazepine doses.";
-  const patientLabel=patient==="adult"?(halfDose?"Adult • ½-dose consideration":"Adult • standard dose"):needsPediatricAge?`Pediatric • ${pediatricAge} years`:`Pediatric • ${fmt(kg)} kg${weightSource?` • ${weightSource}`:""}`;
+  const patientLabel=patient==="adult"?(halfDose?"Adult • ½-dose consideration":"Adult • standard dose"):needsPediatricAge?`Pediatric • ${pediatricAge} years`:`Pediatric • ${fmt(kg*2.20462)} lb (${fmt(kg)} kg)${weightSource?` • ${weightSource}`:""}`;
   const timerSeconds=recordedAt?Math.max(0,Math.ceil((recordedAt+5*60_000-now)/1000)):300;
   const timerText=`${String(Math.floor(timerSeconds/60)).padStart(2,"0")}:${String(timerSeconds%60).padStart(2,"0")}`;
   const routineRepeat=!!indication&&!(isImminent(indication)||isAgitation(indication));
@@ -128,7 +128,7 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
   const medicationReference=medConfirmed?<aside className="versed-medication-reference" aria-label="Selected medication reference image"><div className="versed-reference-vial"><small>MIDAZOLAM</small><b>Rx</b><span>INJECTION</span></div><span><small>SELECTED MEDICATION</small><b>Midazolam</b><em>Versed</em></span></aside>:null;
 
   return <main className="versed-builder">
-    <div className="versed-builder-top"><button onClick={close}>‹ Medication list</button><span>VERSED FORMAT PILOT</span><button onClick={close}>Start over</button></div>
+    <div className="versed-builder-top"><button className="drug-back-button" onClick={close}>‹ Back to medications</button><span>VERSED FORMAT PILOT</span><button onClick={close}>Start over</button></div>
     <div className={`versed-layout${calculationReady?" calculation-complete":""}`}>
       <header className="builder-medication-banner">{medicationReference}</header>
       <aside className="versed-left-column" aria-label="Calculation controls">
