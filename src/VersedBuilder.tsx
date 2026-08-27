@@ -9,7 +9,7 @@ import "./versedConsole.css";
 type RecordedAdministration={drug:string;reason:string;route:string;dose:number;unit:string;volume:number;time:number;concentration:string;patient?:string};
 type MedicationOption={id:string;name:string;brand:string;released:boolean};
 export type EncounterPatient={patient:"adult"|"pediatric";ageYears?:number;weightKg?:number;halfDose?:boolean};
-type Props={close:()=>void;openProtocol:()=>void;record:(entry:RecordedAdministration)=>void;onContextChange:(context:GenericTreatmentContext|null)=>void;medicationOptions:MedicationOption[];selectMedication:(id:string,patient?:EncounterPatient)=>void};
+type Props={close:()=>void;openProtocol:()=>void;record:(entry:RecordedAdministration)=>void;onContextChange:(context:GenericTreatmentContext|null)=>void;medicationOptions:MedicationOption[];selectMedication:(id:string,patient?:EncounterPatient)=>void;initialPatient?:EncounterPatient|null};
 type Stage="medication"|"concentration"|"indication"|"route"|"patient"|"safety"|"result";
 type Patient="adult"|"pediatric"|"";
 
@@ -44,7 +44,7 @@ function doseFor(indication:string,route:string,patient:Patient,weight:number,pe
   return halfDose?dose/2:dose;
 }
 
-export default function VersedBuilder({close,openProtocol,record,onContextChange,medicationOptions,selectMedication}:Props){
+export default function VersedBuilder({close,openProtocol,record,onContextChange,medicationOptions,selectMedication,initialPatient}:Props){
   const [stage,setStage]=useState<Stage>("result");
   const [medConfirmed,setMedConfirmed]=useState(false);
   const [concentration,setConcentration]=useState<number|null>(null);
@@ -53,12 +53,12 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
   const [labelConfirmed,setLabelConfirmed]=useState(false);
   const [indication,setIndication]=useState("");
   const [route,setRoute]=useState("");
-  const [patient,setPatient]=useState<Patient>("");
-  const [halfDose,setHalfDose]=useState<boolean|null>(null);
+  const [patient,setPatient]=useState<Patient>(initialPatient?.patient||"");
+  const [halfDose,setHalfDose]=useState<boolean|null>(initialPatient?.patient==="adult"?initialPatient.halfDose===true:null);
   const [pediatricAge,setPediatricAge]=useState("");
-  const [weight,setWeight]=useState("");
+  const [weight,setWeight]=useState(initialPatient?.weightKg?String(initialPatient.weightKg):"");
   const [weightUnit,setWeightUnit]=useState<"kg"|"lb">("kg");
-  const [weightSource,setWeightSource]=useState("");
+  const [weightSource,setWeightSource]=useState(initialPatient?.weightKg?"carried from current patient":"");
   const [safetyConfirmed,setSafetyConfirmed]=useState(false);
   const [recorded,setRecorded]=useState(false);
   const [recordedAt,setRecordedAt]=useState<number|null>(null);
