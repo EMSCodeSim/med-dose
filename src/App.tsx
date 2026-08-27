@@ -8,6 +8,7 @@ import DmpMedicationCalculator, { type GenericTreatmentContext } from "./DmpMedi
 import VersedBuilder from "./VersedBuilder";
 import type {EncounterPatient} from "./VersedBuilder";
 import FentanylBuilder from "./FentanylBuilder";
+import KetamineBuilder from "./KetamineBuilder";
 import CalculationBoard from "./CalculationBoard";
 import "./reviewGate.css";
 import "./pilotHome.css";
@@ -94,6 +95,7 @@ const meds:MedicationCatalogItem[] = [
   {id:"nitroglycerin",name:"Nitroglycerin",brand:"Nitrostat",sub:"Vasodilator",protocol:{id:"9220",name:"Nitroglycerin",page:161}},
   {id:"nsaids",name:"NSAIDs",brand:"Ketorolac / Ibuprofen",sub:"Non-opioid analgesics",protocol:{id:"9225",name:"NSAIDs",page:162}},
   {id:"fentanyl",name:"Fentanyl",brand:"Fentanyl",sub:"Opioid analgesic",protocol:{id:"9230",name:"Opioids / Fentanyl",page:163},calculator:"fentanyl"},
+  {id:"ketamine",name:"Ketamine",brand:"Ketamine",sub:"Adult analgesia waiver",protocol:{id:"500:62",name:"Ketamine Waiver: Analgesia",page:1}},
   {id:"morphine",name:"Morphine",brand:"Morphine sulfate",sub:"Opioid analgesic",protocol:{id:"9230",name:"Opioids / Morphine",page:163}},
   {id:"hydromorphone",name:"Hydromorphone",brand:"Dilaudid",sub:"Opioid analgesic",protocol:{id:"9230",name:"Opioids / Hydromorphone",page:163}},
   {id:"oral-glucose",name:"Oral Glucose",brand:"Glucose gel",sub:"Hypoglycemia",protocol:{id:"9240",name:"Oral Glucose",page:165}},
@@ -120,8 +122,8 @@ function savedMedicationReviews():MedicationReviews {
   } catch { return {}; }
 }
 function medicationReviewCount(reviews:MedicationReviews,id:string){return reviewStages.filter((stage)=>reviews[id]?.[stage.id]?.revision===DMP_REVIEW_REVISION).length}
-const TESTING_VISIBLE_MEDICATION_IDS=["midazolam","fentanyl"];
-const PILOT_RELEASED_MEDICATION_IDS=["midazolam","fentanyl"];
+const TESTING_VISIBLE_MEDICATION_IDS=["midazolam","fentanyl","ketamine"];
+const PILOT_RELEASED_MEDICATION_IDS=["midazolam","fentanyl","ketamine"];
 function medicationReleased(reviews:MedicationReviews,id:string){return PILOT_RELEASED_MEDICATION_IDS.includes(id)||medicationReviewCount(reviews,id)===3}
 const reasons: Record<Drug, string[]> = {
   adenosine: ["Regular narrow-complex AV nodal reentrant tachycardia"],
@@ -461,6 +463,7 @@ function ClinicalApp() {
     [genericMedId, setGenericMedId] = useState<string|null>(null),
     [versedBuilderOpen, setVersedBuilderOpen] = useState(false),
     [fentanylBuilderOpen, setFentanylBuilderOpen] = useState(false),
+    [ketamineBuilderOpen, setKetamineBuilderOpen] = useState(false),
     [encounterPatient, setEncounterPatient] = useState<EncounterPatient|null>(null),
     [genericTreatmentContext, setGenericTreatmentContext] = useState<GenericTreatmentContext|null>(null),
     [settingsOpen, setSettingsOpen] = useState(false),
@@ -692,6 +695,11 @@ function ClinicalApp() {
         baseAuthorization: baseApproval||undefined,
       }]);
     },
+    openKetamine = (preservePatient = false) => {
+      if(!approvedMedicationIds.includes("ketamine")){setSettingsOpen(true);return}
+      setDrug(null);setGenericMedId(null);setGenericTreatmentContext(null);setVersedBuilderOpen(false);setFentanylBuilderOpen(false);setKetamineBuilderOpen(true);
+      if(!preservePatient){setEncounterPatient(null);setEncounterAdministrations([])}
+    },
     beginMedication = (selectedDrug: Drug, preservePatient = false) => {
       if (!approvedMedicationIds.includes(selectedDrug)) {
         setSettingsOpen(true);
@@ -703,6 +711,7 @@ function ClinicalApp() {
       if (selectedDrug === "midazolam") {
         setDrug(null);
         setFentanylBuilderOpen(false);
+        setKetamineBuilderOpen(false);
         setVersedBuilderOpen(true);
         if (!preservePatient) setEncounterAdministrations([]);
         return;
@@ -710,12 +719,14 @@ function ClinicalApp() {
       if (selectedDrug === "fentanyl") {
         setDrug(null);
         setVersedBuilderOpen(false);
+        setKetamineBuilderOpen(false);
         setFentanylBuilderOpen(true);
         if (!preservePatient) setEncounterAdministrations([]);
         return;
       }
       setVersedBuilderOpen(false);
       setFentanylBuilderOpen(false);
+      setKetamineBuilderOpen(false);
       setDrug(selectedDrug);
       setFentanylOlderFrail(false);
       setMidazolamSmallAdult(null);
@@ -764,7 +775,7 @@ function ClinicalApp() {
           <button onClick={() => setInstall(true)}>Install</button>
         </div>
       </header>
-      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen || fentanylBuilderOpen ? " generic-hidden" : ""}`}>
+      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen || fentanylBuilderOpen || ketamineBuilderOpen ? " generic-hidden" : ""}`}>
         {drug && step !== "drug" && <CalculationBoard boxes={[
           {id:"medication",label:"MEDICATION",value:medName(drug),detail:scanMedOk?"Physical medication confirmed":"Confirm physical medication",complete:scanMedOk,active:step==="scanConfirm",available:true,onClick:()=>setStep("scanConfirm")},
           {id:"concentration",label:"CONCENTRATION",value:conc>0?`${fmt(conc)} ${unit}/mL`:"",detail:scanConcOk?"Physical label confirmed":"Confirm physical label",complete:scanConcOk,active:step==="scanConfirm",available:scanMedOk,onClick:()=>setStep("scanConfirm")},
@@ -799,11 +810,12 @@ function ClinicalApp() {
               {meds.filter((med)=>TESTING_VISIBLE_MEDICATION_IDS.includes(med.id)).map((med)=>(
                 <button key={med.id} className={`pilot-medication-card ${med.id}`} onClick={()=>{
                   setEncounterPatient(null);
-                  if (med.calculator) beginMedication(med.calculator);
+                  if (med.id==="ketamine") openKetamine();
+                  else if (med.calculator) beginMedication(med.calculator);
                 }}>
                   <span className="pilot-vial" aria-hidden="true">
                     <i></i>
-                    <b>{med.id === "midazolam" ? "VERSED" : "FENTANYL"}</b>
+                    <b>{med.id === "midazolam" ? "VERSED" : med.id==="fentanyl"?"FENTANYL":"KETAMINE"}</b>
                     <small>REFERENCE</small>
                   </span>
                   <span className="pilot-medication-copy">
@@ -817,7 +829,7 @@ function ClinicalApp() {
               ))}
             </div>
             <div className="pilot-home-footer">
-              <span>Only Versed and Fentanyl are visible during format testing.</span>
+              <span>Versed, Fentanyl, and Ketamine are the working medications during format testing.</span>
               <button onClick={()=>setSettingsOpen(true)}><i aria-hidden="true">⚙</i> Medication review settings</button>
             </div>
           </section>
@@ -1456,7 +1468,8 @@ function ClinicalApp() {
               setWeight(patient.weightKg!==undefined?String(patient.weightKg):"");
               setWu("kg");
             }
-            if(selected.calculator)beginMedication(selected.calculator,!!patient);
+            if(selected.id==="ketamine")openKetamine(!!patient);
+            else if(selected.calculator)beginMedication(selected.calculator,!!patient);
             else {setDrug(null);setVersedBuilderOpen(false);setGenericTreatmentContext(null);setGenericMedId(selected.id)}
           }}
         />
@@ -1475,6 +1488,23 @@ function ClinicalApp() {
             const selected=meds.find((m)=>m.id===id);
             if(!selected||!approvedMedicationIds.includes(id))return;
             if(patient)setEncounterPatient(patient);
+            if(selected.id==="ketamine")openKetamine(!!patient);
+            else if(selected.calculator)beginMedication(selected.calculator,!!patient);
+          }}
+        />
+      )}
+      {ketamineBuilderOpen&&(
+        <KetamineBuilder
+          close={()=>{setGenericTreatmentContext(null);setKetamineBuilderOpen(false)}}
+          initialPatient={encounterPatient}
+          record={(entry)=>setEncounterAdministrations(items=>[...items,entry])}
+          onContextChange={setGenericTreatmentContext}
+          medicationOptions={meds.map(m=>({id:m.id,name:m.name,brand:m.brand,released:approvedMedicationIds.includes(m.id)}))}
+          selectMedication={(id,patient)=>{
+            const selected=meds.find(m=>m.id===id);
+            if(!selected||!approvedMedicationIds.includes(id))return;
+            if(patient)setEncounterPatient(patient);
+            if(id==="ketamine")return;
             if(selected.calculator)beginMedication(selected.calculator,!!patient);
           }}
         />
@@ -1535,7 +1565,7 @@ function MedicationVisibilitySettings({reviews,openReview,close}:{reviews:Medica
         <span><small>SETTINGS • CLINICAL REVIEW</small><h2 id="medication-settings-title">Medication release list</h2></span>
         <button className="close" onClick={close} aria-label="Close settings">×</button>
       </header>
-      <p>During format testing, only Versed and Fentanyl appear on the main medication screen. Review progress for every other medication remains saved here.</p>
+      <p>During format testing, Versed, Fentanyl, and Ketamine appear on the main medication screen. Review progress for every other medication remains saved here.</p>
       <div className="medication-settings-summary"><b>{approvedCount} test medications</b><span>{meds.length-approvedCount} staged in Settings</span></div>
       <div className="medication-settings-list">
         {ordered.map((med)=>{const reviewCount=medicationReviewCount(reviews,med.id),pilotReleased=PILOT_RELEASED_MEDICATION_IDS.includes(med.id),visible=TESTING_VISIBLE_MEDICATION_IDS.includes(med.id);return <div key={med.id} className={`medication-setting-row ${visible?"selected":"pending"}`}>
