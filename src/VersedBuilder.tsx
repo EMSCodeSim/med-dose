@@ -127,6 +127,7 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
 
   return <main className="versed-builder">
     <div className="versed-builder-top"><button onClick={close}>‹ Medication list</button><span>VERSED FORMAT PILOT</span><button onClick={close}>Start over</button></div>
+    <header className="builder-medication-banner">{medicationReference}</header>
     <div className="versed-layout">
       <aside className="versed-left-column" aria-label="Calculation controls">
         <CalculationBoard boxes={board} className="versed-status-board"/>
