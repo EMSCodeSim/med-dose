@@ -52,10 +52,11 @@ export default function KetamineBuilder({close,record,onContextChange,medication
 
   return <main className="versed-builder ketamine-builder">
     <div className="versed-builder-top"><button onClick={close}>‹ Medication list</button><span>KETAMINE WORKING MED</span><button onClick={close}>Start over</button></div>
-    <header className="builder-medication-banner">{medicationReference}</header>
     <div className="versed-layout">
+      <header className="builder-medication-banner">{medicationReference}</header>
       <aside className="versed-left-column" aria-label="Calculation controls"><CalculationBoard boxes={board} className="versed-status-board"/><div id="versed-left-tools" className="versed-left-tools"/></aside>
       {stage==="result"&&<section className="versed-dashboard" aria-label="Ketamine dose and repeat information">
+        <header className="administration-area-heading"><small>DRUG ADMINISTRATION</small><b>Ketamine</b><span>IV/IO • 50–100 mL NS over 5–10 minutes</span></header>
         <section className={calculationReady?"dashboard-primary-dose ready":"dashboard-primary-dose pending"}><small>DOSE AND AMOUNT TO GIVE</small>{protocolDose>0&&selectedDoseValid?<><div className="dashboard-dose-answer"><strong>{fmt(selectedDose)} mg</strong><span>Draw <b>{volume?`${fmt(volume)} mL`:"—"}</b></span></div><p>0.25 mg/kg • mix in 50–100 mL NS • administer over 5–10 minutes</p></>:<strong className="dashboard-dose-pending">Complete required checks</strong>}</section>
         {!calculationReady&&administrations.length<2&&<button className="dashboard-required" onClick={()=>setStage(board.find(item=>!item.complete)?.id as Stage||"concentration")}><b>Choose the next red box</b><span>Complete the required information.</span><i>Open ›</i></button>}
         <button className={recorded?"dashboard-give-now repeat":"dashboard-give-now"} disabled={!calculationReady} onClick={giveNow}><small>{recorded?"GIVE REPEAT DOSE NOW":"GIVE NOW"}</small><strong>{selectedDoseValid?`${fmt(selectedDose)} mg • ${fmt(volume)} mL`:"Complete dose"}</strong><span>IV/IO • records this administration</span></button>
