@@ -73,3 +73,5 @@
   .versed-inline-workspace .builder-options button b{font-size:11px}
   .versed-inline-workspace .builder-options button span{font-size:8px}
 }
+.versed-status-board .calculation-box-main{min-height:70px;padding:10px 44px 8px 12px}.versed-status-board .calculation-quick{padding:0 9px 9px}.versed-status-board .calculation-quick button{min-height:42px!important;padding:7px!important;font-size:10px!important}.versed-status-board .calculation-quick button span{display:inline}
+@media(max-width:760px){.versed-status-board .calculation-box-main{min-height:58px;padding:8px 34px 6px 9px}.versed-status-board .calculation-quick{gap:5px;padding:0 7px 7px}.versed-status-board .calculation-quick button{min-height:38px!important;font-size:9px!important}}
