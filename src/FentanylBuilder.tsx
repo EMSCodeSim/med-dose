@@ -41,7 +41,7 @@ export default function FentanylBuilder({close,record,onContextChange,medication
   const calculationReady=medConfirmed&&!!concentration&&labelConfirmed&&!!route&&patientComplete&&doseComplete&&safetyConfirmed&&!inVolumeBlocked&&remaining>0;
   const recorded=administrations.length>0,repeatAvailable=recorded&&secondsLeft===0&&remaining>0;
   const hasStarted=medConfirmed||!!concentration||!!route||!!patientGroup;
-  const patientLabel=patientGroup==="adult"?`Adult • ${fmt(weightKg)} kg estimated`:patientGroup==="older"?`Adult • elderly/frail • ${fmt(weightKg)} kg`:patientGroup==="infant"?`Pediatric under 1 • ${fmt(weightKg)} kg${weightSource?` • ${weightSource}`:""}`:patientGroup==="pediatric"?`Pediatric 1–11 • ${fmt(weightKg)} kg${weightSource?` • ${weightSource}`:""}`:"";
+  const patientLabel=patientGroup==="adult"?`Adult • ${fmt(weightKg*2.20462)} lb (${fmt(weightKg)} kg) estimated`:patientGroup==="older"?`Adult • elderly/frail • ${fmt(weightKg*2.20462)} lb (${fmt(weightKg)} kg)`:patientGroup==="infant"?`Pediatric under 1 • ${fmt(weightKg*2.20462)} lb (${fmt(weightKg)} kg)${weightSource?` • ${weightSource}`:""}`:patientGroup==="pediatric"?`Pediatric 1–11 • ${fmt(weightKg*2.20462)} lb (${fmt(weightKg)} kg)${weightSource?` • ${weightSource}`:""}`:"";
   const visibleMedicationOptions=medicationOptions.filter(option=>option.released);
 
   useEffect(()=>{if(route==="IN"&&pediatric)setDoseRate(2)},[route,pediatric]);
@@ -65,7 +65,7 @@ export default function FentanylBuilder({close,record,onContextChange,medication
   const medicationReference=medConfirmed?<aside className="versed-medication-reference fentanyl-medication-reference" aria-label="Selected Fentanyl reference image"><div className="versed-reference-vial fentanyl-reference-vial"><small>FENTANYL</small><b>Rx</b><span>INJECTION</span></div><span><small>SELECTED MEDICATION</small><b>Fentanyl</b><em>Opioid analgesic</em></span></aside>:null;
 
   return <main className="versed-builder fentanyl-builder">
-    <div className="versed-builder-top"><button onClick={close}>‹ Medication list</button><span>FENTANYL FORMAT PILOT</span><button onClick={close}>Start over</button></div>
+    <div className="versed-builder-top"><button className="drug-back-button" onClick={close}>‹ Back to medications</button><span>FENTANYL FORMAT PILOT</span><button onClick={close}>Start over</button></div>
     <div className={`versed-layout${calculationReady?" calculation-complete":""}`}>
       <header className="builder-medication-banner">{medicationReference}</header>
       <aside className="versed-left-column" aria-label="Calculation controls"><CalculationBoard boxes={board} className="versed-status-board"/><div id="versed-left-tools" className="versed-left-tools" aria-label="Report treatment and protocol tools"/></aside>
