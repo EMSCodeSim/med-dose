@@ -25,6 +25,10 @@
   .dashboard-required{padding:9px 7px}.dashboard-required b{font-size:11px}.dashboard-required i{display:none}
 }
 
+.dose-syringe{margin-top:10px;padding:12px 14px;border:2px solid #9db2bd;border-radius:12px;background:#fff;color:#17364c}
+.dose-syringe header{display:flex;align-items:end;justify-content:space-between;gap:12px}.dose-syringe header span{display:flex;flex-direction:column}.dose-syringe header small{color:#0873b5;font-size:9px;font-weight:900;letter-spacing:.12em}.dose-syringe header b{font-size:17px}.dose-syringe header strong{color:#08715e;font-size:20px}.dose-syringe svg{display:block;width:100%;max-width:520px;height:auto;margin:7px auto 0}.dose-syringe p{margin:0;color:#607986;font-size:9px;text-align:center}
+@media(max-width:760px){.dose-syringe{margin-top:7px;padding:8px}.dose-syringe header{align-items:flex-start;flex-direction:column;gap:2px}.dose-syringe header small{font-size:8px}.dose-syringe header b{font-size:13px}.dose-syringe header strong{font-size:16px}.dose-syringe svg{margin-top:2px}.dose-syringe p{font-size:8px}}
+
 /* Compact completed choices and expand the administration answer. */
 .versed-layout.calculation-complete>.builder-medication-banner,.versed-layout.calculation-complete .versed-status-board .calculation-box{min-height:72px}
 .versed-layout.calculation-complete .builder-medication-banner{padding:6px 10px}
