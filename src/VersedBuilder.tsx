@@ -128,8 +128,8 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
 
   return <main className="versed-builder">
     <div className="versed-builder-top"><button onClick={close}>‹ Medication list</button><span>VERSED FORMAT PILOT</span><button onClick={close}>Start over</button></div>
-    <header className="builder-medication-banner">{medicationReference}</header>
     <div className="versed-layout">
+      <header className="builder-medication-banner">{medicationReference}</header>
       <aside className="versed-left-column" aria-label="Calculation controls">
         <CalculationBoard boxes={board} className="versed-status-board"/>
         <div id="versed-left-tools" className="versed-left-tools" aria-label="Report treatment and protocol tools"/>
@@ -137,6 +137,7 @@ export default function VersedBuilder({close,openProtocol,record,onContextChange
       {stage==="result"&&!hasStarted&&<section className="versed-empty-workspace" aria-label="Selection workspace"/>}
       {((stage==="result"&&hasStarted)||stage==="safety")&&<section className="versed-dashboard" aria-label="Live Versed dose and treatment information">
         {medicationReference}
+        <header className="administration-area-heading"><small>DRUG ADMINISTRATION</small><b>Midazolam (Versed)</b><span>{route||"Route pending"}</span></header>
         <section className={calculationReady?"dashboard-primary-dose ready":"dashboard-primary-dose pending"}>
           <small>DOSE AND AMOUNT TO GIVE</small>
           {calculationReady&&dose>0?<>
