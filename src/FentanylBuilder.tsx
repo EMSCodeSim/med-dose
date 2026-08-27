@@ -64,6 +64,7 @@ export default function FentanylBuilder({close,record,onContextChange,medication
 
   return <main className="versed-builder fentanyl-builder">
     <div className="versed-builder-top"><button onClick={close}>‹ Medication list</button><span>FENTANYL FORMAT PILOT</span><button onClick={close}>Start over</button></div>
+    <header className="builder-medication-banner">{medicationReference}</header>
     <div className="versed-layout">
       <aside className="versed-left-column" aria-label="Calculation controls"><CalculationBoard boxes={board} className="versed-status-board"/><div id="versed-left-tools" className="versed-left-tools" aria-label="Report treatment and protocol tools"/></aside>
       {stage==="result"&&!hasStarted&&<section className="versed-empty-workspace" aria-label="Selection workspace"/>}
