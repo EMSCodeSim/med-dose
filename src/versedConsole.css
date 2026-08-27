@@ -25,6 +25,9 @@
   .dashboard-required{padding:9px 7px}.dashboard-required b{font-size:11px}.dashboard-required i{display:none}
 }
 
+.dose-math-control{margin-top:7px;border:1px solid #b9cbd5;border-radius:10px;background:#fff;overflow:hidden}.dose-math-control>button{width:100%;min-height:42px;padding:8px 11px;border:0;background:#eaf4f8;color:#155979;display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:900}.dose-math-control>button span{font-size:18px;line-height:1}.dose-math-box{padding:10px 11px;border-top:1px solid #cbd9e0;display:flex;flex-direction:column;gap:5px;color:#29485b}.dose-math-box small{color:#0873b5;font-size:8px;font-weight:900;letter-spacing:.11em}.dose-math-box b{font-size:11px;line-height:1.4}.dose-math-box span{font-size:9px;line-height:1.4;color:#547080}
+@media(max-width:760px){.dose-math-control>button{min-height:36px;padding:6px 8px;font-size:9px}.dose-math-box{padding:7px 8px}.dose-math-box b{font-size:9px}.dose-math-box span{font-size:8px}}
+
 .dose-syringe{margin-top:10px;padding:12px 14px;border:2px solid #9db2bd;border-radius:12px;background:#fff;color:#17364c}
 .dose-syringe header{display:flex;align-items:end;justify-content:space-between;gap:12px}.dose-syringe header span{display:flex;flex-direction:column}.dose-syringe header small{color:#0873b5;font-size:9px;font-weight:900;letter-spacing:.12em}.dose-syringe header b{font-size:17px}.dose-syringe header strong{color:#08715e;font-size:20px}.dose-syringe svg{display:block;width:100%;max-width:520px;height:auto;margin:7px auto 0}.dose-syringe p{margin:0;color:#607986;font-size:9px;text-align:center}
 @media(max-width:760px){.dose-syringe{margin-top:7px;padding:8px}.dose-syringe header{align-items:flex-start;flex-direction:column;gap:2px}.dose-syringe header small{font-size:8px}.dose-syringe header b{font-size:13px}.dose-syringe header strong{font-size:16px}.dose-syringe svg{margin-top:2px}.dose-syringe p{font-size:8px}}
