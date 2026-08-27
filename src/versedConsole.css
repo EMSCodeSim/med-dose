@@ -125,3 +125,38 @@
 /* Final large-type overrides must follow the split-screen rules. */
 .builder-medication-banner .versed-medication-reference>span b{font-size:26px;line-height:1.05}.builder-medication-banner .versed-medication-reference>span em{font-size:14px}.versed-status-board button small{font-size:11px}.versed-status-board button b{font-size:18px;line-height:1.15}.versed-status-board button span{font-size:12px;line-height:1.25}.dashboard-dose-answer>strong{font-size:56px}.dashboard-dose-answer>span{font-size:21px}.dashboard-dose-answer>span b{font-size:31px}.dashboard-give-now strong{font-size:23px}.dashboard-timer strong{font-size:48px}.versed-inline-workspace>h1,.versed-inline-workspace .builder-stage-form>h1{font-size:27px}.versed-inline-workspace .screen-help{font-size:13px}.versed-inline-workspace .builder-options button b{font-size:17px}.versed-inline-workspace .builder-options button span{font-size:12px}
 @media(max-width:760px){.builder-medication-banner .versed-medication-reference>span b{font-size:18px}.builder-medication-banner .versed-medication-reference>span em{font-size:11px}.versed-status-board button small{font-size:9px}.versed-status-board button b{font-size:13px}.versed-status-board button span{font-size:9px}.dashboard-dose-answer>strong{font-size:36px}.dashboard-dose-answer>span{font-size:14px}.dashboard-dose-answer>span b{font-size:21px}.dashboard-give-now strong{font-size:17px}.dashboard-timer strong{font-size:34px}.versed-inline-workspace>h1,.versed-inline-workspace .builder-stage-form>h1{font-size:22px}.versed-inline-workspace .screen-help{font-size:11px}.versed-inline-workspace .builder-options button b{font-size:14px}.versed-inline-workspace .builder-options button span{font-size:10px}}
+
+/* Clinical grid: medication/concentration, indication/route, patient/dose, safety, administration. */
+.versed-layout{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:stretch}
+.versed-layout>.builder-medication-banner{grid-column:1;grid-row:1;margin:0;min-width:0;min-height:116px;display:flex;align-items:center}
+.versed-layout>.versed-left-column{display:contents!important}
+.versed-left-column>.versed-status-board{display:contents!important}
+.versed-status-board>header{display:none!important}
+.versed-status-board>div{display:contents!important}
+.versed-status-board .calculation-box{min-width:0;min-height:116px}
+.versed-status-board .calculation-box-main{height:100%;min-height:112px;padding:14px 48px 14px 15px}
+.versed-status-board .calculation-box:nth-child(1){grid-column:2;grid-row:1}
+.versed-status-board .calculation-box:nth-child(2){grid-column:1;grid-row:2}
+.versed-status-board .calculation-box:nth-child(3){grid-column:2;grid-row:2}
+.versed-status-board .calculation-box:nth-child(4){grid-column:1;grid-row:3}
+.versed-status-board .calculation-box:nth-child(5){grid-column:2;grid-row:3}
+.versed-status-board .calculation-box:nth-child(6){grid-column:1/-1;grid-row:4;min-height:92px}
+.versed-status-board .calculation-box:nth-child(6) .calculation-box-main{min-height:88px}
+.versed-layout>.versed-left-column~.versed-dashboard{grid-column:1/-1;grid-row:5;width:100%;margin:2px 0 0;padding:12px;border:2px solid #9fb3be;border-radius:15px;background:#f4f8fa}
+.administration-area-heading{margin:-12px -12px 12px;padding:13px 16px;border-radius:13px 13px 0 0;background:#102a40;color:#fff;display:grid;grid-template-columns:1fr auto;gap:3px 12px}
+.administration-area-heading small{grid-column:1/-1;color:#79caf7;font-size:10px;font-weight:900;letter-spacing:.13em}.administration-area-heading b{font-size:20px}.administration-area-heading span{align-self:center;color:#d0e0e8;font-size:12px;font-weight:800}
+.builder-medication-banner .versed-medication-reference{grid-template-columns:70px minmax(0,1fr)}
+.builder-medication-banner .versed-reference-vial{height:88px}
+
+@media(max-width:760px){
+  .versed-layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
+  .versed-layout>.builder-medication-banner{min-height:94px;padding:7px}
+  .builder-medication-banner .versed-medication-reference{grid-template-columns:46px minmax(0,1fr);gap:6px}
+  .builder-medication-banner .versed-reference-vial{height:66px}
+  .versed-status-board .calculation-box{min-height:94px}
+  .versed-status-board .calculation-box-main{min-height:90px;padding:9px 31px 9px 9px}
+  .versed-status-board .calculation-box:nth-child(6){min-height:78px}.versed-status-board .calculation-box:nth-child(6) .calculation-box-main{min-height:74px}
+  .versed-layout>.versed-left-column~.versed-dashboard{padding:7px;margin-top:0;border-radius:11px}
+  .administration-area-heading{margin:-7px -7px 8px;padding:9px;border-radius:9px 9px 0 0;grid-template-columns:1fr}
+  .administration-area-heading small{font-size:8px}.administration-area-heading b{font-size:15px}.administration-area-heading span{font-size:9px}
+}
