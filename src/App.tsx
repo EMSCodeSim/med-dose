@@ -9,6 +9,7 @@ import VersedBuilder from "./VersedBuilder";
 import type {EncounterPatient} from "./VersedBuilder";
 import CalculationBoard from "./CalculationBoard";
 import "./reviewGate.css";
+import "./pilotHome.css";
 import {genericMedication} from "./dmpMedicationData";
 import EncounterReport from "./EncounterReport";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
@@ -118,38 +119,9 @@ function savedMedicationReviews():MedicationReviews {
   } catch { return {}; }
 }
 function medicationReviewCount(reviews:MedicationReviews,id:string){return reviewStages.filter((stage)=>reviews[id]?.[stage.id]?.revision===DMP_REVIEW_REVISION).length}
-const PILOT_RELEASED_MEDICATION_IDS=["midazolam"];
+const TESTING_VISIBLE_MEDICATION_IDS=["midazolam","fentanyl"];
+const PILOT_RELEASED_MEDICATION_IDS=["midazolam","fentanyl"];
 function medicationReleased(reviews:MedicationReviews,id:string){return PILOT_RELEASED_MEDICATION_IDS.includes(id)||medicationReviewCount(reviews,id)===3}
-const medicationAliases: Record<string, string[]> = {
-  adenosine: ["adenocard", "svt", "antiarrhythmic"],
-  fentanyl: ["sublimaze", "pain", "opioid"],
-  midazolam: ["versed", "seizure", "sedation", "benzodiazepine"],
-  diazepam:["valium","seizure","sedation","benzodiazepine"],
-  lorazepam:["ativan","seizure","sedation","benzodiazepine"],
-  magnesium: ["mag", "mag sulfate", "torsades", "bronchospasm", "asthma", "eclampsia"],
-  epinephrine: ["epi", "adrenalin", "anaphylaxis", "allergy", "arrest", "shock", "wheezing", "stridor"],
-  albuterol:["proventil","ventolin","neb","wheezing","bronchospasm"],
-  diphenhydramine:["benadryl","allergy","antihistamine"],
-  methylprednisolone:["solu medrol","solumedrol","steroid","allergy","asthma"],
-  antiemetics:["ondansetron","zofran","promethazine","phenergan","metoclopramide","reglan","droperidol","nausea","vomiting"],
-  antipsychotics:["droperidol","inapsine","haloperidol","haldol","olanzapine","zyprexa","agitation"],
-  calcium:["calcium chloride","calcium gluconate","hyperkalemia","overdose"],
-  nsaids:["ibuprofen","motrin","advil","ketorolac","toradol","pain","fever"],
-  morphine:["opioid","pain","analgesic"],
-  hydromorphone:["dilaudid","opioid","pain","analgesic"],
-};
-function fuzzyMedicationMatch(med: (typeof meds)[number], query: string) {
-  const q = query.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (!q) return true;
-  const words = [med.name, med.brand, med.sub, ...(medicationAliases[med.id] || [])]
-    .map(x => x.toLowerCase().replace(/[^a-z0-9]/g, ""));
-  return words.some(word => word.includes(q) || q.includes(word) || subsequence(q, word));
-}
-function subsequence(query: string, value: string) {
-  let i = 0;
-  for (const char of value) if (char === query[i]) i += 1;
-  return i === query.length;
-}
 const reasons: Record<Drug, string[]> = {
   adenosine: ["Regular narrow-complex AV nodal reentrant tachycardia"],
   fentanyl: ["Moderate to severe pain in a hemodynamically stable patient"],
@@ -453,7 +425,6 @@ function suggestedWeight(ageYears: number) {
 function ClinicalApp() {
   const [step, setStep] = useState<Step>("drug"),
     [drug, setDrug] = useState<Drug | null>(null),
-    [search, setSearch] = useState(""),
     [reason, setReason] = useState(""),
     [ageClass, setAgeClass] = useState<AgeClass | "">(""),
     [fentanylOlderFrail, setFentanylOlderFrail] = useState(false),
@@ -530,7 +501,7 @@ function ClinicalApp() {
     needWeight = !!r?.weight,
     kg = wu === "lb" ? Number(weight) / 2.20462 : Number(weight),
     items = drug ? checksFor(drug, an, reason, fentanylOlderFrail, midazolamHalfConsideration) : [],
-    approvedMedicationIds = meds.filter((med)=>medicationReleased(medicationReviews,med.id)).map((med)=>med.id),
+    approvedMedicationIds = meds.filter((med)=>TESTING_VISIBLE_MEDICATION_IDS.includes(med.id)&&medicationReleased(medicationReviews,med.id)).map((med)=>med.id),
     safetyComplete = items.length > 0 && items.every((_, index) => checks[index] === true),
     baseRequirement = drug==="adenosine"&&!adult&&age!==""?"Pediatric Adenosine administration":drug==="fentanyl"&&underOne?"Fentanyl administration for a pediatric patient under 1 year":drug==="midazolam"&&reason==="Sedation for transcutaneous pacing"&&!adult?"Transcutaneous pacing for a patient under 12 years":drug==="epinephrine"&&reason==="Pediatric severe anaphylaxis — Base push dose"?"Pediatric severe anaphylaxis refractory to 3 IM Epinephrine doses and 60 mL/kg NS":null,
     baseClear = !baseRequirement||(baseApproval?.reason===baseRequirement),
@@ -653,7 +624,6 @@ function ClinicalApp() {
     reset = () => {
       setStep("drug");
       setDrug(null);
-      setSearch("");
       setReason("");
       setAgeClass("");
       setFentanylOlderFrail(false);
@@ -782,7 +752,7 @@ function ClinicalApp() {
           <button onClick={() => setInstall(true)}>Install</button>
         </div>
       </header>
-      <section className={`wizard-shell${genericMedId || versedBuilderOpen ? " generic-hidden" : ""}`}>
+      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen ? " generic-hidden" : ""}`}>
         {drug && step !== "drug" && <CalculationBoard boxes={[
           {id:"medication",label:"MEDICATION",value:medName(drug),detail:scanMedOk?"Physical medication confirmed":"Confirm physical medication",complete:scanMedOk,active:step==="scanConfirm",available:true,onClick:()=>setStep("scanConfirm")},
           {id:"concentration",label:"CONCENTRATION",value:conc>0?`${fmt(conc)} ${unit}/mL`:"",detail:scanConcOk?"Physical label confirmed":"Confirm physical label",complete:scanConcOk,active:step==="scanConfirm",available:scanMedOk,onClick:()=>setStep("scanConfirm")},
@@ -792,81 +762,53 @@ function ClinicalApp() {
           {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyComplete?"One confirmation":"Review complete safety list",complete:safetyComplete,active:step==="safety",available:ageOk&&(!needWeight||weightOk),onClick:()=>setStep("safety")},
           {id:"result",label:"FINAL DOSE",value:r&&rate!==null?`${doseText} • ${fmt(vol)} mL`:"",detail:safetyComplete?administrationRoute||"":"Complete required checks",complete:step==="review"&&safetyComplete,active:step==="review",available:safetyComplete,onClick:()=>setStep("review")},
         ]}/>}
-        <div className="wizard-top">
-          <button className="back" onClick={back} disabled={step === "drug"}>
-            ‹ Back
-          </button>
-          <span>
-            Step {pos + 1} of {visible.length}
-          </span>
-          <button className="start-over" onClick={reset}>
-            Start over
-          </button>
-        </div>
-        <div className="progress">
-          <i style={{ width: `${((pos + 1) / visible.length) * 100}%` }} />
-        </div>
-        <div className="clinical-banner">
-          <b>DMP verified</b>
-          <span>
-            July 2026 • Approved July 1, 2026 • Next review January 2027
-          </span>
-        </div>
+        {step !== "drug" && <>
+          <div className="wizard-top">
+            <button className="back" onClick={back}>‹ Back</button>
+            <span>Step {pos + 1} of {visible.length}</span>
+            <button className="start-over" onClick={reset}>Start over</button>
+          </div>
+          <div className="progress">
+            <i style={{ width: `${((pos + 1) / visible.length) * 100}%` }} />
+          </div>
+          <div className="clinical-banner">
+            <b>DMP verified</b>
+            <span>July 2026 • Approved July 1, 2026 • Next review January 2027</span>
+          </div>
+        </>}
         {step === "drug" && (
-          <Screen
-            e="START"
-            t="Which medication was requested?"
-            h="Search every current Denver Metro medication monograph. Each medication opens a pathway-specific dose or administration calculator with a direct link to its source protocol."
-          >
-            <div className="catalog-controls">
-              <div className="catalog-status"><span><b>{approvedMedicationIds.length}</b> released • {meds.length-approvedMedicationIds.length} awaiting review</span></div>
-              <button className="drug-settings-button" onClick={() => setSettingsOpen(true)}><span aria-hidden="true">⚙</span> Medication review settings</button>
+          <section className="pilot-home" aria-labelledby="pilot-home-title">
+            <div className="pilot-home-heading">
+              <span>NEW CALCULATION DESIGN • FIELD TEST</span>
+              <h1 id="pilot-home-title">Select medication</h1>
+              <p>Build the calculation with fixed controls on the left and live choices and dose information on the right.</p>
             </div>
-            <label className="drug-search">
-              <span>Search generic or brand name</span>
-              <input
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Fentanyl, Versed…"
-              />
-            </label>
-            <div className="choice-grid medication-order">
-              {meds
-                .filter((m) => approvedMedicationIds.includes(m.id))
-                .filter((m) => fuzzyMedicationMatch(m, search))
-                .map((m) => {
-                  const reviewCount=medicationReviewCount(medicationReviews,m.id),pilotReleased=PILOT_RELEASED_MEDICATION_IDS.includes(m.id);
-                  return (
-                    <button
-                      key={m.id}
-                      className="choice calculator-med"
-                      onClick={() => {
-                        setEncounterPatient(null);
-                        if (m.calculator) beginMedication(m.calculator);
-                        else {
-                          setDrug(null);
-                          setVersedBuilderOpen(false);
-                          setGenericTreatmentContext(null);
-                          setGenericMedId(m.id);
-                        }
-                      }}
-                    >
-                      <span className="rx">{meds.findIndex(x=>x.id===m.id)+1}</span>
-                      <span>
-                        <b>{m.name}</b>
-                        <small>
-                          {m.brand} • {m.sub}
-                        </small>
-                        <span className={`med-review-state ${reviewCount===3||pilotReleased?"approved":"pending"}`}><i>{reviewCount===3||pilotReleased?"✓":"!"}</i>{reviewCount===3?"3-step review complete":pilotReleased?"Versed pilot released":`Clinical review ${reviewCount}/3`}</span>
-                      </span>
-                      <><em>Dose calculator</em><i>›</i></>
-                    </button>
-                  );
-                })}
+            <div className="pilot-medication-grid">
+              {meds.filter((med)=>TESTING_VISIBLE_MEDICATION_IDS.includes(med.id)).map((med)=>(
+                <button key={med.id} className={`pilot-medication-card ${med.id}`} onClick={()=>{
+                  setEncounterPatient(null);
+                  if (med.calculator) beginMedication(med.calculator);
+                }}>
+                  <span className="pilot-vial" aria-hidden="true">
+                    <i></i>
+                    <b>{med.id === "midazolam" ? "VERSED" : "FENTANYL"}</b>
+                    <small>REFERENCE</small>
+                  </span>
+                  <span className="pilot-medication-copy">
+                    <small>TEST MEDICATION</small>
+                    <strong>{med.name}</strong>
+                    <b>{med.brand}</b>
+                    <span>{med.sub}</span>
+                  </span>
+                  <i className="pilot-card-arrow" aria-hidden="true">›</i>
+                </button>
+              ))}
             </div>
-            {approvedMedicationIds.length === 0 && <div className="empty-medication-list"><b>No medications have completed clinical review.</b><span>All medications remain in Settings until all required review checks are complete.</span><button onClick={() => setSettingsOpen(true)}>Review medications</button></div>}
-          </Screen>
+            <div className="pilot-home-footer">
+              <span>Only Versed and Fentanyl are visible during format testing.</span>
+              <button onClick={()=>setSettingsOpen(true)}><i aria-hidden="true">⚙</i> Medication review settings</button>
+            </div>
+          </section>
         )}
         {step === "scanConfirm" && scannedVial && (
           <Screen e="MEDICATION CHECK" t="Confirm the medication in your hand" h="Compare the physical vial with the selected medication.">
@@ -1554,20 +1496,20 @@ function ClinicalApp() {
 }
 
 function MedicationVisibilitySettings({reviews,openReview,close}:{reviews:MedicationReviews;openReview:(id:string)=>void;close:()=>void}) {
-  const approvedCount=meds.filter((med)=>medicationReleased(reviews,med.id)).length;
-  const ordered=[...meds].sort((a,b)=>Number(medicationReleased(reviews,a.id))-Number(medicationReleased(reviews,b.id))||a.name.localeCompare(b.name));
+  const approvedCount=TESTING_VISIBLE_MEDICATION_IDS.length;
+  const ordered=[...meds].sort((a,b)=>Number(TESTING_VISIBLE_MEDICATION_IDS.includes(b.id))-Number(TESTING_VISIBLE_MEDICATION_IDS.includes(a.id))||a.name.localeCompare(b.name));
   return <div className="modal-backdrop medication-settings-backdrop" onClick={close}>
     <section className="medication-settings-modal" role="dialog" aria-modal="true" aria-labelledby="medication-settings-title" onClick={(event)=>event.stopPropagation()}>
       <header>
         <span><small>SETTINGS • CLINICAL REVIEW</small><h2 id="medication-settings-title">Medication release list</h2></span>
         <button className="close" onClick={close} aria-label="Close settings">×</button>
       </header>
-      <p>Unchecked medications stay here and are hidden from the main medication screen. Completing every required review check automatically releases the medication to the main screen.</p>
-      <div className="medication-settings-summary"><b>{approvedCount} released</b><span>{meds.length-approvedCount} awaiting review</span></div>
+      <p>During format testing, only Versed and Fentanyl appear on the main medication screen. Review progress for every other medication remains saved here.</p>
+      <div className="medication-settings-summary"><b>{approvedCount} test medications</b><span>{meds.length-approvedCount} staged in Settings</span></div>
       <div className="medication-settings-list">
-        {ordered.map((med)=>{const reviewCount=medicationReviewCount(reviews,med.id),pilotReleased=PILOT_RELEASED_MEDICATION_IDS.includes(med.id),released=medicationReleased(reviews,med.id);return <div key={med.id} className={`medication-setting-row ${released?"selected":"pending"}`}>
-          <div className="medication-setting-info"><i>{released?"✓":"!"}</i><span><b>{med.name}</b><small>{med.brand} • DMP {med.protocol.id}</small><em>{reviewCount===3?"Reviewed and released to main screen":pilotReleased?"Pilot released to main screen • review still available":"Hidden until review is complete"}</em></span></div>
-          <button className={released?"complete":""} onClick={()=>openReview(med.id)}><span>{reviewCount===3?"CHECKED":pilotReleased?"PILOT":"REVIEW"}</span><b>{reviewCount}/3</b></button>
+        {ordered.map((med)=>{const reviewCount=medicationReviewCount(reviews,med.id),pilotReleased=PILOT_RELEASED_MEDICATION_IDS.includes(med.id),visible=TESTING_VISIBLE_MEDICATION_IDS.includes(med.id);return <div key={med.id} className={`medication-setting-row ${visible?"selected":"pending"}`}>
+          <div className="medication-setting-info"><i>{visible?"✓":"!"}</i><span><b>{med.name}</b><small>{med.brand} • DMP {med.protocol.id}</small><em>{visible?"Visible on main screen for format testing":reviewCount===3?"Review complete • staged during format testing":"Hidden on main screen • review remains available"}</em></span></div>
+          <button className={visible?"complete":""} onClick={()=>openReview(med.id)}><span>{reviewCount===3?"CHECKED":pilotReleased?"PILOT":"REVIEW"}</span><b>{reviewCount}/3</b></button>
         </div>})}
       </div>
       <footer><span>Review status is saved automatically on this device</span><button onClick={close}>Done</button></footer>
