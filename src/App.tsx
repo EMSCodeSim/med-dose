@@ -6,11 +6,11 @@ import FieldToolbar from "./FieldToolbar";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
 import DmpMedicationCalculator, { type GenericTreatmentContext } from "./DmpMedicationCalculator";
 import VersedBuilder from "./VersedBuilder";
+import type {EncounterPatient} from "./VersedBuilder";
 import CalculationBoard from "./CalculationBoard";
 import "./reviewGate.css";
 import {genericMedication} from "./dmpMedicationData";
 import EncounterReport from "./EncounterReport";
-import ReviewLock from "./ReviewLock";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
@@ -488,6 +488,7 @@ function ClinicalApp() {
     [catalogProtocol, setCatalogProtocol] = useState<ProtocolTarget|null>(null),
     [genericMedId, setGenericMedId] = useState<string|null>(null),
     [versedBuilderOpen, setVersedBuilderOpen] = useState(false),
+    [encounterPatient, setEncounterPatient] = useState<EncounterPatient|null>(null),
     [genericTreatmentContext, setGenericTreatmentContext] = useState<GenericTreatmentContext|null>(null),
     [settingsOpen, setSettingsOpen] = useState(false),
     [medicationReviews, setMedicationReviews] = useState<MedicationReviews>(savedMedicationReviews),
@@ -725,6 +726,7 @@ function ClinicalApp() {
       }
       setGenericTreatmentContext(null);
       setGenericMedId(null);
+      if (!preservePatient) setEncounterPatient(null);
       if (selectedDrug === "midazolam") {
         setDrug(null);
         setVersedBuilderOpen(true);
@@ -840,6 +842,7 @@ function ClinicalApp() {
                       key={m.id}
                       className="choice calculator-med"
                       onClick={() => {
+                        setEncounterPatient(null);
                         if (m.calculator) beginMedication(m.calculator);
                         else {
                           setDrug(null);
@@ -1462,6 +1465,7 @@ function ClinicalApp() {
         <section className="wizard-shell generic-calculator-host">
           <DmpMedicationCalculator
             medication={genericMedication(genericMedId)}
+            initialPatient={encounterPatient}
             close={() => {
               setGenericTreatmentContext(null);
               setGenericMedId(null);
@@ -1486,10 +1490,18 @@ function ClinicalApp() {
           record={(entry) => setEncounterAdministrations((items) => [...items, entry])}
           onContextChange={setGenericTreatmentContext}
           medicationOptions={meds.map((m)=>({id:m.id,name:m.name,brand:m.brand,released:approvedMedicationIds.includes(m.id)}))}
-          selectMedication={(id)=>{
+          selectMedication={(id,patient)=>{
             const selected=meds.find((m)=>m.id===id);
             if(!selected||!approvedMedicationIds.includes(id))return;
-            if(selected.calculator)beginMedication(selected.calculator);
+            if(patient){
+              setEncounterPatient(patient);
+              setAgeClass(patient.patient);
+              setAge(patient.ageYears!==undefined?String(patient.ageYears):"");
+              setAu(patient.ageYears!==undefined?"years":"");
+              setWeight(patient.weightKg!==undefined?String(patient.weightKg):"");
+              setWu("kg");
+            }
+            if(selected.calculator)beginMedication(selected.calculator,!!patient);
             else {setDrug(null);setVersedBuilderOpen(false);setGenericTreatmentContext(null);setGenericMedId(selected.id)}
           }}
         />
@@ -1597,21 +1609,7 @@ function MedicationReviewModal({medication,reviews,setReviews,close}:{medication
   </div>;
 }
 
-const CLINICAL_REVIEW_LOCKED = true;
-const REVIEW_PASSWORD_HASH="44099822f339d924177c5e9491735ef0c6b59e73af2c7f0dfe5e9a04a16ee34c",REVIEW_SESSION_KEY="metro-med-dose-review-session",REVIEW_SESSION_MS=8*60*60*1000;
-export default function App(){
-  const [authorized,setAuthorized]=useState(()=>reviewSessionActive());
-  const authorize=async(password:string)=>{
-    const digest=await sha256(password),approved=digest===REVIEW_PASSWORD_HASH;
-    if(approved){try{localStorage.setItem(REVIEW_SESSION_KEY,String(Date.now()+REVIEW_SESSION_MS))}catch{}setAuthorized(true)}
-    return approved;
-  };
-  if(!CLINICAL_REVIEW_LOCKED)return <ClinicalApp/>;
-  if(!authorized)return <ReviewLock authorize={authorize}/>;
-  return <ClinicalApp/>;
-}
-function reviewSessionActive(){try{return Number(localStorage.getItem(REVIEW_SESSION_KEY))>Date.now()}catch{return false}}
-async function sha256(value:string){const bytes=new TextEncoder().encode(value),hash=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,"0")).join("")}
+export default function App(){return <ClinicalApp/>}
 function Screen({
   e,
   t,
