@@ -48,7 +48,7 @@ export default function FentanylBuilder({close,record,onContextChange,medication
   const visibleMedicationOptions=medicationOptions.filter(option=>option.released);
 
   useEffect(()=>{if(route==="IN"&&pediatric)setDoseRate(2)},[route,pediatric]);
-  useEffect(()=>{if(nextDoseMaximum>0&&!editingDose)setPlannedDose(fmt(nextDoseMaximum))},[nextDoseMaximum,editingDose]);
+  useEffect(()=>{setPlannedDose(nextDoseMaximum>0?fmt(nextDoseMaximum):"")},[nextDoseMaximum]);
   useEffect(()=>{if(!lastTime||secondsLeft===0)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[lastTime,secondsLeft]);
   useEffect(()=>{onContextChange({medication:"Fentanyl",indication,route:route||"Route not selected",dose:protocolDose>0?`${fmt(protocolDose)} mcg`:"Pending patient information",volume:volume>0?`${fmt(volume)} mL`:"Pending calculated dose",administration:route==="IN"?"Divide equally between nostrils; maximum 1 mL per nostril.":route==="IM"?"Administer IM; IV is preferred for accurate titration.":"Administer slowly and titrate to tolerable pain.",repeat:`Reassess after ${repeatMinutes} minutes. Maximum cumulative ${route==="IN"?4:3} mcg/kg.`,monitoring:["Continuous pulse oximetry and respiratory reassessment.","Keep naloxone and resuscitation equipment immediately available."],protocolId:"9230",protocolName:"Opioids / Fentanyl",protocolPage:163});return()=>onContextChange(null)},[route,protocolDose,volume,repeatMinutes,onContextChange]);
 
