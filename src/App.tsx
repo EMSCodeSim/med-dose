@@ -16,6 +16,7 @@ import {genericMedication} from "./dmpMedicationData";
 import EncounterReport from "./EncounterReport";
 import AdminMedicationManager from "./AdminMedicationManager";
 import {mergeMedicationCatalog,medicationCatalogRetired,medicationCatalogVisible} from "./medicationCatalogStore";
+import {DEFAULT_FIELD_MEDICATION_IDS} from "./medicationReleaseConfig";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
@@ -127,7 +128,7 @@ function savedMedicationReviews():MedicationReviews {
   } catch { return {}; }
 }
 function medicationReviewCount(reviews:MedicationReviews,id:string){return reviewStages.filter((stage)=>reviews[id]?.[stage.id]?.revision===DMP_REVIEW_REVISION).length}
-const DEFAULT_TESTING_VISIBLE_MEDICATION_IDS=["adenosine","amiodarone","ondansetron","haloperidol","atropine","midazolam","fentanyl","calcium","dextrose","diphenhydramine","epinephrine","magnesium","methylprednisolone","naloxone","sodium-bicarbonate","ketamine"];
+const DEFAULT_TESTING_VISIBLE_MEDICATION_IDS=[...DEFAULT_FIELD_MEDICATION_IDS];
 const TESTING_VISIBLE_MEDICATION_IDS=meds.filter((med)=>!medicationCatalogRetired(med.id)&&medicationCatalogVisible(med.id,DEFAULT_TESTING_VISIBLE_MEDICATION_IDS.includes(med.id))).map((med)=>med.id);
 const PILOT_RELEASED_MEDICATION_IDS=DEFAULT_TESTING_VISIBLE_MEDICATION_IDS;
 function medicationPreviouslyApproved(id:string){

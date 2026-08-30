@@ -25,7 +25,7 @@ export default function DmpMedicationCalculator({medication,close,record,openPro
     ageYears=ageUnit==="years"?Number(age):ageUnit==="months"?Number(age)/12:Number(age)/365.25,
     kg=weightUnit==="kg"?Number(weight):Number(weight)/2.20462,
     selectedAgentPaths=medication.paths.filter(x=>x.agent===selectedAgent),agentHasConcentration=selectedAgentPaths.some(pathUsesConcentration),agentRequiresConcentration=selectedAgentPaths.length>0&&selectedAgentPaths.every(pathRequiresConcentration),concentrationStarted=vialAmount!==""||vialVolume!=="",
-    needsWeight=!!path&&(path.formula.kind==="perKg"||path.requiresWeight),ageChangesDose=!!path&&(path.formula.kind==="ageBands"||["antipsychotics","diazepam","lorazepam","diltiazem"].includes(medication.id)),needsPatientInfo=needsWeight||ageChangesDose,routeChoices=path?routesFor(path.route):[],selectedRoute=route||routeChoices[0]||"",
+    needsWeight=!!path&&(path.formula.kind==="perKg"||path.requiresWeight),ageChangesDose=!!path&&(path.formula.kind==="ageBands"||path.minAge!==undefined||path.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id)),needsPatientInfo=needsWeight||ageChangesDose,routeChoices=path?routesFor(path.route):[],selectedRoute=route||routeChoices[0]||"",
     needsConcentration=!!path&&path.formula.kind!=="instruction"&&path.formula.unit!=="mL"&&path.formula.unit!=="drops"&&path.formula.unit!=="sprays"&&path.formula.unit!=="device"&&(!!path.volumeRequired||!!path.suggestedConcentration)&&(!["ODT","PO","Sublingual","PO — chew"].includes(selectedRoute)||!!path.suggestedConcentration),
     agentPaths=selectedAgentPaths,agentConcentrationPath=path&&path.formula.kind!=="instruction"&&!['mL','drops','sprays','device'].includes(path.formula.unit)?path:selectedAgentPaths.find(pathUsesConcentration)||null,
     concentrationUnit=agentConcentrationPath?.formula.kind!=="instruction"?agentConcentrationPath?.formula.unit:"mg",inputDrugUnit=isDopamine?"mg":concentrationUnit,inputUnitMultiplier=isDopamine?1000:1,
@@ -110,7 +110,7 @@ export default function DmpMedicationCalculator({medication,close,record,openPro
 export function calculateGenericDose(path:GenericDosePath,age:number,weight:number,medicationId:string){
   const f=path.formula;if(f.kind==="instruction")return{numeric:false,dose:0,minDose:0,unit:f.unit,text:f.text};let dose=0,minDose=0,unit=f.unit;
   if(f.kind==="fixed")dose=f.amount;if(f.kind==="range"){dose=f.max;minDose=f.min}if(f.kind==="perKg")dose=Math.min(f.max??Infinity,Math.max(f.min??0,weight*f.amount));if(f.kind==="ageBands")dose=f.bands.find(x=>age>=x.min&&age<x.max)?.amount||0;
-  if(medicationId==="diltiazem"&&age>65){dose*=.5;dose=Math.min(dose,10)}if(medicationId==="antipsychotics"&&age>=65)dose*=.5;if((medicationId==="diazepam"||medicationId==="lorazepam")&&path.patient==="adult"&&(age>65||weight<50)){dose*=.5;minDose*=.5}
+  if(medicationId==="diltiazem"&&age>65){dose*=.5;dose=Math.min(dose,10)}if((medicationId==="antipsychotics"||medicationId==="haloperidol")&&age>=65)dose*=.5;if((medicationId==="diazepam"||medicationId==="lorazepam")&&path.patient==="adult"&&(age>65||weight<50)){dose*=.5;minDose*=.5}
   const rate=medicationId==="dopamine"?"/min":"";return{numeric:true,dose,minDose,unit,text:f.kind==="range"?`${fmt(minDose)}–${fmt(dose)} ${unit}`:`${fmt(dose)} ${unit}${rate}`};
 }
 
@@ -132,7 +132,7 @@ function pathRequiresConcentration(path:GenericDosePath){return pathUsesConcentr
 function monitoringFor(id:string,path:GenericDosePath){
   if(path.monitoring?.length)return path.monitoring;const first=path.administration;
   if(id==="amiodarone"||id==="diltiazem"||id==="dopamine")return[first,"Continuous ECG and frequent blood-pressure/perfusion reassessment.","Stop and reassess for hypotension, bradycardia or worsening dysrhythmia."];
-  if(id==="antipsychotics"||id==="diazepam"||id==="lorazepam")return[first,"Continuous ECG, SpO₂ and ventilation monitoring; waveform capnography when available.","Reassess sedation score, airway, respiratory rate and blood pressure before any additional dose."];
+  if(id==="antipsychotics"||id==="haloperidol"||id==="diazepam"||id==="lorazepam")return[first,"Continuous ECG, SpO₂ and ventilation monitoring; waveform capnography when available.","Reassess sedation score, airway, respiratory rate and blood pressure before any additional dose."];
   if(id==="morphine"||id==="hydromorphone")return[first,"Continuous pulse oximetry; monitor ventilation, blood pressure and analgesic response.","Keep airway equipment and naloxone immediately available; reassess before every additional dose."];
   if(id==="naloxone")return[first,"Titrate to adequate ventilation rather than full arousal when possible.","Monitor for recurrent respiratory depression, withdrawal, vomiting and pulmonary edema."];
   if(id==="nitroglycerin")return[first,"Reassess blood pressure, perfusion and symptoms before every dose.","Stop if hypotension develops or protocol prerequisites are no longer met."];

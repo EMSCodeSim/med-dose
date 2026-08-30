@@ -55,7 +55,7 @@ export const genericMedications:Record<string,GenericMedication>={
     {id:"olan-ped",label:"Olanzapine — pediatric 8 to <12 years",agent:"Olanzapine",patient:"pediatric",minAge:8,maxAge:12,route:"IM or ODT",formula:{kind:"ageBands",unit:"mg",bands:[{min:8,max:10,amount:2.5,label:"8–9 years"},{min:10,max:12,amount:5,label:"10–11 years"}]},repeat:"Additional sedation requires Base.",administration:"For autism or severe developmental delay, ODT is preferred.",protocol:"Agitated/Combative Patient",volumeRequired:true},
   ]},
   aspirin:{id:"aspirin",name:"Aspirin",protocolId:"9050",page:134,contraindications:["Active gastrointestinal bleeding","Aspirin allergy","Age under 16 years"],paths:[{id:"acs",label:"Suspected acute coronary syndrome",agent:"Aspirin",patient:"adult",minAge:16,route:"PO — chew",formula:fixed(324,"mg"),repeat:"Single prehospital dose.",administration:"Four 81 mg chewable tablets.",protocol:"Chest Pain"}]},
-  atropine:{id:"atropine",name:"Atropine",protocolId:"9060",page:135,contraindications:["Do not use for stable bradycardia without medical-control direction","Closed-angle glaucoma precaution"],paths:[
+  atropine:{id:"atropine",name:"Atropine Sulfate",protocolId:"9060",page:135,contraindications:["Do not use for stable bradycardia without medical-control direction","Closed-angle glaucoma precaution"],paths:[
     {id:"brady-adult",label:"Adult unstable bradycardia",agent:"Atropine",patient:"adult",route:"IV/IO bolus",formula:fixed(1,"mg"),repeat:"Repeat every 3–5 minutes to maximum 3 mg; stop at adequate mentation and blood pressure.",administration:"IV/IO bolus.",protocol:"Bradyarrhythmia with Poor Perfusion",volumeRequired:true,repeatAfterMinutes:3,maxAdministrations:3,maxCumulative:3},
     {id:"brady-ped",label:"Pediatric unstable bradycardia",agent:"Atropine",patient:"pediatric",route:"IV/IO bolus",formula:kg(.02,"mg",.1,.5),repeat:"Further dosing per applicable protocol/Base direction.",administration:"Minimum 0.1 mg; maximum single dose 0.5 mg.",protocol:"Bradyarrhythmia with Poor Perfusion",volumeRequired:true},
     {id:"poison-adult",label:"Adult ≥40 kg organophosphate poisoning",agent:"Atropine",patient:"adult",route:"IV/IM",formula:fixed(2,"mg"),repeat:"Contact Base for additional doses.",administration:"For moderate/severe toxicity.",protocol:"Poisoning/Overdose",volumeRequired:true,requiresWeight:true},
@@ -173,7 +173,7 @@ export function genericMedication(id:string):GenericMedication{
     id,
     name: id==="ondansetron" ? "Ondansetron" : "Haloperidol",
     paths: alias.paths.filter(path=>id==="ondansetron" ? path.agent.toLowerCase().includes("ondansetron") : path.agent.toLowerCase().includes("haloperidol")),
-    contraindications: id==="ondansetron" ? ["Confirm ondansetron-specific age and contraindications in current DMP 9040 Antiemetics protocol"] : alias.contraindications,
+    contraindications: id==="ondansetron" ? ["First-trimester pregnancy unless severe dehydration and intractable vomiting make Ondansetron necessary"] : alias.contraindications,
   } as GenericMedication : undefined;
   const bundled=genericMedications[id]||aliasBundled;
   if(typeof window==="undefined")return bundled;
