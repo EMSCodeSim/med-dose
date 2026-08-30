@@ -9,7 +9,7 @@ import VersedBuilder from "./VersedBuilder";
 import type {EncounterPatient} from "./VersedBuilder";
 import FentanylBuilder from "./FentanylBuilder";
 import KetamineBuilder from "./KetamineBuilder";
-import CalculationBoard from "./CalculationBoard";
+import MedicationBuilderShell from "./MedicationBuilderShell";
 import "./reviewGate.css";
 import "./pilotHome.css";
 import {genericMedication} from "./dmpMedicationData";
@@ -808,29 +808,6 @@ function ClinicalApp() {
         </div>
       </header>
       <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen || fentanylBuilderOpen || ketamineBuilderOpen ? " generic-hidden" : ""}${drug&&step!=="drug"?" unified-medication-shell legacy-unified-medication-shell":""}`}>
-        {drug && step !== "drug" && <CalculationBoard boxes={[
-          {id:"medication",label:"MEDICATION",value:medName(drug),detail:scanMedOk?"Physical medication confirmed":"Confirm physical medication",complete:scanMedOk,active:step==="scanConfirm",available:true,onClick:()=>setStep("scanConfirm")},
-          {id:"concentration",label:"CONCENTRATION",value:conc>0?`${fmt(conc)} ${unit}/mL`:"",detail:scanConcOk?"Physical label confirmed":"Confirm physical label",complete:scanConcOk,active:step==="scanConfirm",available:scanMedOk,onClick:()=>setStep("scanConfirm")},
-          {id:"indication",label:"INDICATION",value:reason,detail:reason?"DMP pathway selected":"Select reason for use",complete:!!reason,active:step==="age"&&!ageClass,available:scanMedOk&&scanConcOk,onClick:()=>setStep("age")},
-          {id:"route",label:"ROUTE",value:administrationRoute||"",detail:route?"Approved route selected":"Select approved route",complete:!!route,active:step==="age"&&!!reason,available:!!reason,onClick:()=>setStep("age")},
-          {id:"patient",label:"PATIENT",value:ageOk?`${adult?"Adult":"Pediatric"} • ${ageText}${needWeight&&weightOk?` • ${fmt(kg)} kg`:""}`:"",detail:ageOk&&(!needWeight||weightOk)?"Dose-changing information complete":"Enter dose-changing information",complete:ageOk&&(!needWeight||weightOk),active:step==="age"&&!!ageClass,available:!!reason,onClick:()=>setStep("age")},
-          {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyComplete?"One confirmation":"Review complete safety list",complete:safetyComplete,active:step==="safety",available:ageOk&&(!needWeight||weightOk),onClick:()=>setStep("safety")},
-          {id:"result",label:"FINAL DOSE",value:r&&rate!==null?`${doseText} • ${fmt(vol)} mL`:"",detail:safetyComplete?administrationRoute||"":"Complete required checks",complete:step==="review"&&safetyComplete,active:step==="review",available:safetyComplete,onClick:()=>setStep("review")},
-        ]}/>}
-        {step !== "drug" && <>
-          <div className="wizard-top">
-            <button className="back" onClick={back}>‹ Back</button>
-            <span>Step {pos + 1} of {visible.length}</span>
-            <button className="start-over" onClick={reset}>Start over</button>
-          </div>
-          <div className="progress">
-            <i style={{ width: `${((pos + 1) / visible.length) * 100}%` }} />
-          </div>
-          <div className="clinical-banner">
-            <b>DMP verified</b>
-            <span>July 2026 • Approved July 1, 2026 • Next review January 2027</span>
-          </div>
-        </>}
         {step === "drug" && (
           <section className="pilot-home" aria-labelledby="pilot-home-title">
             <div className="pilot-home-heading">
@@ -862,6 +839,30 @@ function ClinicalApp() {
             </div>
           </section>
         )}
+        {drug && step !== "drug" && (
+          <div className="legacy-medication-builder-host">
+            <MedicationBuilderShell
+              medication={{name:medName(drug),subtitle:meds.find((med)=>med.id===drug)?.sub||"DMP medication",protocolId:protocolId(drug).replace("DMP ",""),vialLabel:medName(drug)}}
+              boxes={[
+          {id:"medication",label:"MEDICATION",value:medName(drug),detail:scanMedOk?"Physical medication confirmed":"Confirm physical medication",complete:scanMedOk,active:step==="scanConfirm",available:true,onClick:()=>setStep("scanConfirm")},
+          {id:"concentration",label:"CONCENTRATION",value:conc>0?`${fmt(conc)} ${unit}/mL`:"",detail:scanConcOk?"Physical label confirmed":"Confirm physical label",complete:scanConcOk,active:step==="scanConfirm",available:scanMedOk,onClick:()=>setStep("scanConfirm")},
+          {id:"indication",label:"INDICATION",value:reason,detail:reason?"DMP pathway selected":"Select reason for use",complete:!!reason,active:step==="age"&&!ageClass,available:scanMedOk&&scanConcOk,onClick:()=>setStep("age")},
+          {id:"route",label:"ROUTE",value:administrationRoute||"",detail:route?"Approved route selected":"Select approved route",complete:!!route,active:step==="age"&&!!reason,available:!!reason,onClick:()=>setStep("age")},
+          {id:"patient",label:"PATIENT",value:ageOk?`${adult?"Adult":"Pediatric"} • ${ageText}${needWeight&&weightOk?` • ${fmt(kg)} kg`:""}`:"",detail:ageOk&&(!needWeight||weightOk)?"Dose-changing information complete":"Enter dose-changing information",complete:ageOk&&(!needWeight||weightOk),active:step==="age"&&!!ageClass,available:!!reason,onClick:()=>setStep("age")},
+          {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyComplete?"One confirmation":"Review complete safety list",complete:safetyComplete,active:step==="safety",available:ageOk&&(!needWeight||weightOk),onClick:()=>setStep("safety")},
+          {id:"result",label:"FINAL DOSE",value:r&&rate!==null?`${doseText} • ${fmt(vol)} mL`:"",detail:safetyComplete?administrationRoute||"":"Complete required checks",complete:step==="review"&&safetyComplete,active:step==="review",available:safetyComplete,onClick:()=>setStep("review")},
+        ]}
+              close={reset}
+              reset={reset}
+              calculationComplete={step==="review"&&safetyComplete}
+            >
+          <div className="progress legacy-medication-progress">
+            <i style={{ width: `${((pos + 1) / visible.length) * 100}%` }} />
+          </div>
+          <div className="clinical-banner">
+            <b>DMP verified</b>
+            <span>July 2026 • Approved July 1, 2026 • Next review January 2027</span>
+          </div>
         {step === "scanConfirm" && scannedVial && (
           <Screen e="MEDICATION CHECK" t="Confirm the medication in your hand" h="Compare the physical vial with the selected medication.">
             <div className="scan-confirm-card">
@@ -1453,6 +1454,9 @@ function ClinicalApp() {
               Start a new calculation
             </button>
           </Screen>
+        )}
+            </MedicationBuilderShell>
+          </div>
         )}
       </section>
       {genericMedId && genericMedication(genericMedId) && (
