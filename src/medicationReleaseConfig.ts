@@ -1,4 +1,4 @@
-export const DEFAULT_FIELD_MEDICATION_IDS = [
+export const DEFAULT_FIELD_MEDICATION_IDS:string[] = [
   "adenosine",
   "amiodarone",
   "ondansetron",
@@ -15,6 +15,6 @@ export const DEFAULT_FIELD_MEDICATION_IDS = [
   "naloxone",
   "sodium-bicarbonate",
   "ketamine",
-] as const;
+];
 
 export const CURRENT_DMP_PROTOCOL_REVISION = "July 2026";
