@@ -1,0 +1,122 @@
+name: Unified medication flow validation
+
+on:
+  push:
+    branches: [unified-medication-flow-2026-08-30]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-validate:
+    if: github.event.head_commit.message == 'Run unified medication flow fixes'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: unified-medication-flow-2026-08-30
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply unified medication fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def once(text, old, new, label):
+              if old not in text:
+                  if new in text:
+                      return text
+                  raise SystemExit(f"Missing patch anchor: {label}")
+              return text.replace(old,new,1)
+
+          # App: one router for every medication, not separate dead-end paths.
+          p=Path('src/App.tsx'); t=p.read_text(encoding='utf-8')
+
+          old='''      setStep("scanConfirm");\n    };\n  return ('''
+          new='''      setStep("scanConfirm");\n    },\n    openMedicationById = (id:string,preservePatient=false,patient?:EncounterPatient|null) => {\n      const selected=meds.find(m=>m.id===id);\n      if(!selected||!approvedMedicationIds.includes(id)){setSettingsOpen(true);return}\n      const keepPatient=preservePatient||Boolean(patient);\n      if(patient){\n        setEncounterPatient(patient);\n        setAgeClass(patient.patient);\n        setAge(patient.ageYears!==undefined?String(patient.ageYears):"");\n        setAu(patient.ageYears!==undefined?"years":"");\n        setWeight(patient.weightKg!==undefined?String(patient.weightKg):"");\n        setWu("kg");\n      }\n      if(id==="ketamine"){openKetamine(keepPatient);return}\n      if(selected.calculator){beginMedication(selected.calculator,keepPatient);return}\n      const generic=genericMedication(id);\n      if(!generic){setCatalogProtocol(selected.protocol);return}\n      setDrug(null);\n      setVersedBuilderOpen(false);setFentanylBuilderOpen(false);setKetamineBuilderOpen(false);\n      setGenericTreatmentContext(null);setGenericMedId(id);setStep("drug");\n      if(!keepPatient){setEncounterPatient(null);setEncounterAdministrations([])}\n    };\n  return ('''
+          t=once(t,old,new,'unified medication router')
+
+          old='''      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen || fentanylBuilderOpen || ketamineBuilderOpen ? " generic-hidden" : ""}`}>'''
+          new='''      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen || fentanylBuilderOpen || ketamineBuilderOpen ? " generic-hidden" : ""}${drug&&step!=="drug"?" unified-medication-shell legacy-unified-medication-shell":""}`}>'''
+          t=once(t,old,new,'legacy unified shell class')
+
+          old='''                <button key={med.id} className={`pilot-medication-card ${med.id}`} onClick={()=>{\n                  setEncounterPatient(null);\n                  if (med.id==="ketamine") openKetamine();\n                  else if (med.calculator) beginMedication(med.calculator);\n                }}>'''
+          new='''                <button key={med.id} className={`pilot-medication-card ${med.id}`} onClick={()=>openMedicationById(med.id)}>'''
+          t=once(t,old,new,'working home medication cards')
+
+          old='''                    <b>{med.id === "midazolam" ? "VERSED" : med.id==="fentanyl"?"FENTANYL":"KETAMINE"}</b>'''
+          new='''                    <b>{med.id==="midazolam"?"VERSED":med.name.toUpperCase()}</b>'''
+          t=once(t,old,new,'home vial label')
+          t=once(t,'<small>TEST MEDICATION</small>','<small>FIELD MEDICATION</small>','home medication label')
+          t=once(t,'<span>Versed, Fentanyl, and Ketamine are the working medications during format testing.</span>','<span>Every visible medication opens the standardized visual calculator flow.</span>','home footer')
+
+          old='''          selectMedication={(id,patient)=>{\n            const selected=meds.find((m)=>m.id===id);\n            if(!selected||!approvedMedicationIds.includes(id))return;\n            if(patient){\n              setEncounterPatient(patient);\n              setAgeClass(patient.patient);\n              setAge(patient.ageYears!==undefined?String(patient.ageYears):"");\n              setAu(patient.ageYears!==undefined?"years":"");\n              setWeight(patient.weightKg!==undefined?String(patient.weightKg):"");\n              setWu("kg");\n            }\n            if(selected.id==="ketamine")openKetamine(!!patient);\n            else if(selected.calculator)beginMedication(selected.calculator,!!patient);\n            else {setDrug(null);setVersedBuilderOpen(false);setGenericTreatmentContext(null);setGenericMedId(selected.id)}\n          }}'''
+          t=once(t,old,'          selectMedication={(id,patient)=>openMedicationById(id,!!patient,patient)}','Versed medication switching')
+
+          old='''          selectMedication={(id,patient)=>{\n            const selected=meds.find((m)=>m.id===id);\n            if(!selected||!approvedMedicationIds.includes(id))return;\n            if(patient)setEncounterPatient(patient);\n            if(selected.id==="ketamine")openKetamine(!!patient);\n            else if(selected.calculator)beginMedication(selected.calculator,!!patient);\n          }}'''
+          t=once(t,old,'          selectMedication={(id,patient)=>openMedicationById(id,!!patient,patient)}','Fentanyl medication switching')
+
+          old='''          selectMedication={(id,patient)=>{\n            const selected=meds.find(m=>m.id===id);\n            if(!selected||!approvedMedicationIds.includes(id))return;\n            if(patient)setEncounterPatient(patient);\n            if(id==="ketamine")return;\n            if(selected.calculator)beginMedication(selected.calculator,!!patient);\n          }}'''
+          t=once(t,old,'          selectMedication={(id,patient)=>id!=="ketamine"&&openMedicationById(id,!!patient,patient)}','Ketamine medication switching')
+
+          t=once(t,'        onSelectMedication={beginMedication}','        onSelectMedication={(id)=>openMedicationById(id)}','toolbar medication selection')
+          t=once(t,'        onSelectSuggestedMedication={(selectedDrug)=>beginMedication(selectedDrug,true)}','        onSelectSuggestedMedication={(selectedDrug)=>openMedicationById(selectedDrug,true)}','toolbar suggested medication selection')
+          p.write_text(t,encoding='utf-8')
+
+          # Generic calculators use the same left calculation rail / right workspace visual family.
+          p=Path('src/DmpMedicationCalculator.tsx'); t=p.read_text(encoding='utf-8')
+          t=once(t,'return <main className="generic-calc" aria-label={`${medication.name} calculator`}>','return <main className="generic-calc unified-medication-shell generic-unified-medication-shell" aria-label={`${medication.name} calculator`}>','generic unified shell')
+          t=once(t,'medication.id==="antipsychotics"&&ageYears>=65?"DMP 9045 elderly dose reduced by one-half"','(medication.id==="antipsychotics"||medication.id==="haloperidol")&&ageYears>=65?"DMP 9045 elderly dose reduced by one-half"','Haloperidol visible adjustment')
+          p.write_text(t,encoding='utf-8')
+
+          # Toolbar can open the complete released medication set, not only the legacy eight.
+          p=Path('src/FieldToolbar.tsx'); t=p.read_text(encoding='utf-8')
+          t=once(t,'  onSelectMedication: (drug: SupportedDrug) => void;','  onSelectMedication: (drug: string) => void;','toolbar selection type')
+          old='''  const allSupported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["albuterol","Albuterol","Wheezing / bronchospasm"],["diphenhydramine","Diphenhydramine","Allergic reaction adjunct"],["epinephrine","Epinephrine","Arrest, anaphylaxis, shock, wheezing or stridor"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["magnesium","Magnesium Sulfate","Torsades, refractory bronchospasm or eclampsia"],["methylprednisolone","Methylprednisolone","Allergic reaction adjunct"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];'''
+          new='''  const allSupported:[string,string,string][]=[\n    ["adenosine","Adenosine","Regular narrow-complex tachycardia"],\n    ["amiodarone","Amiodarone","Ventricular dysrhythmia pathways"],\n    ["ondansetron","Ondansetron","Nausea / vomiting"],\n    ["haloperidol","Haloperidol","Agitated / combative patient"],\n    ["atropine","Atropine Sulfate","Bradycardia / poisoning pathways"],\n    ["midazolam","Midazolam (Versed)","Seizure, sedation or agitation"],\n    ["fentanyl","Fentanyl","Pain management"],\n    ["calcium","Calcium","Hyperkalemia / toxicology pathways"],\n    ["dextrose","Dextrose","Hypoglycemia"],\n    ["diphenhydramine","Diphenhydramine","Allergy / dystonia adjunct"],\n    ["epinephrine","Epinephrine","Arrest, anaphylaxis, shock or airway pathways"],\n    ["magnesium","Magnesium Sulfate","Torsades, bronchospasm or eclampsia"],\n    ["methylprednisolone","Methylprednisolone","Allergy / wheezing / adrenal crisis"],\n    ["naloxone","Naloxone","Opioid respiratory depression"],\n    ["sodium-bicarbonate","Sodium Bicarbonate","Hyperkalemia / sodium-channel blocker toxicity"],\n    ["ketamine","Ketamine","Department analgesia waiver"],\n  ];'''
+          t=once(t,old,new,'complete toolbar medication choices')
+          p.write_text(t,encoding='utf-8')
+
+          # Load shared presentation globally.
+          p=Path('src/main.tsx'); t=p.read_text(encoding='utf-8')
+          t=once(t,'import "./styles.css";','import "./styles.css";\nimport "./unifiedMedicationFlow.css";','unified flow stylesheet')
+          p.write_text(t,encoding='utf-8')
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify routing and released-med coverage
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          app=Path('src/App.tsx').read_text()
+          toolbar=Path('src/FieldToolbar.tsx').read_text()
+          generic=Path('src/DmpMedicationCalculator.tsx').read_text()
+          released=["adenosine","amiodarone","ondansetron","haloperidol","atropine","midazolam","fentanyl","calcium","dextrose","diphenhydramine","epinephrine","magnesium","methylprednisolone","naloxone","sodium-bicarbonate","ketamine"]
+          assert 'openMedicationById = (id:string' in app
+          assert 'onClick={()=>openMedicationById(med.id)}' in app
+          assert '"KETAMINE"}</b>' not in app
+          assert 'genericMedication(id)' in app
+          assert 'generic-unified-medication-shell' in generic
+          for med in released:
+              assert f'["{med}"' in toolbar, f'Missing toolbar choice {med}'
+          print('All released medications have an opening route and shared presentation hooks')
+          PY
+      - name: Build production application
+        run: npm run build
+      - name: Commit validated fixes
+        shell: bash
+        run: |
+          git config user.name "EMSCodeSim"
+          git config user.email "davidagallaher@hotmail.com"
+          git add src/App.tsx src/DmpMedicationCalculator.tsx src/FieldToolbar.tsx src/main.tsx
+          if git diff --cached --quiet; then
+            echo "No source patch changes to commit"
+            exit 0
+          fi
+          git commit -m "Fix all medication routes and unify calculator format"
+          git push origin HEAD:unified-medication-flow-2026-08-30
