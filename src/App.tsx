@@ -767,6 +767,27 @@ function ClinicalApp() {
       const selected=meds.find(x=>x.id===selectedDrug);
       setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="magnesium"?"g":"mg",label:selected?.brand||selectedDrug,barcode:"",photo:medicationPhoto(selectedDrug)});
       setStep("scanConfirm");
+    },
+    openMedicationById = (id:string,preservePatient=false,patient?:EncounterPatient|null) => {
+      const selected=meds.find(m=>m.id===id);
+      if(!selected||!approvedMedicationIds.includes(id)){setSettingsOpen(true);return}
+      const keepPatient=preservePatient||Boolean(patient);
+      if(patient){
+        setEncounterPatient(patient);
+        setAgeClass(patient.patient);
+        setAge(patient.ageYears!==undefined?String(patient.ageYears):"");
+        setAu(patient.ageYears!==undefined?"years":"");
+        setWeight(patient.weightKg!==undefined?String(patient.weightKg):"");
+        setWu("kg");
+      }
+      if(id==="ketamine"){openKetamine(keepPatient);return}
+      if(selected.calculator){beginMedication(selected.calculator,keepPatient);return}
+      const generic=genericMedication(id);
+      if(!generic){setCatalogProtocol(selected.protocol);return}
+      setDrug(null);
+      setVersedBuilderOpen(false);setFentanylBuilderOpen(false);setKetamineBuilderOpen(false);
+      setGenericTreatmentContext(null);setGenericMedId(id);setStep("drug");
+      if(!keepPatient){setEncounterPatient(null);setEncounterAdministrations([])}
     };
   return (
     <main className="wizard-app">
@@ -786,7 +807,7 @@ function ClinicalApp() {
           <button onClick={() => setInstall(true)}>Install</button>
         </div>
       </header>
-      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen || fentanylBuilderOpen || ketamineBuilderOpen ? " generic-hidden" : ""}`}>
+      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}${genericMedId || versedBuilderOpen || fentanylBuilderOpen || ketamineBuilderOpen ? " generic-hidden" : ""}${drug&&step!=="drug"?" unified-medication-shell legacy-unified-medication-shell":""}`}>
         {drug && step !== "drug" && <CalculationBoard boxes={[
           {id:"medication",label:"MEDICATION",value:medName(drug),detail:scanMedOk?"Physical medication confirmed":"Confirm physical medication",complete:scanMedOk,active:step==="scanConfirm",available:true,onClick:()=>setStep("scanConfirm")},
           {id:"concentration",label:"CONCENTRATION",value:conc>0?`${fmt(conc)} ${unit}/mL`:"",detail:scanConcOk?"Physical label confirmed":"Confirm physical label",complete:scanConcOk,active:step==="scanConfirm",available:scanMedOk,onClick:()=>setStep("scanConfirm")},
@@ -819,18 +840,14 @@ function ClinicalApp() {
             </div>
             <div className="pilot-medication-grid">
               {meds.filter((med)=>TESTING_VISIBLE_MEDICATION_IDS.includes(med.id)).map((med)=>(
-                <button key={med.id} className={`pilot-medication-card ${med.id}`} onClick={()=>{
-                  setEncounterPatient(null);
-                  if (med.id==="ketamine") openKetamine();
-                  else if (med.calculator) beginMedication(med.calculator);
-                }}>
+                <button key={med.id} className={`pilot-medication-card ${med.id}`} onClick={()=>openMedicationById(med.id)}>
                   <span className="pilot-vial" aria-hidden="true">
                     <i></i>
-                    <b>{med.id === "midazolam" ? "VERSED" : med.id==="fentanyl"?"FENTANYL":"KETAMINE"}</b>
+                    <b>{med.id==="midazolam"?"VERSED":med.name.toUpperCase()}</b>
                     <small>REFERENCE</small>
                   </span>
                   <span className="pilot-medication-copy">
-                    <small>TEST MEDICATION</small>
+                    <small>FIELD MEDICATION</small>
                     <strong>{med.name}</strong>
                     <b>{med.brand}</b>
                     <span>{med.sub}</span>
@@ -840,7 +857,7 @@ function ClinicalApp() {
               ))}
             </div>
             <div className="pilot-home-footer">
-              <span>Versed, Fentanyl, and Ketamine are the working medications during format testing.</span>
+              <span>Every visible medication opens the standardized visual calculator flow.</span>
               <button onClick={()=>setSettingsOpen(true)}><i aria-hidden="true">⚙</i> Admin</button>
             </div>
           </section>
@@ -1468,21 +1485,7 @@ function ClinicalApp() {
           record={(entry) => setEncounterAdministrations((items) => [...items, entry])}
           onContextChange={setGenericTreatmentContext}
           medicationOptions={meds.map((m)=>({id:m.id,name:m.name,brand:m.brand,released:approvedMedicationIds.includes(m.id)}))}
-          selectMedication={(id,patient)=>{
-            const selected=meds.find((m)=>m.id===id);
-            if(!selected||!approvedMedicationIds.includes(id))return;
-            if(patient){
-              setEncounterPatient(patient);
-              setAgeClass(patient.patient);
-              setAge(patient.ageYears!==undefined?String(patient.ageYears):"");
-              setAu(patient.ageYears!==undefined?"years":"");
-              setWeight(patient.weightKg!==undefined?String(patient.weightKg):"");
-              setWu("kg");
-            }
-            if(selected.id==="ketamine")openKetamine(!!patient);
-            else if(selected.calculator)beginMedication(selected.calculator,!!patient);
-            else {setDrug(null);setVersedBuilderOpen(false);setGenericTreatmentContext(null);setGenericMedId(selected.id)}
-          }}
+          selectMedication={(id,patient)=>openMedicationById(id,!!patient,patient)}
         />
       )}
       {fentanylBuilderOpen && (
@@ -1495,13 +1498,7 @@ function ClinicalApp() {
           record={(entry) => setEncounterAdministrations((items) => [...items, entry])}
           onContextChange={setGenericTreatmentContext}
           medicationOptions={meds.map((m)=>({id:m.id,name:m.name,brand:m.brand,released:approvedMedicationIds.includes(m.id)}))}
-          selectMedication={(id,patient)=>{
-            const selected=meds.find((m)=>m.id===id);
-            if(!selected||!approvedMedicationIds.includes(id))return;
-            if(patient)setEncounterPatient(patient);
-            if(selected.id==="ketamine")openKetamine(!!patient);
-            else if(selected.calculator)beginMedication(selected.calculator,!!patient);
-          }}
+          selectMedication={(id,patient)=>openMedicationById(id,!!patient,patient)}
         />
       )}
       {ketamineBuilderOpen&&(
@@ -1511,13 +1508,7 @@ function ClinicalApp() {
           record={(entry)=>setEncounterAdministrations(items=>[...items,entry])}
           onContextChange={setGenericTreatmentContext}
           medicationOptions={meds.map(m=>({id:m.id,name:m.name,brand:m.brand,released:approvedMedicationIds.includes(m.id)}))}
-          selectMedication={(id,patient)=>{
-            const selected=meds.find(m=>m.id===id);
-            if(!selected||!approvedMedicationIds.includes(id))return;
-            if(patient)setEncounterPatient(patient);
-            if(id==="ketamine")return;
-            if(selected.calculator)beginMedication(selected.calculator,!!patient);
-          }}
+          selectMedication={(id,patient)=>id!=="ketamine"&&openMedicationById(id,!!patient,patient)}
         />
       )}
       {install && (
@@ -1551,8 +1542,8 @@ function ClinicalApp() {
         currentVolume={drug&&r&&rate!==null&&conc>0?`${fmt(vol)} mL`:undefined}
         genericTreatment={genericTreatmentContext}
         approvedMedicationIds={approvedMedicationIds}
-        onSelectMedication={beginMedication}
-        onSelectSuggestedMedication={(selectedDrug)=>beginMedication(selectedDrug,true)}
+        onSelectMedication={(id)=>openMedicationById(id)}
+        onSelectSuggestedMedication={(selectedDrug)=>openMedicationById(selectedDrug,true)}
         reportReady={encounterAdministrations.length>0||Boolean(drug&&r&&rate!==null&&epiEnteredDoseValid&&conc>0&&!volumeBlocked)}
         onOpenReport={()=>{
           if(encounterAdministrations.length)setEncounterReportOpen(true);

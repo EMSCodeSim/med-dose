@@ -19,7 +19,7 @@ type Props = {
   currentVolume?: string;
   genericTreatment?: GenericTreatmentContext|null;
   approvedMedicationIds?: string[];
-  onSelectMedication: (drug: SupportedDrug) => void;
+  onSelectMedication: (drug: string) => void;
   onSelectSuggestedMedication: (drug: SupportedDrug) => void;
   reportReady: boolean;
   onOpenReport: () => void;
@@ -63,7 +63,24 @@ export default function FieldToolbar(p: Props) {
 }
 
 function MedicationPanel(p: Props & {query:string;setQuery:(x:string)=>void;openProtocol:(x:ProtocolTarget)=>void}) {
-  const allSupported:[SupportedDrug,string,string][]=[["adenosine","Adenosine","Adult standing order 12+"],["albuterol","Albuterol","Wheezing / bronchospasm"],["diphenhydramine","Diphenhydramine","Allergic reaction adjunct"],["epinephrine","Epinephrine","Arrest, anaphylaxis, shock, wheezing or stridor"],["fentanyl","Fentanyl","Adult and pediatric 1+"],["magnesium","Magnesium Sulfate","Torsades, refractory bronchospasm or eclampsia"],["methylprednisolone","Methylprednisolone","Allergic reaction adjunct"],["midazolam","Midazolam (Versed)","Status epilepticus or procedural sedation"]];
+  const allSupported:[string,string,string][]=[
+    ["adenosine","Adenosine","Regular narrow-complex tachycardia"],
+    ["amiodarone","Amiodarone","Ventricular dysrhythmia pathways"],
+    ["ondansetron","Ondansetron","Nausea / vomiting"],
+    ["haloperidol","Haloperidol","Agitated / combative patient"],
+    ["atropine","Atropine Sulfate","Bradycardia / poisoning pathways"],
+    ["midazolam","Midazolam (Versed)","Seizure, sedation or agitation"],
+    ["fentanyl","Fentanyl","Pain management"],
+    ["calcium","Calcium","Hyperkalemia / toxicology pathways"],
+    ["dextrose","Dextrose","Hypoglycemia"],
+    ["diphenhydramine","Diphenhydramine","Allergy / dystonia adjunct"],
+    ["epinephrine","Epinephrine","Arrest, anaphylaxis, shock or airway pathways"],
+    ["magnesium","Magnesium Sulfate","Torsades, bronchospasm or eclampsia"],
+    ["methylprednisolone","Methylprednisolone","Allergy / wheezing / adrenal crisis"],
+    ["naloxone","Naloxone","Opioid respiratory depression"],
+    ["sodium-bicarbonate","Sodium Bicarbonate","Hyperkalemia / sodium-channel blocker toxicity"],
+    ["ketamine","Ketamine","Department analgesia waiver"],
+  ];
   const supported=allSupported.filter(([id])=>!p.approvedMedicationIds||p.approvedMedicationIds.includes(id));
   return <>
     {p.currentDrug&&<div className="current-reference"><small>CURRENT CALCULATION</small><b>{p.currentDrug}</b>{p.currentDose&&<strong>{p.currentDose}{p.currentVolume?` • ${p.currentVolume}`:""}</strong>}</div>}
