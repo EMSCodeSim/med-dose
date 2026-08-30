@@ -1,0 +1,87 @@
+/* Shared visual language for every released medication calculator.
+   Clinical calculation logic stays in the existing medication engines. */
+
+@media (min-width: 900px) {
+  .unified-medication-shell {
+    width: min(1180px, 100%) !important;
+    max-width: 1180px !important;
+    margin-inline: auto;
+  }
+
+  .unified-medication-shell > .fixed-calculation-board {
+    width: 100%;
+    align-self: start;
+    top: 88px;
+    border-radius: 14px;
+    box-shadow: 0 12px 30px #0e2c4017;
+  }
+
+  .legacy-unified-medication-shell > .wizard-card,
+  .generic-unified-medication-shell > .generic-body {
+    min-height: 610px;
+    border: 1px solid #d7e1e6;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 12px 34px #0e2c4012;
+  }
+}
+
+.legacy-unified-medication-shell .clinical-banner,
+.generic-unified-medication-shell .clinical-banner {
+  border-radius: 10px;
+}
+
+.legacy-unified-medication-shell .wizard-card,
+.generic-unified-medication-shell .generic-body {
+  overflow: hidden;
+}
+
+.generic-unified-medication-shell .final-dose-answer {
+  border-radius: 16px;
+  box-shadow: 0 8px 22px #0b5d5016;
+}
+
+.generic-unified-medication-shell .final-dose-answer .final-give,
+.generic-unified-medication-shell .final-dose-answer .final-draw {
+  min-height: 112px;
+  justify-content: center;
+}
+
+.generic-unified-medication-shell .final-dose-answer strong {
+  font-size: clamp(28px, 4vw, 42px);
+}
+
+.generic-unified-medication-shell .result-collapsible,
+.generic-unified-medication-shell .full-cross-check,
+.legacy-unified-medication-shell details {
+  border-radius: 12px;
+}
+
+.pilot-medication-card .pilot-vial b {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+}
+
+.pilot-medication-card .pilot-medication-copy > small {
+  letter-spacing: .09em;
+}
+
+@media (max-width: 899px) {
+  .legacy-unified-medication-shell,
+  .generic-unified-medication-shell {
+    width: 100% !important;
+  }
+
+  .legacy-unified-medication-shell .wizard-card,
+  .generic-unified-medication-shell .generic-body {
+    border-radius: 14px;
+  }
+
+  .generic-unified-medication-shell .final-dose-answer .final-give,
+  .generic-unified-medication-shell .final-dose-answer .final-draw {
+    min-height: 92px;
+  }
+}
