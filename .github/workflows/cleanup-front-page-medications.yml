@@ -1,0 +1,26 @@
+name: Cleanup front page medication workflow
+
+on:
+  workflow_run:
+    workflows: ["Add requested front page medications"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Remove temporary workflows
+        run: |
+          rm -f .github/workflows/add-front-page-medications.yml .github/workflows/cleanup-front-page-medications.yml
+          git config user.name "EMSCodeSim"
+          git config user.email "davidagallaher@hotmail.com"
+          git add .github/workflows
+          git commit -m "Remove temporary front page medication workflows"
+          git push origin HEAD:main
