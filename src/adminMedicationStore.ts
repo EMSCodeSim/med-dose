@@ -33,14 +33,26 @@ export type ClinicalOverrideState = Record<string,unknown>;
 const canUseStorage=()=>typeof window!=="undefined"&&!!window.localStorage;
 const safeParse=<T,>(key:string,fallback:T):T=>{
   if(!canUseStorage())return fallback;
-  try{const parsed=JSON.parse(window.localStorage.getItem(key)||"");return parsed&&typeof parsed==="object"?parsed as T:fallback}catch{return fallback}
+  try{
+    const parsed=JSON.parse(window.localStorage.getItem(key)||"");
+    return parsed&&typeof parsed==="object"&&!Array.isArray(parsed)?parsed as T:fallback;
+  }catch{return fallback}
 };
 export const loadMedicationAdminState=()=>safeParse<MedicationAdminState>(ADMIN_MEDICATION_STATE_KEY,{});
 export const saveMedicationAdminState=(state:MedicationAdminState)=>{if(canUseStorage())window.localStorage.setItem(ADMIN_MEDICATION_STATE_KEY,JSON.stringify(state))};
 export const loadClinicalOverrides=()=>safeParse<ClinicalOverrideState>(CLINICAL_OVERRIDE_KEY,{});
 export const saveClinicalOverrides=(state:ClinicalOverrideState)=>{if(canUseStorage())window.localStorage.setItem(CLINICAL_OVERRIDE_KEY,JSON.stringify(state))};
 export const deepClone=<T,>(value:T):T=>JSON.parse(JSON.stringify(value)) as T;
-export const addMonths=(timestamp:number,months:number)=>{const date=new Date(timestamp);date.setMonth(date.getMonth()+months);return date.getTime()};
+export const addMonths=(timestamp:number,months:number)=>{
+  const source=new Date(timestamp);
+  const day=source.getDate();
+  const target=new Date(source);
+  target.setDate(1);
+  target.setMonth(target.getMonth()+months);
+  const lastDay=new Date(target.getFullYear(),target.getMonth()+1,0).getDate();
+  target.setDate(Math.min(day,lastDay));
+  return target.getTime();
+};
 export const initialAdminRecord=(medicationId:string):MedicationAdminRecord=>({medicationId,clinicalRevision:1,protocolRevision:PROTOCOL_REVISION_DEFAULT,history:[]});
 export const signatureCount=(signatures:ReviewSignatures|undefined)=>["owner","lineSafety","medicalDirector"].filter(stage=>!!signatures?.[stage as keyof ReviewSignatures]?.approvedAt).length;
 export const reviewTiming=(record:MedicationAdminRecord|undefined,now=Date.now())=>{
