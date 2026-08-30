@@ -17,11 +17,14 @@ def ensure_shell_import(text: str) -> str:
 
 
 def remove_outer_layout_close(body: str) -> str:
-    stripped = body.rstrip()
-    if not stripped.endswith("</div>"):
-        raise RuntimeError("Expected specialized builder layout to end with </div>")
-    close_at = stripped.rfind("</div>")
-    return stripped[:close_at].rstrip()
+    # Specialized builders all open one outer `versed-layout` div before the
+    # left calculation column. Versed also renders a safety modal *after* that
+    # layout div, so the layout close is not always the final tag in the body.
+    marker = "\n    </div>"
+    close_at = body.rfind(marker)
+    if close_at < 0:
+        raise RuntimeError("Expected specialized builder layout closing div")
+    return (body[:close_at] + body[close_at + len(marker):]).rstrip()
 
 
 def wrap_specialized(path: Path, start_marker: str, medication_expr: str, left_tools_expr: str) -> None:
