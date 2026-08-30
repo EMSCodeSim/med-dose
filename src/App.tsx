@@ -14,6 +14,7 @@ import "./reviewGate.css";
 import "./pilotHome.css";
 import {genericMedication} from "./dmpMedicationData";
 import EncounterReport from "./EncounterReport";
+import AdminMedicationManager from "./AdminMedicationManager";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
@@ -771,7 +772,7 @@ function ClinicalApp() {
           <span className={`connection ${online ? "online" : "offline"}`}>
             {online ? "Online" : "Offline ready"}
           </span>
-          <button onClick={() => setSettingsOpen(true)} aria-label="Open drug list settings">Settings</button>
+          <button onClick={() => setSettingsOpen(true)} aria-label="Open medication admin">Admin</button>
           <button onClick={() => setInstall(true)}>Install</button>
         </div>
       </header>
@@ -830,7 +831,7 @@ function ClinicalApp() {
             </div>
             <div className="pilot-home-footer">
               <span>Versed, Fentanyl, and Ketamine are the working medications during format testing.</span>
-              <button onClick={()=>setSettingsOpen(true)}><i aria-hidden="true">⚙</i> Medication review settings</button>
+              <button onClick={()=>setSettingsOpen(true)}><i aria-hidden="true">⚙</i> Admin</button>
             </div>
           </section>
         )}
@@ -1549,7 +1550,7 @@ function ClinicalApp() {
         }}
       />
       {catalogProtocol&&<ProtocolViewer target={catalogProtocol} close={()=>setCatalogProtocol(null)}/>}
-      {settingsOpen&&<MedicationVisibilitySettings reviews={medicationReviews} openReview={setReviewMedicationId} close={()=>setSettingsOpen(false)}/>}
+      {settingsOpen&&<AdminMedicationManager medications={meds} reviews={medicationReviews} setReviews={setMedicationReviews} openLegacyReview={setReviewMedicationId} close={()=>setSettingsOpen(false)}/>}
       {reviewMedicationId&&meds.find((med)=>med.id===reviewMedicationId)&&<MedicationReviewModal medication={meds.find((med)=>med.id===reviewMedicationId)!} reviews={medicationReviews} setReviews={setMedicationReviews} close={()=>setReviewMedicationId(null)}/>}
       {encounterReportOpen&&<EncounterReport entries={encounterAdministrations} close={()=>setEncounterReportOpen(false)}/>}
     </main>

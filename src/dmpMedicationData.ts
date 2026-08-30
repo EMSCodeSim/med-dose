@@ -166,4 +166,12 @@ export const genericMedications:Record<string,GenericMedication>={
   ]},
 };
 
-export function genericMedication(id:string){return genericMedications[id]}
+export function genericMedication(id:string):GenericMedication{
+  const bundled=genericMedications[id];
+  if(typeof window==="undefined")return bundled;
+  try {
+    const overrides=JSON.parse(window.localStorage.getItem("metro-med-dose-clinical-overrides-v1")||"{}");
+    const override=overrides&&typeof overrides==="object"?overrides[id]:undefined;
+    return override&&typeof override==="object"?override as GenericMedication:bundled;
+  } catch { return bundled; }
+}
