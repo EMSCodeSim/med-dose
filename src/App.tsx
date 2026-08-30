@@ -73,9 +73,11 @@ const bundledMeds:MedicationCatalogItem[] = [
   {id:"albuterol",name:"Albuterol",brand:"Proventil / Ventolin",sub:"Bronchodilator",protocol:{id:"9020",name:"Albuterol",page:125},calculator:"albuterol"},
   {id:"amiodarone",name:"Amiodarone",brand:"Cordarone",sub:"Antiarrhythmic",protocol:{id:"9030",name:"Amiodarone",page:127}},
   {id:"antiemetics",name:"Antiemetics",brand:"Ondansetron • Droperidol",sub:"Nausea and vomiting",protocol:{id:"9040",name:"Antiemetics",page:128}},
+  {id:"ondansetron",name:"Ondansetron",brand:"Zofran",sub:"Antiemetic",protocol:{id:"9040",name:"Antiemetics / Ondansetron",page:128}},
   {id:"antipsychotics",name:"Antipsychotics",brand:"Droperidol • Haloperidol • Olanzapine",sub:"Agitation / behavioral emergency",protocol:{id:"9045",name:"Antipsychotics",page:129}},
+  {id:"haloperidol",name:"Haloperidol",brand:"Haldol",sub:"Antipsychotic / agitation",protocol:{id:"9045",name:"Antipsychotics / Haloperidol",page:129}},
   {id:"aspirin",name:"Aspirin",brand:"ASA",sub:"Antiplatelet",protocol:{id:"9050",name:"Aspirin",page:134}},
-  {id:"atropine",name:"Atropine",brand:"Atropine",sub:"Anticholinergic",protocol:{id:"9060",name:"Atropine",page:135}},
+  {id:"atropine",name:"Atropine Sulfate",brand:"Atropine",sub:"Anticholinergic",protocol:{id:"9060",name:"Atropine Sulfate",page:135}},
   {id:"midazolam",name:"Midazolam",brand:"Versed",sub:"Benzodiazepine • seizure / sedation",protocol:{id:"9070",name:"Benzodiazepines / Midazolam",page:136},calculator:"midazolam"},
   {id:"diazepam",name:"Diazepam",brand:"Valium",sub:"Benzodiazepine • seizure / sedation",protocol:{id:"9070",name:"Benzodiazepines / Diazepam",page:136}},
   {id:"lorazepam",name:"Lorazepam",brand:"Ativan",sub:"Benzodiazepine • seizure / sedation",protocol:{id:"9070",name:"Benzodiazepines / Lorazepam",page:136}},
@@ -85,7 +87,7 @@ const bundledMeds:MedicationCatalogItem[] = [
   {id:"diphenhydramine",name:"Diphenhydramine",brand:"Benadryl",sub:"Antihistamine",protocol:{id:"9100",name:"Diphenhydramine",page:144},calculator:"diphenhydramine"},
   {id:"dopamine",name:"Dopamine",brand:"Intropin",sub:"Vasopressor infusion",protocol:{id:"9110",name:"Dopamine",page:145}},
   {id:"duodote",name:"DuoDote",brand:"Atropine / pralidoxime",sub:"Nerve-agent antidote",protocol:{id:"9115",name:"DuoDote",page:146}},
-  {id:"epinephrine",name:"Epinephrine",brand:"Adrenalin",sub:"Arrest • anaphylaxis • shock • wheezing",protocol:{id:"9120",name:"Epinephrine",page:148},calculator:"epinephrine"},
+  {id:"epinephrine",name:"Epinephrine (Epi)",brand:"Adrenalin",sub:"Arrest • anaphylaxis • shock • wheezing",protocol:{id:"9120",name:"Epinephrine",page:148},calculator:"epinephrine"},
   {id:"glucagon",name:"Glucagon",brand:"GlucaGen",sub:"Hypoglycemia / beta-blocker toxicity",protocol:{id:"9130",name:"Glucagon",page:151}},
   {id:"hemostatic-agents",name:"Hemostatic Agents",brand:"Agency-approved product",sub:"Hemorrhage control",protocol:{id:"9150",name:"Hemostatic Agents",page:152}},
   {id:"hydroxocobalamin",name:"Hydroxocobalamin",brand:"Cyanokit",sub:"Cyanide antidote",protocol:{id:"9160",name:"Hydroxocobalamin",page:153}},
@@ -125,7 +127,7 @@ function savedMedicationReviews():MedicationReviews {
   } catch { return {}; }
 }
 function medicationReviewCount(reviews:MedicationReviews,id:string){return reviewStages.filter((stage)=>reviews[id]?.[stage.id]?.revision===DMP_REVIEW_REVISION).length}
-const DEFAULT_TESTING_VISIBLE_MEDICATION_IDS=["midazolam","fentanyl","ketamine"];
+const DEFAULT_TESTING_VISIBLE_MEDICATION_IDS=["adenosine","amiodarone","ondansetron","haloperidol","atropine","midazolam","fentanyl","calcium","dextrose","diphenhydramine","epinephrine","magnesium","methylprednisolone","naloxone","sodium-bicarbonate","ketamine"];
 const TESTING_VISIBLE_MEDICATION_IDS=meds.filter((med)=>!medicationCatalogRetired(med.id)&&medicationCatalogVisible(med.id,DEFAULT_TESTING_VISIBLE_MEDICATION_IDS.includes(med.id))).map((med)=>med.id);
 const PILOT_RELEASED_MEDICATION_IDS=DEFAULT_TESTING_VISIBLE_MEDICATION_IDS;
 function medicationPreviouslyApproved(id:string){

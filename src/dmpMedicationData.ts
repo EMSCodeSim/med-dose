@@ -167,7 +167,15 @@ export const genericMedications:Record<string,GenericMedication>={
 };
 
 export function genericMedication(id:string):GenericMedication{
-  const bundled=genericMedications[id];
+  const alias = id==="ondansetron" ? genericMedications.antiemetics : id==="haloperidol" ? genericMedications.antipsychotics : undefined;
+  const aliasBundled = alias ? {
+    ...alias,
+    id,
+    name: id==="ondansetron" ? "Ondansetron" : "Haloperidol",
+    paths: alias.paths.filter(path=>id==="ondansetron" ? path.agent.toLowerCase().includes("ondansetron") : path.agent.toLowerCase().includes("haloperidol")),
+    contraindications: id==="ondansetron" ? ["Confirm ondansetron-specific age and contraindications in current DMP 9040 Antiemetics protocol"] : alias.contraindications,
+  } as GenericMedication : undefined;
+  const bundled=genericMedications[id]||aliasBundled;
   if(typeof window==="undefined")return bundled;
   try {
     const overrides=JSON.parse(window.localStorage.getItem("metro-med-dose-clinical-overrides-v1")||"{}");
