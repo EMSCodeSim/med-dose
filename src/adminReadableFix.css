@@ -1,0 +1,340 @@
+/* Admin readability hardening.
+   The global application stylesheet styles bare header/footer/nav elements.
+   Admin contains semantic section headers, so explicitly isolate the Admin UI
+   from those global rules. */
+
+.admin-med-backdrop {
+  z-index: 140;
+}
+
+.admin-med-modal {
+  color: #152331;
+  font-size: 16px;
+  line-height: 1.4;
+  isolation: isolate;
+}
+
+/* Reset global bare-header styling inside Admin. */
+.admin-med-modal header:not(.admin-med-header) {
+  position: static;
+  top: auto;
+  z-index: auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: #152331;
+  box-shadow: none;
+}
+
+.admin-med-modal header:not(.admin-med-header) small,
+.admin-med-modal header:not(.admin-med-header) span,
+.admin-med-modal header:not(.admin-med-header) b,
+.admin-med-modal header:not(.admin-med-header) h3,
+.admin-med-modal header:not(.admin-med-header) h4,
+.admin-med-modal header:not(.admin-med-header) p {
+  color: inherit;
+}
+
+/* Keep the real Admin title bar intentional and readable. */
+.admin-med-modal .admin-med-header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  flex: 0 0 auto;
+  width: 100%;
+  height: auto;
+  min-height: 78px;
+  margin: 0;
+  padding: 18px 22px;
+  background: #102737;
+  color: #fff;
+}
+
+.admin-med-header > div,
+.admin-med-header > span {
+  min-width: 0;
+}
+
+.admin-med-header h2 {
+  color: #fff;
+  line-height: 1.15;
+}
+
+.admin-med-header small {
+  color: #91b7ca;
+}
+
+.admin-med-header span,
+.admin-med-header p {
+  color: #d3e2e9;
+}
+
+/* Prevent global nav/button rules from changing Admin controls. */
+.admin-med-modal nav {
+  position: static;
+  top: auto;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.admin-med-modal button {
+  opacity: 1;
+  text-shadow: none;
+}
+
+.admin-med-modal input,
+.admin-med-modal select,
+.admin-med-modal textarea {
+  color: #152331;
+  background: #fff;
+  -webkit-text-fill-color: #152331;
+}
+
+.admin-med-modal input::placeholder,
+.admin-med-modal textarea::placeholder {
+  color: #7b8d98;
+  opacity: 1;
+}
+
+/* Stronger information hierarchy. */
+.admin-med-summary,
+.admin-med-search,
+.admin-med-detail,
+.admin-new-med,
+.admin-editor-section,
+.admin-med-status-card,
+.admin-clinical-record,
+.admin-med-signatures,
+.admin-med-history {
+  color: #152331;
+}
+
+.admin-med-open strong,
+.admin-med-status-card b,
+.admin-field-control b,
+.admin-editor-section h3,
+.admin-path-card h4,
+.admin-formula h4,
+.admin-clinical-record h3,
+.admin-med-signatures h3,
+.admin-med-history h3 {
+  color: #172736;
+}
+
+.admin-med-open small,
+.admin-med-status-card span,
+.admin-field-control span,
+.admin-editor-section p,
+.admin-new-med p,
+.admin-med-summary span,
+.admin-med-footer span {
+  color: #536a79;
+}
+
+.admin-field,
+.admin-list-row,
+.admin-key-value,
+.admin-age-band {
+  color: #263f50;
+}
+
+.admin-editor-section,
+.admin-path-card,
+.admin-concentration-card,
+.admin-clinical-record article,
+.admin-med-signatures,
+.admin-med-history {
+  box-shadow: 0 2px 8px #1027370a;
+}
+
+/* Make long clinical records readable rather than visually compressed. */
+.admin-clinical-record p,
+.admin-clinical-record pre,
+.admin-value-list,
+.admin-path-card,
+.admin-editor-section {
+  line-height: 1.5;
+}
+
+.admin-clinical-record pre {
+  color: #213747;
+  background: #eef3f6;
+  border: 1px solid #d6e1e7;
+}
+
+.admin-med-detail {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+.admin-med-list {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 760px) {
+  .admin-med-backdrop {
+    padding: 0 !important;
+    place-items: stretch;
+    background: #f7fafc;
+  }
+
+  .admin-med-modal {
+    width: 100% !important;
+    max-width: none;
+    height: 100dvh !important;
+    max-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: hidden;
+  }
+
+  .admin-med-modal .admin-med-header {
+    min-height: 64px;
+    padding: 12px 14px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .admin-med-header h2 {
+    margin: 2px 0;
+    font-size: 1.25rem;
+  }
+
+  .admin-med-header small {
+    font-size: .68rem;
+  }
+
+  .admin-med-header span {
+    font-size: .78rem;
+    line-height: 1.3;
+  }
+
+  .admin-med-header button {
+    flex: 0 0 auto;
+    min-width: 46px;
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+
+  .admin-med-summary {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .admin-med-search {
+    padding: 10px 12px;
+    gap: 7px;
+  }
+
+  .admin-med-search input,
+  .admin-field input,
+  .admin-field select,
+  .admin-field textarea,
+  .admin-list-row input,
+  .admin-key-value input,
+  .admin-age-band input {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .admin-med-list {
+    padding: 8px 10px 20px;
+  }
+
+  .admin-med-open {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .admin-med-open strong {
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .admin-med-open small {
+    font-size: .78rem;
+    line-height: 1.3;
+  }
+
+  .admin-med-open em {
+    font-size: .68rem;
+    line-height: 1.3;
+  }
+
+  .admin-med-review-dates {
+    max-width: 94px;
+  }
+
+  .admin-med-review-dates b {
+    font-size: .9rem;
+  }
+
+  .admin-med-detail {
+    padding: 10px 10px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .admin-med-status-card,
+  .admin-form-grid,
+  .admin-form-grid.compact {
+    gap: 8px;
+  }
+
+  .admin-editor-section,
+  .admin-path-card,
+  .admin-concentration-card,
+  .admin-clinical-record article,
+  .admin-med-signatures,
+  .admin-med-history {
+    padding: 12px;
+    border-radius: 11px;
+  }
+
+  .admin-editor-section > header,
+  .admin-path-card > header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0 0 10px !important;
+    margin-bottom: 10px !important;
+    border-bottom: 1px solid #e0e8ec;
+  }
+
+  .admin-editor-section > header button,
+  .admin-path-card > header button,
+  .admin-inline-actions button,
+  .admin-editor-bottom button,
+  .admin-med-actions button,
+  .admin-field-control button {
+    min-height: 44px;
+  }
+
+  .admin-key-value,
+  .admin-age-band,
+  .admin-list-row {
+    gap: 7px;
+  }
+
+  .admin-clinical-record pre {
+    max-width: 100%;
+    font-size: 11px;
+    overflow-x: auto;
+  }
+
+  .admin-med-footer {
+    flex: 0 0 auto;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .admin-med-footer span {
+    font-size: .74rem;
+  }
+}
