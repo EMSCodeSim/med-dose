@@ -1,0 +1,116 @@
+name: Force generic medications into Fentanyl format
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    if: github.event.head_commit.message == 'Run generic Fentanyl format conversion'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Replace generic render shell with Fentanyl shell
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/DmpMedicationCalculator.tsx')
+          t=p.read_text(encoding='utf-8')
+          if 'import "./versedBuilder.css";' not in t:
+              t=t.replace('import "./genericMedication.css";','import "./genericMedication.css";\nimport "./versedBuilder.css";\nimport "./versedConsole.css";\nimport "./fentanylBuilder.css";',1)
+
+          start=t.index('  return <main className="generic-calc unified-medication-shell generic-unified-medication-shell"')
+          board_start=t.index('    <CalculationBoard className="generic-status-board" boxes={[',start)
+          board_end=t.index('    ]}/>',board_start)+len('    ]}/>')
+          section_marker='    <section className="wizard-card generic-body">'
+          section_start=t.index(section_marker,board_end)
+          board=t[board_start:board_end]
+          board=board.replace('className="generic-status-board"','className="versed-status-board"',1)
+          new_open='''  return <main className="versed-builder fentanyl-builder generic-fentanyl-builder" aria-label={`${medication.name} calculator`}>
+    <div className="versed-builder-top"><button className="drug-back-button" onClick={close}>‹ Back to medications</button><span>{medication.name.toUpperCase()} FORMAT</span><button onClick={close}>Start over</button></div>
+    <div className="versed-layout generic-fentanyl-layout">
+      <aside className="versed-left-column" aria-label="Calculation controls">
+'''+board+'''\n      </aside>
+      <section className="builder-workspace generic-body generic-fentanyl-workspace">
+        <div className="generic-fentanyl-reference"><div className="versed-reference-vial"><small>{(selectedAgent||medication.name).toUpperCase()}</small><b>Rx</b><span>MEDICATION</span></div><span><small>SELECTED MEDICATION</small><b>{selectedAgent||medication.name}</b><em>DMP {medication.protocolId}</em></span></div>
+        <div className="clinical-banner"><b>DMP verified</b><span>July 2026 • Medication {medication.protocolId}</span></div>
+'''
+          t=t[:start]+new_open+t[section_start+len(section_marker):]
+          old_end='''    </section>\n  </main>;'''
+          new_end='''      </section>\n    </div>\n  </main>;'''
+          if old_end not in t:
+              raise SystemExit('Could not find generic render closing tags')
+          t=t.replace(old_end,new_end,1)
+          p.write_text(t,encoding='utf-8')
+
+          p=Path('src/unifiedMedicationFlow.css')
+          css=p.read_text(encoding='utf-8')
+          addition='''
+
+/* Generic medication calculators now use the Fentanyl/Versed console shell. */
+.generic-fentanyl-builder{width:min(1120px,100%);margin:0 auto;padding:8px 8px 130px}
+.generic-fentanyl-layout{align-items:start}
+.generic-fentanyl-layout>.versed-left-column{grid-column:1;min-width:0}
+.generic-fentanyl-layout>.generic-fentanyl-workspace{grid-column:2;min-width:0}
+.generic-fentanyl-reference{display:grid;grid-template-columns:54px 1fr;gap:10px;align-items:center;margin-bottom:10px;padding:9px;border:2px solid #0873b5;border-radius:12px;background:#eef8fd}
+.generic-fentanyl-reference .versed-reference-vial{height:72px;position:static}
+.generic-fentanyl-reference>span{display:flex;flex-direction:column;min-width:0}
+.generic-fentanyl-reference>span small{color:#0873b5;font-size:7px;font-weight:900;letter-spacing:.1em}
+.generic-fentanyl-reference>span b{font-size:18px;color:#17364c;overflow-wrap:anywhere}
+.generic-fentanyl-reference>span em{font-size:9px;color:#607582;font-style:normal}
+.generic-fentanyl-workspace .generic-wizard-top,.generic-fentanyl-workspace .generic-progress{display:none!important}
+.generic-fentanyl-workspace .clinical-banner{margin:0 0 12px}
+.generic-fentanyl-workspace.wizard-card{box-shadow:none}
+@media(max-width:760px){
+  .generic-fentanyl-builder{padding:4px 4px 120px}
+  .generic-fentanyl-layout{display:grid!important;grid-template-columns:minmax(0,1.18fr) minmax(0,.82fr)!important;gap:6px!important;align-items:start!important}
+  .generic-fentanyl-layout>.versed-left-column{grid-column:1!important;min-width:0}
+  .generic-fentanyl-layout>.generic-fentanyl-workspace{grid-column:2!important;min-width:0;padding:9px 6px!important;border-radius:10px!important}
+  .generic-fentanyl-layout .versed-status-board{position:static!important;top:auto!important;margin:0!important;min-width:0!important}
+  .generic-fentanyl-layout .versed-status-board>header{position:static!important;padding:7px 6px!important}
+  .generic-fentanyl-layout .versed-status-board>div{display:grid!important;grid-template-columns:1fr!important;overflow:visible!important;padding:5px!important;gap:5px!important}
+  .generic-fentanyl-layout .versed-status-board button{min-height:54px!important;padding:6px 22px 6px 7px!important;flex:none!important;width:100%!important}
+  .generic-fentanyl-layout .versed-status-board button small{font-size:7px!important}
+  .generic-fentanyl-layout .versed-status-board button b{font-size:9px!important;white-space:normal!important}
+  .generic-fentanyl-layout .versed-status-board button span{font-size:7px!important}
+  .generic-fentanyl-reference{grid-template-columns:34px 1fr;gap:5px;padding:5px;margin-bottom:6px}
+  .generic-fentanyl-reference .versed-reference-vial{height:49px}
+  .generic-fentanyl-reference>span small{font-size:5px}
+  .generic-fentanyl-reference>span b{font-size:10px}
+  .generic-fentanyl-reference>span em{font-size:7px}
+  .generic-fentanyl-workspace .clinical-banner{padding:6px!important;margin-bottom:7px!important;font-size:7px!important}
+  .generic-fentanyl-workspace>h1{font-size:15px!important;line-height:1.08!important;margin:4px 0!important}
+  .generic-fentanyl-workspace>.screen-help{font-size:8px!important;line-height:1.35!important;margin-bottom:9px!important}
+  .generic-fentanyl-workspace>.eyebrow{font-size:7px!important}
+  .generic-fentanyl-workspace .scan-confirm-card{grid-template-columns:48px 1fr!important;padding:6px!important;gap:6px!important}
+  .generic-fentanyl-workspace .reference-vial{transform:scale(.72);transform-origin:center}
+  .generic-fentanyl-workspace .continue{min-height:44px!important;font-size:9px!important}
+}
+'''
+          if 'Generic medication calculators now use the Fentanyl/Versed console shell.' not in css:
+              css+=addition
+          p.write_text(css,encoding='utf-8')
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Commit changes
+        shell: bash
+        run: |
+          git config user.name "EMSCodeSim"
+          git config user.email "davidagallaher@hotmail.com"
+          git add src/DmpMedicationCalculator.tsx src/unifiedMedicationFlow.css
+          git commit -m "Force all generic medications into Fentanyl format"
+          git push origin HEAD:main
