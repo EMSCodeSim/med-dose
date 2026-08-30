@@ -1,6 +1,7 @@
 import {useEffect,useState} from "react";
 import type {GenericTreatmentContext} from "./DmpMedicationCalculator";
 import CalculationBoard,{type CalculationBox} from "./CalculationBoard";
+import MedicationBuilderShell from "./MedicationBuilderShell";
 import WeightQuickSelect from "./WeightQuickSelect";
 import DoseSyringe from "./DoseSyringe";
 import type {EncounterPatient} from "./VersedBuilder";
@@ -55,11 +56,7 @@ export default function KetamineBuilder({close,record,onContextChange,medication
     {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyConfirmed?"One confirmation":"Review complete safety list",complete:safetyConfirmed,active:stage==="safety",available:!recorded,onClick:()=>!recorded&&setStage("safety")},
   ];
 
-  return <main className="versed-builder ketamine-builder">
-    <div className="versed-builder-top"><button className="drug-back-button" onClick={close}>‹ Back to medications</button><span>KETAMINE WORKING MED</span><button onClick={close}>Start over</button></div>
-    <div className={`versed-layout${calculationReady?" calculation-complete":""}`}>
-      <header className="builder-medication-banner">{medicationReference}</header>
-      <aside className="versed-left-column" aria-label="Calculation controls"><CalculationBoard boxes={board} className="versed-status-board"/><div id="versed-left-tools" className="versed-left-tools"/></aside>
+  return <MedicationBuilderShell medication={{name:"Ketamine",subtitle:"Adult analgesia waiver",protocolId:"500:62",vialLabel:"Ketamine"}} boxes={board} close={close} reset={close} calculationComplete={calculationReady} leftTools={<div id="versed-left-tools" className="versed-left-tools"/>}>
       {stage==="result"&&<section className="versed-dashboard" aria-label="Ketamine dose and repeat information">
         <header className="administration-area-heading"><small>DRUG ADMINISTRATION</small><b>Ketamine</b><span>IV/IO • 50–100 mL NS over 5–10 minutes</span></header>
         <section className={calculationReady?"dashboard-primary-dose ready":"dashboard-primary-dose pending"}><small>DOSE AND AMOUNT TO GIVE</small>{dosePreviewReady?<><div className="dashboard-dose-answer"><strong>{fmt(selectedDose)} mg</strong><span>Draw <b>{volume?`${fmt(volume)} mL`:"—"}</b></span></div><p>Exact calculation {fmt(protocolDose)} mg • waiver-chart whole-mg dose {fmt(roundedProtocolDose)} mg • mix in 50–100 mL NS over 5–10 minutes</p></>:<strong className="dashboard-dose-pending">Complete required checks</strong>}</section>
@@ -80,6 +77,5 @@ export default function KetamineBuilder({close,record,onContextChange,medication
         {stage==="dose"&&<><h1>Select amount to give</h1><p className="screen-help">The exact dose is 0.25 mg/kg. The waiver chart uses a whole-milligram operational dose; that rounded value is prefilled and may be lowered.</p><div className="live-math"><small>PROTOCOL DOSE</small><b>{fmt(protocolDose)} mg exact → {fmt(roundedProtocolDose)} mg</b><span>{fmt(weightKg)} kg × 0.25 mg/kg → waiver-chart whole mg</span></div><div className="dashboard-dose-editor"><label>Selected dose<input autoFocus inputMode="decimal" value={plannedDose} onChange={event=>setPlannedDose(event.target.value)}/><b>mg</b></label>{!selectedDoseValid&&<span>Enter more than 0 and no more than {fmt(doseCeiling)} mg (exact or waiver-rounded maximum).</span>}<button onClick={()=>setPlannedDose(fmt(roundedProtocolDose))}>Use calculated dose</button></div><button className="continue" disabled={!selectedDoseValid} onClick={()=>setStage("safety")}>Use selected dose <span>→</span></button></>}
         {stage==="safety"&&<><h1>Review Ketamine safety</h1><p className="screen-help">Read every item, then confirm the full list once.</p><div className="builder-safety-list">{safetyItems.map((item,index)=><div key={item}><b>{index+1}</b><span>{item}</span></div>)}</div><label className={safetyConfirmed?"builder-confirm checked":"builder-confirm"}><input type="checkbox" checked={safetyConfirmed} onChange={event=>setSafetyConfirmed(event.target.checked)}/><span><b>Confirm all safety checks</b>Every item above is confirmed</span></label><button className="continue" disabled={!safetyConfirmed} onClick={()=>setStage("result")}>Show final dose <span>→</span></button></>}
       </section>}
-    </div>
-  </main>;
+  </MedicationBuilderShell>;
 }

@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from "react";
 import type {GenericMedication,GenericDosePath} from "./dmpMedicationData";
 import DoseTracker from "./DoseTracker";
 import CalculationBoard from "./CalculationBoard";
+import MedicationBuilderShell from "./MedicationBuilderShell";
 import type {EncounterPatient} from "./VersedBuilder";
 import WeightQuickSelect from "./WeightQuickSelect";
 import "./genericMedication.css";
@@ -60,8 +61,7 @@ export default function DmpMedicationCalculator({medication,close,record,openPro
   const back=()=>{const index=visibleSteps.indexOf(step);setStep(visibleSteps[Math.max(0,index-1)])};
 
   const patientComplete=!!path&&(!needsPatientInfo||((!ageChangesDose||age!=="")&&(!needsWeight||kg>0)&&!eligibility));
-  return <main className="generic-calc unified-medication-shell generic-unified-medication-shell" aria-label={`${medication.name} calculator`}>
-    <CalculationBoard className="generic-status-board" boxes={[
+  return <MedicationBuilderShell medication={{name:selectedAgent||medication.name,subtitle:medication.name,protocolId:medication.protocolId}} boxes={[
       {id:"medication",label:"MEDICATION",value:selectedAgent||medication.name,detail:medConfirmed?"Physical medication confirmed":"Confirm physical medication",complete:medConfirmed,active:step==="medication",available:true,onClick:()=>setStep("medication")},
       {id:"concentration",label:"CONCENTRATION",value:conc>0?`${fmt(conc)} ${concentrationUnit}/mL`:"",detail:concConfirmed?"Physical label confirmed":"Confirm physical label",complete:agentHasConcentration&&concConfirmed,notRequired:!agentHasConcentration,active:step==="concentration",available:medConfirmed,onClick:()=>setStep("medication")},
       {id:"indication",label:"INDICATION",value:path?.label||"",detail:path?"DMP pathway selected":"Select reason for use",complete:!!path,active:step==="indication",available:medConfirmed&&(!agentRequiresConcentration||concConfirmed),onClick:()=>setStep("indication")},
@@ -69,7 +69,7 @@ export default function DmpMedicationCalculator({medication,close,record,openPro
       {id:"patient",label:"PATIENT",value:patientText,detail:needsPatientInfo?"Dose-changing information":"No patient entry changes dose",complete:needsPatientInfo&&patientComplete,notRequired:!!path&&!needsPatientInfo,active:step==="patient",available:!!path&&!!selectedRoute,onClick:()=>needsPatientInfo&&setStep("patient")},
       {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyComplete?"One confirmation":"Review complete safety list",complete:(contraindications.length>0||specialChecksText.length>0||!!path?.baseContact)&&safetyComplete,notRequired:!!path&&contraindications.length===0&&specialChecksText.length===0&&!path.baseContact,active:step==="safety",available:patientComplete,onClick:()=>setStep("safety")},
       {id:"result",label:"FINAL DOSE",value:result?`${finalGiveText} • ${finalVolumeText}`:"",detail:safetyComplete?selectedRoute:"Complete required checks",complete:step==="result"&&safetyComplete,active:step==="result",available:safetyComplete,onClick:()=>setStep("result")},
-    ]}/>
+    ]} close={close} reset={close} calculationComplete={step==="result"&&safetyComplete}>
     <div className="wizard-top generic-wizard-top"><button className="back" onClick={step==="medication"?close:back}>‹ Back</button><span>Step {stepNumber} of {totalSteps}</span><button className="start-over" onClick={openProtocol}>Protocol §</button></div>
     <div className="progress generic-progress" aria-label={`Step ${stepNumber} of ${totalSteps}`}><i style={{width:`${stepNumber/totalSteps*100}%`}}/></div>
     <div className="clinical-banner"><b>DMP verified</b><span>July 2026 • Medication {medication.protocolId}</span></div>
@@ -104,7 +104,7 @@ export default function DmpMedicationCalculator({medication,close,record,openPro
         <button className="new-calc" onClick={close}>{administrations.length?"Return to medication list":"Close without recording"}</button>
       </>}
     </section>
-  </main>;
+  </MedicationBuilderShell>;
 }
 
 export function calculateGenericDose(path:GenericDosePath,age:number,weight:number,medicationId:string){
