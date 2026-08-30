@@ -69,6 +69,98 @@
   letter-spacing: .09em;
 }
 
+/* Force generic DMP medications into the same two-column console presentation
+   used by Fentanyl. This intentionally overrides the former vertical wizard. */
+.generic-calc.generic-unified-medication-shell {
+  display:grid !important;
+  grid-template-columns:minmax(0,1.18fr) minmax(0,.82fr) !important;
+  gap:14px !important;
+  align-items:start !important;
+  width:min(1120px,100%) !important;
+  max-width:1120px !important;
+  margin:0 auto !important;
+  padding:8px 8px 130px !important;
+}
+
+.generic-calc.generic-unified-medication-shell > .generic-status-board {
+  grid-column:1 !important;
+  grid-row:1 / span 4 !important;
+  position:sticky !important;
+  top:88px !important;
+  margin:0 !important;
+  min-width:0 !important;
+  border-radius:16px !important;
+}
+
+.generic-calc.generic-unified-medication-shell > .generic-wizard-top {
+  grid-column:1 / -1 !important;
+  grid-row:1 !important;
+  position:relative !important;
+  z-index:2 !important;
+  margin:0 0 4px !important;
+  padding:0 4px !important;
+  transform:translateY(-2px) !important;
+}
+
+.generic-calc.generic-unified-medication-shell > .generic-progress {
+  grid-column:1 / -1 !important;
+  grid-row:2 !important;
+  margin:0 0 4px !important;
+}
+
+.generic-calc.generic-unified-medication-shell > .clinical-banner {
+  grid-column:2 !important;
+  grid-row:3 !important;
+  margin:0 0 6px !important;
+}
+
+.generic-calc.generic-unified-medication-shell > .generic-body {
+  grid-column:2 !important;
+  grid-row:4 !important;
+  min-width:0 !important;
+  margin:0 !important;
+  border:1px solid #d4e0e6 !important;
+  border-radius:16px !important;
+  background:#fff !important;
+  box-shadow:0 10px 30px #17364c12 !important;
+}
+
+.generic-calc .generic-status-board > header {
+  background:#102a40 !important;
+  color:#fff !important;
+}
+
+.generic-calc .generic-status-board .board-boxes {
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:7px !important;
+  padding:10px !important;
+  overflow:visible !important;
+}
+
+.generic-calc .generic-status-board .board-boxes > button {
+  width:100% !important;
+  min-height:72px !important;
+  flex:none !important;
+}
+
+.generic-calc .generic-body > .eyebrow {
+  color:#0873b5 !important;
+  font-size:10px !important;
+  font-weight:900 !important;
+  letter-spacing:.14em !important;
+}
+
+.generic-calc .generic-body > h1 {
+  margin:6px 0 !important;
+  font-size:28px !important;
+  line-height:1.12 !important;
+}
+
+.generic-calc .generic-body .screen-help {
+  color:#607382 !important;
+}
+
 @media (max-width: 899px) {
   .legacy-unified-medication-shell,
   .generic-unified-medication-shell {
@@ -83,5 +175,135 @@
   .generic-unified-medication-shell .final-dose-answer .final-give,
   .generic-unified-medication-shell .final-dose-answer .final-draw {
     min-height: 92px;
+  }
+}
+
+@media(max-width:760px){
+  .generic-calc.generic-unified-medication-shell {
+    display:grid !important;
+    grid-template-columns:minmax(0,1.18fr) minmax(0,.82fr) !important;
+    grid-template-rows:auto auto auto 1fr !important;
+    gap:6px !important;
+    padding:4px 4px 120px !important;
+    align-items:start !important;
+  }
+
+  .generic-calc.generic-unified-medication-shell > .generic-wizard-top {
+    grid-column:1 / -1 !important;
+    grid-row:1 !important;
+    position:sticky !important;
+    top:58px !important;
+    z-index:18 !important;
+    background:#edf2f5 !important;
+    margin:0 !important;
+    padding:2px 4px !important;
+  }
+
+  .generic-calc.generic-unified-medication-shell > .generic-progress {
+    grid-column:1 / -1 !important;
+    grid-row:2 !important;
+    margin:0 2px 4px !important;
+  }
+
+  .generic-calc.generic-unified-medication-shell > .generic-status-board {
+    grid-column:1 !important;
+    grid-row:3 / span 2 !important;
+    position:static !important;
+    top:auto !important;
+    margin:0 !important;
+    min-width:0 !important;
+    border-radius:11px !important;
+    overflow:hidden !important;
+  }
+
+  .generic-calc.generic-unified-medication-shell > .clinical-banner {
+    grid-column:2 !important;
+    grid-row:3 !important;
+    margin:0 !important;
+    padding:6px !important;
+    min-width:0 !important;
+    font-size:7px !important;
+    line-height:1.25 !important;
+  }
+
+  .generic-calc.generic-unified-medication-shell > .generic-body {
+    grid-column:2 !important;
+    grid-row:4 !important;
+    min-width:0 !important;
+    padding:11px 7px !important;
+    border-radius:10px !important;
+  }
+
+  .generic-calc .generic-status-board > header {
+    position:static !important;
+    padding:7px 6px !important;
+  }
+
+  .generic-calc .generic-status-board > header h2 {
+    font-size:14px !important;
+    margin:2px 0 !important;
+  }
+
+  .generic-calc .generic-status-board > header p {
+    display:none !important;
+  }
+
+  .generic-calc .generic-status-board .board-boxes {
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:5px !important;
+    padding:5px !important;
+    overflow:visible !important;
+  }
+
+  .generic-calc .generic-status-board .board-boxes > button {
+    width:100% !important;
+    min-height:54px !important;
+    padding:6px 22px 6px 7px !important;
+    flex:none !important;
+  }
+
+  .generic-calc .generic-status-board .board-boxes button small {
+    font-size:7px !important;
+  }
+
+  .generic-calc .generic-status-board .board-boxes button b {
+    font-size:9px !important;
+    line-height:1.15 !important;
+    white-space:normal !important;
+  }
+
+  .generic-calc .generic-status-board .board-boxes button span {
+    font-size:7px !important;
+    line-height:1.2 !important;
+  }
+
+  .generic-calc .generic-body > .eyebrow {
+    font-size:7px !important;
+  }
+
+  .generic-calc .generic-body > h1 {
+    margin:4px 0 !important;
+    font-size:15px !important;
+    line-height:1.08 !important;
+    overflow-wrap:anywhere !important;
+  }
+
+  .generic-calc .generic-body .screen-help {
+    margin:0 0 8px !important;
+    font-size:8px !important;
+    line-height:1.3 !important;
+  }
+
+  .generic-calc .generic-body .continue {
+    min-height:42px !important;
+    font-size:9px !important;
+  }
+
+  .generic-calc .generic-body .scan-confirm-card,
+  .generic-calc .generic-body .vial-entry,
+  .generic-calc .generic-body .route-grid,
+  .generic-calc .generic-body .stack {
+    min-width:0 !important;
   }
 }
