@@ -87,6 +87,70 @@ def wrap_generic(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def wrap_legacy_app(path: Path) -> None:
+    text = ensure_shell_import(path.read_text(encoding="utf-8"))
+    if "legacy-medication-builder-host" in text:
+        path.write_text(text, encoding="utf-8")
+        return
+
+    section_start_marker = '      <section className={`wizard-shell${step === "drug" ? " pilot-home-shell" : ""}'
+    section_start = text.index(section_start_marker)
+    section_open_end = text.index(">", section_start) + 1
+
+    board_start_marker = '        {drug && step !== "drug" && <CalculationBoard boxes={['
+    board_start = text.index(board_start_marker, section_open_end)
+    board_end_marker = '        ]}/>}'
+    board_end = text.index(board_end_marker, board_start) + len(board_end_marker)
+    board_markup = text[board_start:board_end]
+    boxes_start = board_markup.index("boxes=") + len("boxes=")
+    boxes_expr = board_markup[boxes_start:board_markup.rfind("/>")].strip()
+
+    home_start = text.index('        {step === "drug" && (', board_end)
+    legacy_steps_start = text.index('        {step === "scanConfirm"', home_start)
+    home_block = text[home_start:legacy_steps_start].rstrip()
+
+    section_close_marker = '\n      </section>\n      {genericMedId'
+    section_close = text.index(section_close_marker, legacy_steps_start)
+    legacy_steps = text[legacy_steps_start:section_close].rstrip()
+
+    legacy_header = '''          <div className="progress legacy-medication-progress">
+            <i style={{ width: `${((pos + 1) / visible.length) * 100}%` }} />
+          </div>
+          <div className="clinical-banner">
+            <b>DMP verified</b>
+            <span>July 2026 • Approved July 1, 2026 • Next review January 2027</span>
+          </div>'''
+
+    replacement = (
+        text[section_start:section_open_end]
+        + "\n"
+        + home_block
+        + "\n"
+        + '        {drug && step !== "drug" && (\n'
+        + '          <div className="legacy-medication-builder-host">\n'
+        + '            <MedicationBuilderShell\n'
+        + '              medication={{name:medName(drug),subtitle:meds.find((med)=>med.id===drug)?.sub||"DMP medication",protocolId:protocolId(drug).replace("DMP ",""),vialLabel:medName(drug)}}\n'
+        + f'              boxes={boxes_expr}\n'
+        + '              close={reset}\n'
+        + '              reset={reset}\n'
+        + '              calculationComplete={step==="review"&&safetyComplete}\n'
+        + '            >\n'
+        + legacy_header
+        + "\n"
+        + legacy_steps
+        + "\n"
+        + '            </MedicationBuilderShell>\n'
+        + '          </div>\n'
+        + '        )}'
+    )
+
+    text = text[:section_start] + replacement + text[section_close:]
+    # The legacy path no longer renders CalculationBoard directly; the shared
+    # shell owns it now. Keep only the shell import in App.tsx.
+    text = text.replace('import CalculationBoard from "./CalculationBoard";\n', "")
+    path.write_text(text, encoding="utf-8")
+
+
 def main() -> None:
     wrap_specialized(
         SRC / "FentanylBuilder.tsx",
@@ -107,6 +171,7 @@ def main() -> None:
         '<div id="versed-left-tools" className="versed-left-tools"/>',
     )
     wrap_generic(SRC / "DmpMedicationCalculator.tsx")
+    wrap_legacy_app(SRC / "App.tsx")
 
 
 if __name__ == "__main__":
