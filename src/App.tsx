@@ -15,6 +15,7 @@ import "./pilotHome.css";
 import {genericMedication} from "./dmpMedicationData";
 import EncounterReport from "./EncounterReport";
 import AdminMedicationManager from "./AdminMedicationManager";
+import {mergeMedicationCatalog,medicationCatalogRetired,medicationCatalogVisible} from "./medicationCatalogStore";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
@@ -66,7 +67,7 @@ const indicationProtocolUrl = (drug: Drug, indication: string) =>
 const medicationPhoto = (drug: Drug) =>
   drug === "adenosine" ? "/medications/adenosine-vial.webp" : undefined;
 type MedicationCatalogItem={id:string;name:string;brand:string;sub:string;protocol:ProtocolTarget;calculator?:Drug};
-const meds:MedicationCatalogItem[] = [
+const bundledMeds:MedicationCatalogItem[] = [
   {id:"acetaminophen",name:"Acetaminophen",brand:"Tylenol",sub:"Analgesic / antipyretic",protocol:{id:"9005",name:"Acetaminophen",page:122}},
   {id:"adenosine",name:"Adenosine",brand:"Adenocard",sub:"Antiarrhythmic",protocol:{id:"9010",name:"Adenosine",page:123},calculator:"adenosine"},
   {id:"albuterol",name:"Albuterol",brand:"Proventil / Ventolin",sub:"Bronchodilator",protocol:{id:"9020",name:"Albuterol",page:125},calculator:"albuterol"},
@@ -106,6 +107,7 @@ const meds:MedicationCatalogItem[] = [
   {id:"sodium-bicarbonate",name:"Sodium Bicarbonate",brand:"Sodium bicarbonate",sub:"Alkalinizing agent",protocol:{id:"9280",name:"Sodium Bicarbonate",page:169}},
   {id:"ophthalmic-anesthetics",name:"Topical Ophthalmic Anesthetics",brand:"Tetracaine / Proparacaine",sub:"Eye pain / irrigation",protocol:{id:"9290",name:"Topical Ophthalmic Anesthetics",page:170}},
 ];
+const meds:MedicationCatalogItem[]=mergeMedicationCatalog(bundledMeds) as MedicationCatalogItem[];
 const MEDICATION_REVIEWS_KEY = "metro-med-dose-medication-reviews";
 const DMP_REVIEW_REVISION = "july-2026-clinical-audit-v2";
 type ReviewStage = "owner" | "lineSafety" | "medicalDirector";
@@ -123,9 +125,14 @@ function savedMedicationReviews():MedicationReviews {
   } catch { return {}; }
 }
 function medicationReviewCount(reviews:MedicationReviews,id:string){return reviewStages.filter((stage)=>reviews[id]?.[stage.id]?.revision===DMP_REVIEW_REVISION).length}
-const TESTING_VISIBLE_MEDICATION_IDS=["midazolam","fentanyl","ketamine"];
-const PILOT_RELEASED_MEDICATION_IDS=["midazolam","fentanyl","ketamine"];
-function medicationReleased(reviews:MedicationReviews,id:string){return PILOT_RELEASED_MEDICATION_IDS.includes(id)||medicationReviewCount(reviews,id)===3}
+const DEFAULT_TESTING_VISIBLE_MEDICATION_IDS=["midazolam","fentanyl","ketamine"];
+const TESTING_VISIBLE_MEDICATION_IDS=meds.filter((med)=>!medicationCatalogRetired(med.id)&&medicationCatalogVisible(med.id,DEFAULT_TESTING_VISIBLE_MEDICATION_IDS.includes(med.id))).map((med)=>med.id);
+const PILOT_RELEASED_MEDICATION_IDS=DEFAULT_TESTING_VISIBLE_MEDICATION_IDS;
+function medicationPreviouslyApproved(id:string){
+  if(typeof window==="undefined")return false;
+  try{const state=JSON.parse(window.localStorage.getItem("metro-med-dose-admin-medication-state-v1")||"{}");return Boolean(state?.[id]?.lastCompletedAt)}catch{return false}
+}
+function medicationReleased(reviews:MedicationReviews,id:string){return PILOT_RELEASED_MEDICATION_IDS.includes(id)||medicationPreviouslyApproved(id)||medicationReviewCount(reviews,id)===3}
 const reasons: Record<Drug, string[]> = {
   adenosine: ["Regular narrow-complex AV nodal reentrant tachycardia"],
   fentanyl: ["Moderate to severe pain in a hemodynamically stable patient"],
