@@ -1,0 +1,70 @@
+name: Add requested front page medications
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-build:
+    if: github.event.head_commit.message == 'Prepare requested front page medication update'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Patch front page medication catalog
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/App.tsx')
+          t=p.read_text(encoding='utf-8')
+          # Add explicit catalog entries for Ondansetron and Haloperidol while retaining grouped DMP records for Admin/history.
+          anti='{id:"antiemetics",name:"Antiemetics",brand:"Ondansetron • Droperidol",sub:"Nausea and vomiting",protocol:{id:"9040",name:"Antiemetics",page:128}},'
+          if '{id:"ondansetron",name:"Ondansetron"' not in t:
+              if anti not in t: raise SystemExit('Antiemetics catalog anchor not found')
+              t=t.replace(anti, anti+'\n  {id:"ondansetron",name:"Ondansetron",brand:"Zofran",sub:"Antiemetic",protocol:{id:"9040",name:"Antiemetics / Ondansetron",page:128}},',1)
+          anti_psy='{id:"antipsychotics",name:"Antipsychotics",brand:"Droperidol • Haloperidol • Olanzapine",sub:"Agitation / behavioral emergency",protocol:{id:"9045",name:"Antipsychotics",page:129}},'
+          if '{id:"haloperidol",name:"Haloperidol"' not in t:
+              if anti_psy not in t: raise SystemExit('Antipsychotics catalog anchor not found')
+              t=t.replace(anti_psy, anti_psy+'\n  {id:"haloperidol",name:"Haloperidol",brand:"Haldol",sub:"Antipsychotic / agitation",protocol:{id:"9045",name:"Antipsychotics / Haloperidol",page:129}},',1)
+          # Match DMP naming requested by the department.
+          t=t.replace('{id:"atropine",name:"Atropine",brand:"Atropine",sub:"Anticholinergic",protocol:{id:"9060",name:"Atropine",page:135}},','{id:"atropine",name:"Atropine Sulfate",brand:"Atropine",sub:"Anticholinergic",protocol:{id:"9060",name:"Atropine Sulfate",page:135}},',1)
+          t=t.replace('{id:"epinephrine",name:"Epinephrine",brand:"Adrenalin",sub:"Arrest • anaphylaxis • shock • wheezing",protocol:{id:"9120",name:"Epinephrine",page:148},calculator:"epinephrine"},','{id:"epinephrine",name:"Epinephrine (Epi)",brand:"Adrenalin",sub:"Arrest • anaphylaxis • shock • wheezing",protocol:{id:"9120",name:"Epinephrine",page:148},calculator:"epinephrine"},',1)
+          t=t.replace('{id:"naloxone",name:"Naloxone",brand:"Narcan",sub:"Opioid antagonist",protocol:{id:"9210",name:"Naloxone",page:159}},','{id:"naloxone",name:"Naloxone",brand:"Narcan",sub:"Opioid antagonist",protocol:{id:"9210",name:"Naloxone",page:159}},',1)
+          old='const DEFAULT_TESTING_VISIBLE_MEDICATION_IDS=["midazolam","fentanyl","ketamine"];'
+          new='const DEFAULT_TESTING_VISIBLE_MEDICATION_IDS=["adenosine","amiodarone","ondansetron","haloperidol","atropine","midazolam","fentanyl","calcium","dextrose","diphenhydramine","epinephrine","magnesium","methylprednisolone","naloxone","sodium-bicarbonate","ketamine"];'
+          if old not in t and new not in t: raise SystemExit('Default visibility list anchor not found')
+          t=t.replace(old,new,1)
+          # Keep these defaults available while Admin visibility remains able to hide any medication.
+          t=t.replace('const PILOT_RELEASED_MEDICATION_IDS=DEFAULT_TESTING_VISIBLE_MEDICATION_IDS;','const PILOT_RELEASED_MEDICATION_IDS=DEFAULT_TESTING_VISIBLE_MEDICATION_IDS;',1)
+          p.write_text(t,encoding='utf-8')
+
+          # Add generic calculator aliases for Ondansetron and Haloperidol by filtering their approved paths
+          # from the current DMP 9040/9045 grouped definitions. This avoids duplicate dose text.
+          p=Path('src/dmpMedicationData.ts')
+          t=p.read_text(encoding='utf-8')
+          marker='export function genericMedication(id:string):GenericMedication{\n  const bundled=genericMedications[id];'
+          repl='''export function genericMedication(id:string):GenericMedication{\n  const alias = id==="ondansetron" ? genericMedications.antiemetics : id==="haloperidol" ? genericMedications.antipsychotics : undefined;\n  const aliasBundled = alias ? {\n    ...alias,\n    id,\n    name: id==="ondansetron" ? "Ondansetron" : "Haloperidol",\n    paths: alias.paths.filter(path=>id==="ondansetron" ? path.agent.toLowerCase().includes("ondansetron") : path.agent.toLowerCase().includes("haloperidol")),\n    contraindications: id==="ondansetron" ? ["Confirm ondansetron-specific age and contraindications in current DMP 9040 Antiemetics protocol"] : alias.contraindications,\n  } as GenericMedication : undefined;\n  const bundled=genericMedications[id]||aliasBundled;'''
+          if marker not in t and 'const alias = id==="ondansetron"' not in t: raise SystemExit('genericMedication anchor not found')
+          t=t.replace(marker,repl,1)
+          p.write_text(t,encoding='utf-8')
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Build application
+        run: npm run build
+      - name: Commit validated medication update
+        run: |
+          git config user.name "EMSCodeSim"
+          git config user.email "davidagallaher@hotmail.com"
+          git add src/App.tsx src/dmpMedicationData.ts
+          git commit -m "Show requested DMP medications on front page"
+          git push origin HEAD:main
