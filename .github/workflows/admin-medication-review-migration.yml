@@ -1,0 +1,269 @@
+name: Medication admin review migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/admin-medication-review-migration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Add medication admin review system
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          store = r'''export const ADMIN_MEDICATION_STATE_KEY = "metro-med-dose-admin-medication-state-v1";
+          export const CLINICAL_OVERRIDE_KEY = "metro-med-dose-clinical-overrides-v1";
+          export const PROTOCOL_REVISION_DEFAULT = "July 2026";
+          export const REVIEW_INTERVAL_MONTHS = 6;
+
+          export type ReviewSignature = { reviewer:string; approvedAt:number; revision?:string };
+          export type ReviewSignatures = Partial<Record<"owner"|"lineSafety"|"medicalDirector",ReviewSignature>>;
+          export type ReviewHistoryEntry = {
+            id:string;
+            startedAt:number;
+            completedAt:number;
+            nextReviewAt:number;
+            protocolRevision:string;
+            clinicalRevision:number;
+            result:"no-change"|"changes-approved";
+            signatures:ReviewSignatures;
+            changeSummary?:string[];
+          };
+          export type MedicationAdminRecord = {
+            medicationId:string;
+            clinicalRevision:number;
+            protocolRevision:string;
+            lastCompletedAt?:number;
+            nextReviewAt?:number;
+            reviewStartedAt?:number;
+            draft?:unknown;
+            draftCreatedAt?:number;
+            history:ReviewHistoryEntry[];
+          };
+          export type MedicationAdminState = Record<string,MedicationAdminRecord>;
+          export type ClinicalOverrideState = Record<string,unknown>;
+
+          const canUseStorage=()=>typeof window!=="undefined"&&!!window.localStorage;
+          const safeParse=<T,>(key:string,fallback:T):T=>{
+            if(!canUseStorage())return fallback;
+            try{const parsed=JSON.parse(window.localStorage.getItem(key)||"");return parsed&&typeof parsed==="object"?parsed as T:fallback}catch{return fallback}
+          };
+          export const loadMedicationAdminState=()=>safeParse<MedicationAdminState>(ADMIN_MEDICATION_STATE_KEY,{});
+          export const saveMedicationAdminState=(state:MedicationAdminState)=>{if(canUseStorage())window.localStorage.setItem(ADMIN_MEDICATION_STATE_KEY,JSON.stringify(state))};
+          export const loadClinicalOverrides=()=>safeParse<ClinicalOverrideState>(CLINICAL_OVERRIDE_KEY,{});
+          export const saveClinicalOverrides=(state:ClinicalOverrideState)=>{if(canUseStorage())window.localStorage.setItem(CLINICAL_OVERRIDE_KEY,JSON.stringify(state))};
+          export const deepClone=<T,>(value:T):T=>JSON.parse(JSON.stringify(value)) as T;
+          export const addMonths=(timestamp:number,months:number)=>{const date=new Date(timestamp);date.setMonth(date.getMonth()+months);return date.getTime()};
+          export const initialAdminRecord=(medicationId:string):MedicationAdminRecord=>({medicationId,clinicalRevision:1,protocolRevision:PROTOCOL_REVISION_DEFAULT,history:[]});
+          export const signatureCount=(signatures:ReviewSignatures|undefined)=>["owner","lineSafety","medicalDirector"].filter(stage=>!!signatures?.[stage as keyof ReviewSignatures]?.approvedAt).length;
+          export const reviewTiming=(record:MedicationAdminRecord|undefined,now=Date.now())=>{
+            if(record?.reviewStartedAt)return "in-progress" as const;
+            if(!record?.nextReviewAt)return "not-scheduled" as const;
+            if(now>record.nextReviewAt)return "overdue" as const;
+            if(now>record.nextReviewAt-30*24*60*60*1000)return "due-soon" as const;
+            return "current" as const;
+          };
+          export const formatReviewDate=(timestamp?:number)=>timestamp?new Date(timestamp).toLocaleDateString():"Not completed";
+          '''
+
+          admin = r'''import {useEffect,useMemo,useState} from "react";
+          import {genericMedication} from "./dmpMedicationData";
+          import {
+            addMonths,
+            deepClone,
+            formatReviewDate,
+            initialAdminRecord,
+            loadClinicalOverrides,
+            loadMedicationAdminState,
+            REVIEW_INTERVAL_MONTHS,
+            reviewTiming,
+            saveClinicalOverrides,
+            saveMedicationAdminState,
+            signatureCount,
+            type MedicationAdminRecord,
+            type MedicationAdminState,
+            type ReviewSignatures,
+          } from "./adminMedicationStore";
+          import "./adminMedicationManager.css";
+
+          type CatalogMedication={id:string;name:string;brand:string;sub:string;protocol:{id:string;name:string;page:number};calculator?:string};
+          type Reviews=Record<string,ReviewSignatures>;
+          type Props={medications:CatalogMedication[];reviews:Reviews;setReviews:(reviews:Reviews)=>void;openLegacyReview:(id:string)=>void;close:()=>void};
+          type JsonObject=Record<string,unknown>;
+
+          const specialDefaults:Record<string,JsonObject>={
+            fentanyl:{id:"fentanyl",name:"Fentanyl",protocolId:"9230",page:163,category:"Opioid analgesic",indications:["Moderate to severe pain in a hemodynamically stable patient"],routes:["IV/IO","IM","IN"],concentrations:[{label:"50 mcg/mL",amount:50,amountUnit:"mcg",volume:1,volumeUnit:"mL",concentration:50,concentrationUnit:"mcg/mL"}],doseRules:{adult:"1 mcg/kg typical starting calculation; adult doses may be rounded to nearest 25 mcg",olderFrail:"Start with 1/2 traditional dose",pediatricIVIM:"1 mcg/kg",pediatricIN:"2 mcg/kg",cumulativeIVIM:"3 mcg/kg",cumulativeIN:"4 mcg/kg",repeatIVIMMinutes:5,repeatINMinutes:10},contraindications:["Hemodynamic instability or shock","Respiratory depression","Opioid + benzodiazepine coadministration requires direct physician verbal order"],monitoring:["Continuous pulse oximetry and respiratory reassessment","Naloxone and resuscitation equipment immediately available"],administration:["IN: divide equally between nostrils; app limit 1 mL per nostril","IM: IV is preferred for accurate titration","IV/IO: administer slowly and titrate to tolerable pain"]},
+            midazolam:{id:"midazolam",name:"Midazolam (Versed)",protocolId:"9070",page:136,category:"Benzodiazepine",indications:["Status epilepticus","Sedation for cardioversion","Sedation for transcutaneous pacing","Agitated/combative patient — IMC-RASS +3/+4","Imminent risk of bodily harm — IMC-RASS +4"],routes:["IV/IO","IM","IN"],doseRules:{adultSeizureIVIO:"5 mg",adultSeizureIMIN:"10 mg",adultSedationIVIO:"2 mg",adultSedationIMIN:"5 mg",agitationAdult:"5 mg",imminentRiskAdultIM:"10 mg",pediatricIVIO:"0.1 mg/kg",pediatricIMIN:"0.2 mg/kg",repeat:"Routine seizure/sedation pathway may repeat once after 5 minutes; agitation pathway reassess at 5 minutes"},contraindications:["Hypotension for selected treatment pathway","Respiratory depression","Opioid coadministration requires direct physician verbal order"],monitoring:["Continuous ECG and SpO2","Continuous ventilation monitoring / waveform capnography when available","Reassess airway, respiratory rate, blood pressure, perfusion and sedation score"]},
+            ketamine:{id:"ketamine",name:"Ketamine",protocolId:"500:62",page:1,category:"Adult analgesia waiver",indications:["Moderate to severe pain in an adult"],routes:["IV/IO"],concentrations:[{label:"200 mg / 20 mL",amount:200,amountUnit:"mg",volume:20,volumeUnit:"mL",concentration:10,concentrationUnit:"mg/mL"}],doseRules:{adult:"0.25 mg/kg",rounding:"Waiver chart uses whole-mg dose",repeat:"One standing-order repeat after reassessment; Base contact for subsequent doses"},contraindications:["Pediatric patient","Penetrating eye trauma"],monitoring:["Continuous cardiac monitoring","Pulse oximetry","Continuous waveform capnography","BVM ventilation and suction immediately available"],administration:["Mix in 50–100 mL NS","Administer over 5–10 minutes when conditions allow","Slow IV push permitted when mixing is not possible but may cause more dysphoria"]},
+            adenosine:{id:"adenosine",name:"Adenosine",protocolId:"9010",page:123,category:"Antiarrhythmic",indications:["Regular narrow-complex AV nodal reentrant tachycardia"],routes:["IV"],doseRules:{adultInitial:"12 mg rapid IV",adultRepeat:"One additional 12 mg rapid IV dose",pediatricInitial:"0.1 mg/kg; max 6 mg; direct Base order",pediatricRepeat:"0.2 mg/kg; max 12 mg; direct Base order"},administration:["Rapid IV bolus followed immediately by normal saline flush","Continuous ECG monitoring"]},
+            albuterol:{id:"albuterol",name:"Albuterol",protocolId:"9020",page:125,category:"Bronchodilator",indications:["Wheezing associated with allergic reaction","Bronchospasm — single nebulizer dose","Severe bronchospasm — continuous nebulizer dose","Hyperkalemia or crush injury — continuous nebulizer dose"],routes:["Nebulized"],doseRules:{single:"2.5 mg in 3 mL",continuous:"7.5 mg in 9 mL",repeatSingle:"May repeat twice for total of 3 single doses"},administration:["Nebulize at 6–8 L/min"]},
+            diphenhydramine:{id:"diphenhydramine",name:"Diphenhydramine",protocolId:"9100",page:144,category:"Antihistamine",indications:["Allergic reaction","Dystonic medication reaction or akathisia"],routes:["IV/IO","IM"],doseRules:{adult:"50 mg",adultOver65:"25 mg",pediatric:"1 mg/kg; max 50 mg"},administration:["Slow IV/IO/IM","For mild reactions consider PO per protocol"]},
+            methylprednisolone:{id:"methylprednisolone",name:"Methylprednisolone",protocolId:"9200",page:158,category:"Corticosteroid",indications:["Allergic reaction / anaphylaxis","Severe asthma or COPD","Suspected Addisonian crisis"],routes:["IV/IO"],doseRules:{adult:"125 mg",pediatric:"2 mg/kg; max 125 mg"},administration:["Slow IV/IO bolus over 2 minutes","Reconstitute and use immediately"]},
+            magnesium:{id:"magnesium",name:"Magnesium Sulfate",protocolId:"9190",page:157,category:"Electrolyte / antiarrhythmic / bronchodilator",indications:["Torsades — stable/intermittent","Torsades — unstable/peri-arrest","Torsades — cardiac arrest","Refractory severe bronchospasm","Eclampsia"],routes:["IV/IO","IV","IM"],administration:["Route and infusion duration depend on indication","Eclampsia IM pathway splits dose between buttocks when used"]},
+            epinephrine:{id:"epinephrine",name:"Epinephrine",protocolId:"9120",page:148,category:"Adrenergic agonist",indications:["Pulseless arrest","Systemic allergic reaction — IM","Wheezing — IM","Hypotension or refractory anaphylaxis — push dose","Hypotension or refractory anaphylaxis — infusion","Pediatric severe anaphylaxis — Base push dose","Bradycardia with poor perfusion","Stridor at rest — alternative to racemic epinephrine","Systemic allergic reaction — auto-injector"],routes:["IV/IO","IM","Nebulized"],concentrations:[{label:"1:10,000",concentration:0.1,concentrationUnit:"mg/mL"},{label:"1:1,000",concentration:1,concentrationUnit:"mg/mL"}],administration:["Calculator enforces indication-specific concentration and route matching"]}
+          };
+
+          const clone=(value:unknown)=>deepClone(value) as JsonObject;
+          const baseData=(med:CatalogMedication):JsonObject=>{
+            const generic=genericMedication(med.id);
+            if(generic)return clone(generic) as JsonObject;
+            if(specialDefaults[med.id])return clone(specialDefaults[med.id]);
+            return {id:med.id,name:med.name,brand:med.brand,category:med.sub,protocolId:med.protocol.id,protocolName:med.protocol.name,page:med.protocol.page,notes:["This medication is listed in the app catalog. Detailed calculator data has not yet been centralized into dmpMedicationData.ts."]};
+          };
+          const getRecord=(state:MedicationAdminState,id:string)=>state[id]||initialAdminRecord(id);
+          const statusLabel=(record:MedicationAdminRecord,signatures:ReviewSignatures)=>{
+            const count=signatureCount(signatures),timing=reviewTiming(record);
+            if(record.draft)return count?`CHANGES PENDING • ${count}/3":"CHANGES PENDING"`;
+            if(record.reviewStartedAt)return `REVIEW IN PROGRESS • ${count}/3`;
+            if(timing==="overdue")return "REVIEW OVERDUE";
+            if(timing==="due-soon")return "REVIEW DUE SOON";
+            if(record.lastCompletedAt)return "CURRENT";
+            return count===3?"REVIEW COMPLETE":"NOT REVIEWED";
+          };
+          const jsonText=(value:unknown)=>JSON.stringify(value,null,2);
+          const diffSummary=(before:unknown,after:unknown)=>{
+            if(JSON.stringify(before)===JSON.stringify(after))return [];
+            const b=(before&&typeof before==="object"&&!Array.isArray(before)?before:{}) as Record<string,unknown>;
+            const a=(after&&typeof after==="object"&&!Array.isArray(after)?after:{}) as Record<string,unknown>;
+            return Array.from(new Set([...Object.keys(b),...Object.keys(a)])).filter(key=>JSON.stringify(b[key])!==JSON.stringify(a[key])).map(key=>`${key}: changed`);
+          };
+
+          export default function AdminMedicationManager({medications,reviews,setReviews,openLegacyReview,close}:Props){
+            const [state,setState]=useState<MedicationAdminState>(()=>loadMedicationAdminState());
+            const [selectedId,setSelectedId]=useState<string|null>(null);
+            const [editing,setEditing]=useState(false);
+            const [draftText,setDraftText]=useState("");
+            const [protocolRevision,setProtocolRevision]=useState("");
+            const [search,setSearch]=useState("");
+            const [error,setError]=useState("");
+            const overrides=useMemo(()=>loadClinicalOverrides(),[state]);
+            const selected=selectedId?medications.find(m=>m.id===selectedId)||null:null;
+            const record=selectedId?getRecord(state,selectedId):null;
+            const publishedData=selected?((overrides[selected.id] as JsonObject|undefined)||baseData(selected)):null;
+            const currentData=record?.draft?(record.draft as JsonObject):publishedData;
+            const filtered=medications.filter(m=>`${m.name} ${m.brand} ${m.protocol.id}`.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>a.name.localeCompare(b.name));
+
+            const persist=(next:MedicationAdminState)=>{setState(next);saveMedicationAdminState(next)};
+            const updateRecord=(id:string,fn:(record:MedicationAdminRecord)=>MedicationAdminRecord)=>{const next={...state,[id]:fn(getRecord(state,id))};persist(next)};
+            const resetSignatures=(id:string)=>setReviews({...reviews,[id]:{}});
+            const beginReview=(id:string)=>{
+              const signatures=reviews[id]||{};
+              updateRecord(id,r=>({...r,reviewStartedAt:Date.now()}));
+              if(signatureCount(signatures)>0)resetSignatures(id);
+            };
+            const beginEdit=()=>{
+              if(!selected||!currentData)return;
+              setDraftText(jsonText(currentData));setProtocolRevision(record?.protocolRevision||"July 2026");setError("");setEditing(true);
+            };
+            const saveDraft=()=>{
+              if(!selected)return;
+              try{
+                const parsed=JSON.parse(draftText);
+                if(!parsed||typeof parsed!=="object"||Array.isArray(parsed))throw new Error("Medication data must be a JSON object.");
+                const id=(parsed as Record<string,unknown>).id;
+                if(id&&id!==selected.id)throw new Error("Medication id cannot be changed.");
+                updateRecord(selected.id,r=>({...r,protocolRevision:protocolRevision.trim()||r.protocolRevision,draft:parsed,draftCreatedAt:Date.now(),reviewStartedAt:Date.now()}));
+                resetSignatures(selected.id);setEditing(false);setError("");
+              }catch(err){setError(err instanceof Error?err.message:"Invalid medication data")}
+            };
+            const discardDraft=()=>{if(!selected)return;if(!window.confirm(`Discard the pending clinical changes for ${selected.name}?`))return;updateRecord(selected.id,r=>{const next={...r};delete next.draft;delete next.draftCreatedAt;return next});resetSignatures(selected.id);setEditing(false)};
+
+            useEffect(()=>{
+              if(!selectedId)return;
+              const r=getRecord(state,selectedId),signatures=reviews[selectedId]||{};
+              if(!r.reviewStartedAt||signatureCount(signatures)!==3)return;
+              const completedAt=Math.max(...Object.values(signatures).map(item=>item?.approvedAt||0),Date.now());
+              const changeSummary=r.draft?diffSummary((loadClinicalOverrides()[selectedId] as unknown)||baseData(medications.find(m=>m.id===selectedId)!),r.draft):[];
+              if(r.draft){const nextOverrides=loadClinicalOverrides();nextOverrides[selectedId]=deepClone(r.draft);saveClinicalOverrides(nextOverrides)}
+              const historyEntry={id:`${selectedId}-${completedAt}`,startedAt:r.reviewStartedAt,completedAt,nextReviewAt:addMonths(completedAt,REVIEW_INTERVAL_MONTHS),protocolRevision:r.protocolRevision,clinicalRevision:r.draft?r.clinicalRevision+1:r.clinicalRevision,result:r.draft?"changes-approved" as const:"no-change" as const,signatures:deepClone(signatures),changeSummary};
+              const nextRecord:MedicationAdminRecord={...r,clinicalRevision:historyEntry.clinicalRevision,lastCompletedAt:completedAt,nextReviewAt:historyEntry.nextReviewAt,history:[historyEntry,...r.history]};
+              delete nextRecord.reviewStartedAt;delete nextRecord.draft;delete nextRecord.draftCreatedAt;
+              const next={...state,[selectedId]:nextRecord};setState(next);saveMedicationAdminState(next);
+            },[reviews,selectedId]);
+
+            return <div className="modal-backdrop admin-med-backdrop" onClick={close}>
+              <section className="admin-med-modal" role="dialog" aria-modal="true" aria-label="Medication administration" onClick={event=>event.stopPropagation()}>
+                <header className="admin-med-header"><div><small>ADMIN • CLINICAL GOVERNANCE</small><h2>{selected?selected.name:"Medication management"}</h2><span>{selected?`DMP ${selected.protocol.id} • ${record?.protocolRevision||"July 2026"}`:"Review, edit and re-approve medication information"}</span></div><button onClick={selected?()=>{setSelectedId(null);setEditing(false)}:close}>{selected?"‹ Medications":"×"}</button></header>
+                {!selected&&<>
+                  <div className="admin-med-summary"><b>{medications.length} medications</b><span>Three sequential signatures retained • six-month review tracking enabled</span></div>
+                  <label className="admin-med-search"><span>Search medications</span><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Medication or protocol"/></label>
+                  <div className="admin-med-list">{filtered.map(m=>{const r=getRecord(state,m.id),s=reviews[m.id]||{},timing=reviewTiming(r);return <button key={m.id} className={`admin-med-row ${timing}`} onClick={()=>{setSelectedId(m.id);setEditing(false)}}><span><strong>{m.name}</strong><small>{m.brand} • DMP {m.protocol.id}</small><em>{statusLabel(r,s)}</em></span><span className="admin-med-review-dates"><b>{signatureCount(s)}/3</b><small>Last: {formatReviewDate(r.lastCompletedAt)}</small><small>Next: {r.nextReviewAt?formatReviewDate(r.nextReviewAt):"Not scheduled"}</small></span><i>›</i></button>})}</div>
+                </>}
+                {selected&&record&&currentData&&<div className="admin-med-detail">
+                  <section className="admin-med-status-card"><div><small>CLINICAL REVISION</small><b>Revision {record.clinicalRevision}{record.draft?" • DRAFT":""}</b><span>{statusLabel(record,reviews[selected.id]||{})}</span></div><div><small>LAST REVIEW</small><b>{formatReviewDate(record.lastCompletedAt)}</b><span>Next: {record.nextReviewAt?formatReviewDate(record.nextReviewAt):"Complete the first review"}</span></div><div><small>SIGNATURES</small><b>{signatureCount(reviews[selected.id]||{})}/3</b><span>Owner → Line Safety → Medical Director</span></div></section>
+                  {record.draft&&<div className="admin-med-draft-warning"><b>Clinical changes are pending review.</b><span>The currently approved field data remains active until all three signatures are complete.</span></div>}
+                  <div className="admin-med-actions"><button onClick={beginEdit}>Edit medication</button><button onClick={()=>beginReview(selected.id)}>{record.reviewStartedAt?"Restart review":"Start 6-month review"}</button><button className="primary" disabled={!record.reviewStartedAt} onClick={()=>openLegacyReview(selected.id)}>Open 3-signature review</button>{record.draft&&<button className="danger" onClick={discardDraft}>Discard draft</button>}</div>
+                  {editing?<section className="admin-med-editor"><div className="admin-med-editor-note"><b>EDIT CLINICAL INFORMATION</b><span>Edit the complete medication record below. Saving creates a draft and clears current-cycle signatures. The field calculator continues using approved information until the 3-signature review is complete.</span></div><label><span>Protocol revision reviewed against</span><input value={protocolRevision} onChange={event=>setProtocolRevision(event.target.value)} placeholder="e.g. January 2027"/></label><label><span>Medication clinical record</span><textarea value={draftText} onChange={event=>setDraftText(event.target.value)} spellCheck={false}/></label>{error&&<div className="admin-med-error">{error}</div>}<div className="admin-med-editor-actions"><button onClick={()=>setEditing(false)}>Cancel</button><button className="primary" onClick={saveDraft}>Save clinical draft</button></div></section>:<ClinicalRecord data={currentData}/>} 
+                  <section className="admin-med-signatures"><h3>Current review signatures</h3>{(["owner","lineSafety","medicalDirector"] as const).map((stage,index)=>{const approval=reviews[selected.id]?.[stage];const labels=["Owner / Admin","Line Safety","Medical Director"];return <article key={stage} className={approval?"complete":"pending"}><i>{approval?"✓":index+1}</i><span><b>{labels[index]}</b>{approval?<small>{approval.reviewer} • {new Date(approval.approvedAt).toLocaleString()}</small>:<small>Pending</small>}</span></article>})}</section>
+                  <section className="admin-med-history"><h3>Review history</h3>{record.history.length?record.history.map(item=><details key={item.id}><summary><b>{new Date(item.completedAt).toLocaleDateString()}</b><span>{item.result==="no-change"?"No clinical changes":"Clinical changes approved"} • Revision {item.clinicalRevision}</span></summary><p>Protocol revision: {item.protocolRevision}</p><p>Next review: {new Date(item.nextReviewAt).toLocaleDateString()}</p>{item.changeSummary?.length?<ul>{item.changeSummary.map(change=><li key={change}>{change}</li>)}</ul>:null}</details>):<p>No completed six-month reviews recorded yet.</p>}</section>
+                </div>}
+                <footer className="admin-med-footer"><span>Review records are stored on this device. Department-wide synchronization still requires a shared backend or managed-device distribution process.</span><button onClick={close}>Done</button></footer>
+              </section>
+            </div>;
+          }
+
+          function ClinicalRecord({data}:{data:JsonObject}){
+            const entries=Object.entries(data).filter(([key])=>!key.startsWith("_"));
+            return <section className="admin-clinical-record"><div className="admin-clinical-intro"><small>COMPLETE MEDICATION RECORD</small><b>Review every section against the current protocol.</b><span>Use Edit medication only when the approved protocol changes.</span></div>{entries.map(([key,value])=><article key={key}><h3>{key.replace(/([A-Z])/g," $1").replace(/^./,letter=>letter.toUpperCase())}</h3>{Array.isArray(value)?<div className="admin-value-list">{value.map((item,index)=><div key={index}>{typeof item==="object"&&item!==null?<pre>{JSON.stringify(item,null,2)}</pre>:<span>{String(item)}</span>}</div>)}</div>:typeof value==="object"&&value!==null?<pre>{JSON.stringify(value,null,2)}</pre>:<p>{String(value??"—")}</p>}</article>)}</section>;
+          }
+          '''
+
+          css = r'''.admin-med-backdrop{z-index:10000}.admin-med-modal{width:min(1120px,96vw);height:min(92vh,980px);overflow:hidden;background:#f7fafc;border-radius:18px;box-shadow:0 28px 80px #07131f66;display:flex;flex-direction:column;color:#152331}.admin-med-header{display:flex;justify-content:space-between;align-items:flex-start;padding:20px 24px;background:#102737;color:white}.admin-med-header small{display:block;font-weight:800;letter-spacing:.1em;color:#91b7ca}.admin-med-header h2{margin:4px 0;font-size:1.65rem}.admin-med-header span{color:#c9dce5}.admin-med-header button{border:1px solid #ffffff55;background:#ffffff12;color:white;border-radius:10px;padding:9px 13px;font-weight:800}.admin-med-summary,.admin-med-footer{display:flex;justify-content:space-between;gap:20px;align-items:center;padding:14px 22px;background:white;border-bottom:1px solid #dce6ec}.admin-med-summary b{font-size:1.05rem}.admin-med-summary span,.admin-med-footer span{color:#526676;font-size:.88rem}.admin-med-search{padding:14px 22px;background:#eef4f7;display:flex;gap:14px;align-items:center}.admin-med-search span{font-weight:800}.admin-med-search input{flex:1;padding:10px 12px;border:1px solid #bdcdd6;border-radius:10px;background:white}.admin-med-list{overflow:auto;padding:12px 18px 24px;display:grid;gap:8px}.admin-med-row{display:grid;grid-template-columns:1fr auto 24px;gap:18px;align-items:center;text-align:left;background:white;border:1px solid #d8e3e9;border-radius:12px;padding:14px 16px}.admin-med-row:hover{border-color:#608aa0}.admin-med-row>span:first-child{display:flex;flex-direction:column;gap:2px}.admin-med-row strong{font-size:1rem}.admin-med-row small{color:#617482}.admin-med-row em{font-style:normal;font-size:.75rem;font-weight:900;letter-spacing:.04em;color:#33647a}.admin-med-row.overdue em{color:#a82f2f}.admin-med-row.due-soon em{color:#946300}.admin-med-review-dates{text-align:right;display:flex;flex-direction:column}.admin-med-review-dates b{font-size:1.1rem}.admin-med-detail{overflow:auto;padding:18px 22px 28px}.admin-med-status-card{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.admin-med-status-card>div{background:white;border:1px solid #d9e4e9;border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:3px}.admin-med-status-card small{font-weight:900;color:#687d8b}.admin-med-status-card b{font-size:1.05rem}.admin-med-status-card span{font-size:.82rem;color:#607380}.admin-med-draft-warning{margin-top:12px;padding:12px 14px;border-radius:10px;background:#fff4d5;border:1px solid #e7c766;display:flex;flex-direction:column}.admin-med-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.admin-med-actions button,.admin-med-editor-actions button,.admin-med-footer button{border:1px solid #9fb4c0;background:white;border-radius:9px;padding:9px 12px;font-weight:800}.admin-med-actions .primary,.admin-med-editor-actions .primary{background:#173e52;color:white;border-color:#173e52}.admin-med-actions .danger{color:#9c2929;border-color:#d6a6a6}.admin-med-actions button:disabled{opacity:.45}.admin-clinical-record{display:grid;gap:10px}.admin-clinical-intro{background:#e7f1f5;border-radius:12px;padding:14px;display:flex;flex-direction:column}.admin-clinical-intro small{font-weight:900;color:#477386}.admin-clinical-record article{background:white;border:1px solid #d9e4e9;border-radius:12px;padding:14px}.admin-clinical-record h3{margin:0 0 9px;font-size:.86rem;text-transform:uppercase;letter-spacing:.05em;color:#4a6675}.admin-clinical-record p{margin:0;white-space:pre-wrap}.admin-clinical-record pre{margin:0;white-space:pre-wrap;overflow:auto;background:#f2f6f8;border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.admin-value-list{display:grid;gap:7px}.admin-value-list>div{padding:9px;background:#f5f8fa;border-radius:8px}.admin-med-editor{background:white;border:1px solid #cddce4;border-radius:14px;padding:16px;display:grid;gap:13px}.admin-med-editor-note{display:flex;flex-direction:column;background:#fff4d5;border-radius:9px;padding:11px}.admin-med-editor label{display:grid;gap:5px;font-weight:800}.admin-med-editor input,.admin-med-editor textarea{font:inherit;border:1px solid #b9cbd4;border-radius:9px;padding:10px;background:white}.admin-med-editor textarea{min-height:420px;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}.admin-med-error{padding:10px;background:#ffe5e5;border:1px solid #e2a1a1;border-radius:8px;color:#8d2222;font-weight:800}.admin-med-editor-actions{display:flex;justify-content:flex-end;gap:8px}.admin-med-signatures,.admin-med-history{margin-top:16px;background:white;border:1px solid #d9e4e9;border-radius:12px;padding:14px}.admin-med-signatures h3,.admin-med-history h3{margin:0 0 10px}.admin-med-signatures article{display:flex;align-items:center;gap:10px;border-top:1px solid #edf2f4;padding:9px 0}.admin-med-signatures article:first-of-type{border-top:0}.admin-med-signatures i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e8eef1;font-style:normal;font-weight:900}.admin-med-signatures .complete i{background:#dcefe2;color:#1c6a38}.admin-med-signatures span{display:flex;flex-direction:column}.admin-med-history details{border-top:1px solid #edf2f4;padding:9px 0}.admin-med-history summary{cursor:pointer;display:flex;gap:12px;justify-content:space-between}.admin-med-footer{margin-top:auto;border-top:1px solid #dce6ec;border-bottom:0}.admin-med-footer span{max-width:780px}@media(max-width:720px){.admin-med-modal{width:100vw;height:100dvh;border-radius:0}.admin-med-status-card{grid-template-columns:1fr}.admin-med-row{grid-template-columns:1fr auto}.admin-med-row>i{display:none}.admin-med-review-dates small{display:none}.admin-med-summary,.admin-med-footer{align-items:flex-start;flex-direction:column}.admin-med-footer button{width:100%}.admin-med-detail{padding:12px}.admin-med-editor textarea{min-height:52vh}}
+          '''
+
+          Path("src/adminMedicationStore.ts").write_text(store.replace("          ",""),encoding="utf-8")
+          Path("src/AdminMedicationManager.tsx").write_text(admin.replace("          ",""),encoding="utf-8")
+          Path("src/adminMedicationManager.css").write_text(css.replace("          ",""),encoding="utf-8")
+
+          app_path=Path("src/App.tsx")
+          app=app_path.read_text(encoding="utf-8")
+          import_line='import AdminMedicationManager from "./AdminMedicationManager";\n'
+          if import_line not in app:
+            app=app.replace('import EncounterReport from "./EncounterReport";\n','import EncounterReport from "./EncounterReport";\n'+import_line)
+          app=app.replace('<button onClick={() => setSettingsOpen(true)} aria-label="Open drug list settings">Settings</button>','<button onClick={() => setSettingsOpen(true)} aria-label="Open medication admin">Admin</button>')
+          app=app.replace('Medication review settings','Admin')
+          old='{settingsOpen&&<MedicationVisibilitySettings reviews={medicationReviews} openReview={setReviewMedicationId} close={()=>setSettingsOpen(false)}/>}'
+          new='{settingsOpen&&<AdminMedicationManager medications={meds} reviews={medicationReviews} setReviews={setMedicationReviews} openLegacyReview={setReviewMedicationId} close={()=>setSettingsOpen(false)}/>}'
+          if old not in app:
+            raise SystemExit("Could not find Settings render target in App.tsx")
+          app=app.replace(old,new)
+          app_path.write_text(app,encoding="utf-8")
+
+          dmp_path=Path("src/dmpMedicationData.ts")
+          dmp=dmp_path.read_text(encoding="utf-8")
+          old_dmp='export function genericMedication(id:string){return genericMedications[id]}'
+          new_dmp='''export function genericMedication(id:string){\n  const bundled=genericMedications[id];\n  if(!bundled)return undefined;\n  if(typeof window==="undefined")return bundled;\n  try {\n    const overrides=JSON.parse(window.localStorage.getItem("metro-med-dose-clinical-overrides-v1")||"{}");\n    const override=overrides&&typeof overrides==="object"?overrides[id]:undefined;\n    return override&&typeof override==="object"?override as GenericMedication:bundled;\n  } catch { return bundled; }\n}'''
+          if old_dmp not in dmp:
+            raise SystemExit("Could not find genericMedication export")
+          dmp=dmp.replace(old_dmp,new_dmp)
+          dmp_path.write_text(dmp,encoding="utf-8")
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Build application
+        run: npm run build
+      - name: Commit admin medication review changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx src/dmpMedicationData.ts src/AdminMedicationManager.tsx src/adminMedicationStore.ts src/adminMedicationManager.css
+          if git diff --cached --quiet; then
+            echo "No migration changes to commit"
+            exit 0
+          fi
+          git commit -m "Add six-month medication admin review workflow"
+          git push origin HEAD:main
