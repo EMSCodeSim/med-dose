@@ -2,7 +2,7 @@ import {useEffect,useState} from "react";
 
 type Entry = { dose: number; volume: number; time: number };
 
-export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,repeatsLeft,repeatMinutes,secondsLeft,nextDose,initialDose,concentration,drug,reason,route,intranasal,record,openEndedRepeats=false,volumeEnabled=true}:{entries:Entry[];unit:string;total:number;totalVolume:number;maxTotal:number;repeatsLeft:number;repeatMinutes:number;secondsLeft:number;nextDose:number;initialDose?:number;concentration:number;drug:string;reason:string;route:string;intranasal:boolean;record:(dose:number)=>void;openEndedRepeats?:boolean;volumeEnabled?:boolean}) {
+export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,repeatsLeft,repeatMinutes,secondsLeft,nextDose,initialDose,concentration,drug,reason,route,intranasal,record,openEndedRepeats=false,volumeEnabled=true,hideInitialAction=false}:{entries:Entry[];unit:string;total:number;totalVolume:number;maxTotal:number;repeatsLeft:number;repeatMinutes:number;secondsLeft:number;nextDose:number;initialDose?:number;concentration:number;drug:string;reason:string;route:string;intranasal:boolean;record:(dose:number)=>void;openEndedRepeats?:boolean;volumeEnabled?:boolean;hideInitialAction?:boolean}) {
   const started=entries.length>0,due=started&&secondsLeft===0;
   const defaultDose=started?nextDose:(initialDose??nextDose);
   const [actual,setActual]=useState(String(defaultDose));
@@ -13,6 +13,7 @@ export default function DoseTracker({entries,unit,total,totalVolume,maxTotal,rep
   const need=reason==="Status epilepticus"?"only if the patient is still seizing":"only if reassessment shows it is still clinically indicated";
   const editor=editing?<div className="partial-dose compact-editor"><div className="partial-head"><span><small>ACTUAL AMOUNT GIVEN</small><b>Maximum {fmt(nextDose)} {unit}</b></span></div><label><span>Enter amount</span><div><input autoFocus inputMode="decimal" value={actual} onChange={e=>setActual(e.target.value)} aria-label={`Actual dose given in ${unit}`}/><b>{unit}</b></div></label>{amountOk&&volumeEnabled?<div className="actual-volume"><span>Volume to record</span><strong>{fmt(volume)} mL{intranasal?` • ${fmt(volume/2)} mL/nostril`:""}</strong></div>:!amountOk?<div className="partial-error" role="alert">Enter more than 0 and no more than {fmt(nextDose)} {unit}.</div>:null}</div>:null;
   const recordButton=<button className="record-dose" disabled={!amountOk} onClick={()=>record(amount)}>Record {amountOk?`${fmt(amount)} ${unit}${volumeEnabled?` • ${fmt(volume)} mL`:""}`:`dose`} given now</button>;
+  if(!started&&hideInitialAction)return null;
   const initialRecordButton=<button className="initial-record-dose" disabled={!amountOk} onClick={()=>record(amount)} aria-label={amountOk?`Give ${fmt(amount)} ${unit}${volumeEnabled?`, draw ${fmt(volume)} milliliters`:""} by ${route}, and record given now`:"Enter a valid dose before recording"}>
     <span><small>INITIAL DOSE</small><b>{route}</b></span>
     <strong>{amountOk?<>GIVE {doseText(amount)}{volumeEnabled&&<> = DRAW {fmt(volume)} mL</>}</>:"ENTER A VALID DOSE"}</strong>
