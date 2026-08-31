@@ -30,11 +30,23 @@ export default function FentanylDoseDashboard({medication,route,ready,previewRea
   return <section className="versed-dashboard shared-fentanyl-dashboard" aria-label={`Live ${medication} dose and repeat information`}>
     <header className="administration-area-heading"><small>DRUG ADMINISTRATION</small><b>{medication}</b><span>{route||"Route pending"}</span></header>
     <section className={ready?"dashboard-primary-dose ready":"dashboard-primary-dose pending"}>
-      <small>DOSE AND AMOUNT TO GIVE</small>
+      <small>{showGiveAction&&previewReady?"DOSE AND AMOUNT TO GIVE • TAP TO GIVE NOW":"DOSE AND AMOUNT TO GIVE"}</small>
       {previewReady?<>
-        <div className="dashboard-dose-answer"><strong>{dose||"—"}</strong>{volume&&<span>Draw <b>{volume}</b></span>}{secondaryDetail&&<em>{secondaryDetail}</em>}</div>
+        {showGiveAction?
+          <button
+            type="button"
+            className="dashboard-dose-answer"
+            disabled={giveDisabled}
+            onClick={onGive}
+            aria-label={`${giveLabel}: ${giveText}`}
+            style={{width:"100%",border:0,background:"transparent",padding:0,color:"inherit",textAlign:"center",font:"inherit",cursor:giveDisabled?"not-allowed":"pointer"}}
+          >
+            <strong>{dose||"—"}</strong>{volume&&<span>Draw <b>{volume}</b></span>}{secondaryDetail&&<em>{secondaryDetail}</em>}
+            <span style={{display:"block",marginTop:12,fontWeight:900,fontSize:12,letterSpacing:".08em"}}>{giveDisabled?"COMPLETE REQUIRED CHECKS":giveLabel}</span>
+            {giveDetail&&<span style={{display:"block",marginTop:4,fontSize:11}}>{giveDetail}</span>}
+          </button>
+          :<div className="dashboard-dose-answer"><strong>{dose||"—"}</strong>{volume&&<span>Draw <b>{volume}</b></span>}{secondaryDetail&&<em>{secondaryDetail}</em>}</div>}
         {doseDetail&&<p>{doseDetail}</p>}
-        {showGiveAction&&<button className="dashboard-give-now dashboard-give-now-inline" disabled={giveDisabled} onClick={onGive}><small>{giveLabel}</small><strong>{giveText}</strong>{giveDetail&&<span>{giveDetail}</span>}</button>}
       </>:<strong className="dashboard-dose-pending">Complete required checks</strong>}
     </section>
     {previewReady&&math&&<section className="dose-math-control dose-math-always-open"><div className="dose-math-box"><small>DOSE CALCULATION</small><b>{math}</b>{mathDetails.map(item=><span key={item}>{item}</span>)}</div></section>}
