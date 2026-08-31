@@ -732,3 +732,20 @@
   .indication-age-group>header span{font-size:10px}
   .indication-age-group .builder-options button{padding-top:36px}
 }
+
+
+/* Simplified age sections: one clear heading, no badges covering indication text. */
+.indication-age-group .patient-path-badge{display:none !important}
+.indication-age-group .builder-options button{padding-top:18px !important}
+.indication-age-group>header{min-height:54px;justify-content:flex-start !important;padding:12px 16px !important;background:#fff !important}
+.indication-age-group>header b{font-size:20px !important;font-weight:1000 !important;letter-spacing:.08em !important;color:#173f56 !important}
+.indication-age-group.adult>header{border:2px solid #8db6cc !important;border-left:8px solid #126b9b !important}
+.indication-age-group.pediatric{margin-top:12px !important}
+.indication-age-group.pediatric>header{border:2px solid #c8a8b9 !important;border-left:8px solid #a64676 !important}
+.indication-age-group.pediatric>header b{color:#7d365d !important}
+.indication-age-group.all>header{border-left:8px solid #55736a !important}
+@media(max-width:760px){
+  .indication-age-group>header{min-height:50px;padding:10px 14px !important}
+  .indication-age-group>header b{font-size:18px !important}
+  .indication-age-group .builder-options button{padding-top:14px !important}
+}
