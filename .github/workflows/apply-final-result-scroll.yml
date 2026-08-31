@@ -1,0 +1,40 @@
+name: Apply final result scroll fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, '[final-scroll-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/fix-final-result-scroll.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit final result scrolling
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          e=Path('src/MedicationEngine.tsx').read_text()
+          c=Path('src/medicationBuilderShell.css').read_text()
+          assert 'window.scrollTo({top:0,left:0,behavior:"auto"})' in e
+          assert 'calculation-complete-flow' in c
+          assert 'overflow-y:auto !important' in c
+          assert 'padding-bottom:calc(150px + env(safe-area-inset-bottom))' in c
+          print('Final screen top visibility and full-page scrolling verified')
+          PY
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/MedicationEngine.tsx src/medicationBuilderShell.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix final screen full-page scrolling [final-scroll-generated]"
+          git push
