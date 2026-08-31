@@ -1,0 +1,37 @@
+name: Add Amiodarone card photo
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, '[amiodarone-photo-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/add-amiodarone-card-photo.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit Amiodarone photo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('src/UnifiedApp.tsx').read_text()
+          assert 'AMIODARONE_VIAL_IMAGE' in s
+          assert 'id==="amiodarone"?<img src={AMIODARONE_VIAL_IMAGE}' in s
+          print('Amiodarone first-page photo verified')
+          PY
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/UnifiedApp.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Add isolated Amiodarone photo to medication card [amiodarone-photo-generated]"
+          git push
