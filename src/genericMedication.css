@@ -569,3 +569,45 @@
   .shared-fentanyl-dashboard .dashboard-give-now-inline strong { font-size:22px; }
   .shared-fentanyl-dashboard .dose-math-box b { font-size:18px; }
 }
+
+
+/* Clean final medication card: edit grid, one dose card, two actions, one details drawer. */
+.final-edit-grid { margin-bottom:12px; }
+.final-edit-grid > header { padding:10px 12px; }
+.final-edit-grid > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:8px; }
+.final-edit-grid > div > button { min-height:74px; padding:10px 34px 10px 11px; }
+.final-edit-grid button b { font-size:13px; }
+.final-edit-grid button span { margin-top:5px; font-size:9px; }
+.final-dose-card { margin:0; border:0; box-shadow:none; }
+.final-dose-card .dashboard-primary-dose { margin:0; padding:20px 16px; border:3px solid #0b6f5b; border-radius:16px; background:#f1fbf8; text-align:center; }
+.final-dose-card .dashboard-primary-dose>small { display:block; margin-bottom:10px; font-size:10px; font-weight:900; letter-spacing:.14em; }
+.final-dose-card .dashboard-dose-answer strong { display:block; font-size:44px !important; line-height:1; }
+.final-dose-card .dashboard-dose-answer>span { display:block; margin-top:10px; font-size:18px; font-weight:800; }
+.final-dose-card .dashboard-dose-answer>span b { font-size:30px; }
+.final-dose-card .dashboard-give-now-inline { width:100%; min-height:88px; margin-top:16px; border-radius:12px; }
+.final-dose-card .dashboard-give-now-inline strong { font-size:24px; }
+.final-action-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0; }
+.final-action-row>button { min-height:72px; padding:10px; border:2px solid #9fbac8; border-radius:12px; background:#fff; color:#173f56; text-align:left; }
+.final-action-row>button.active { border-color:#0873b5; background:#edf8fe; }
+.final-action-row small,.final-action-row strong { display:block; }
+.final-action-row small { font-size:9px; font-weight:900; letter-spacing:.11em; color:#607b89; }
+.final-action-row strong { margin-top:4px; font-size:16px; }
+.final-math-line { margin:10px 0 12px; padding:16px; border:3px solid #173f56; border-radius:13px; background:#f7fafb; }
+.final-math-line small,.final-math-line strong { display:block; }
+.final-math-line small { font-size:9px; font-weight:900; letter-spacing:.12em; color:#5b7180; }
+.final-math-line strong { margin-top:6px; font-size:20px; line-height:1.35; color:#173f56; }
+.final-all-details { margin:12px 0; overflow:hidden; border:1px solid #c8d8df; border-radius:12px; background:#fff; }
+.final-all-details>summary { padding:15px; cursor:pointer; color:#365565; font-size:12px; font-weight:900; letter-spacing:.06em; }
+.final-all-details-body { padding:0 12px 12px; }
+.final-all-details .result-collapsible,.final-all-details .generic-hidden-old-monitoring { display:none !important; }
+.final-all-details .calculation-details { margin-top:10px; border:0; }
+.final-all-details .calculation-details>summary { display:none; }
+.final-all-details .calculation-details>div { display:block; }
+@media(max-width:780px){
+  .final-edit-grid>div { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .final-edit-grid>div>button { min-height:78px; }
+  .final-dose-card .dashboard-dose-answer strong { font-size:40px !important; }
+  .final-dose-card .dashboard-dose-answer>span b { font-size:27px; }
+  .final-action-row>button { min-height:68px; }
+  .final-math-line strong { font-size:18px; }
+}
