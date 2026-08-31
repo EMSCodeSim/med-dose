@@ -17,6 +17,8 @@ import EncounterReport from "./EncounterReport";
 import AdminMedicationManager from "./AdminMedicationManager";
 import {mergeMedicationCatalog,medicationCatalogRetired,medicationCatalogVisible} from "./medicationCatalogStore";
 import {DEFAULT_FIELD_MEDICATION_IDS} from "./medicationReleaseConfig";
+import {commonEmsConcentrationsFor} from "./emsMedicationDefaults";
+import {loadClinicalOverrides} from "./adminMedicationStore";
 type Drug = "fentanyl" | "midazolam" | "adenosine" | "magnesium" | "epinephrine" | "diphenhydramine" | "methylprednisolone" | "albuterol";
 type DoseUnit = "mcg" | "mg" | "g";
 type StockVial = {drug:Drug;amount:string;volume:string;unit:DoseUnit;label:string;barcode:string;photo?:string};
@@ -67,6 +69,24 @@ const indicationProtocolUrl = (drug: Drug, indication: string) =>
   `${URL}#page=${indicationProtocol(drug, indication).page}`;
 const medicationPhoto = (drug: Drug) =>
   drug === "adenosine" ? "/medications/adenosine-vial.webp" : undefined;
+type FieldStock={label?:string;amount?:number;amountUnit?:string;volume?:number;volumeUnit?:string;concentration?:number;concentrationUnit?:string};
+function fieldStockForLegacyDrug(drug:Drug):FieldStock|null {
+  try {
+    const overrides=loadClinicalOverrides() as Record<string,{concentrations?:FieldStock[]}>;
+    const configured=overrides[drug]?.concentrations?.find(item=>Number(item?.concentration)>0||Number(item?.amount)>0);
+    if(configured)return configured;
+  } catch {}
+  return commonEmsConcentrationsFor(drug).find(item=>Number(item?.concentration)>0||Number(item?.amount)>0)||null;
+}
+function stockVialFromFieldDefault(drug:Drug,label:string,photo?:string):StockVial {
+  const stock=fieldStockForLegacyDrug(drug);
+  if(!stock)return {drug,amount:"",volume:"",unit:drug==="magnesium"?"mg":"mg",label,barcode:"admin-missing",photo};
+  const rawUnit=String(stock.amountUnit||stock.concentrationUnit||"mg").split("/")[0];
+  const unit: DoseUnit=rawUnit==="mcg"?"mcg":rawUnit==="g"?"g":"mg";
+  const volume=Number(stock.volume)>0?Number(stock.volume):1;
+  const amount=Number(stock.amount)>0?Number(stock.amount):Number(stock.concentration||0)*volume;
+  return {drug,amount:String(amount),volume:String(volume),unit,label:stock.label||label,barcode:"admin-default",photo};
+}
 type MedicationCatalogItem={id:string;name:string;brand:string;sub:string;protocol:ProtocolTarget;calculator?:Drug};
 const bundledMeds:MedicationCatalogItem[] = [
   {id:"acetaminophen",name:"Acetaminophen",brand:"Tylenol",sub:"Analgesic / antipyretic",protocol:{id:"9005",name:"Acetaminophen",page:122}},
@@ -755,8 +775,6 @@ function ClinicalApp() {
       setRoute(null);
       setChecks([]);
       setCustomRate("");
-      setAmt("");
-      setMl("");
       setDosesGiven([]);
       setScanMedOk(false);
       setScanConcOk(false);
@@ -765,7 +783,10 @@ function ClinicalApp() {
       setBaseAttested(false);
       setBaseContactOpen(false);
       const selected=meds.find(x=>x.id===selectedDrug);
-      setScannedVial({drug:selectedDrug,amount:"",volume:"",unit:selectedDrug==="magnesium"?"g":"mg",label:selected?.brand||selectedDrug,barcode:"",photo:medicationPhoto(selectedDrug)});
+      const fieldVial=stockVialFromFieldDefault(selectedDrug,selected?.brand||selectedDrug,medicationPhoto(selectedDrug));
+      setScannedVial(fieldVial);
+      setAmt(normalizedVialAmount(fieldVial.amount,fieldVial.unit,selectedDrug));
+      setMl(fieldVial.volume);
       setStep("scanConfirm");
     },
     openMedicationById = (id:string,preservePatient=false,patient?:EncounterPatient|null) => {
@@ -846,7 +867,7 @@ function ClinicalApp() {
               boxes={[
           {id:"medication",label:"MEDICATION",value:medName(drug),detail:scanMedOk?"Physical medication confirmed":"Confirm physical medication",complete:scanMedOk,active:step==="scanConfirm",available:true,onClick:()=>setStep("scanConfirm")},
           {id:"concentration",label:"CONCENTRATION",value:conc>0?`${fmt(conc)} ${unit}/mL`:"",detail:scanConcOk?"Physical label confirmed":"Confirm physical label",complete:scanConcOk,active:step==="scanConfirm",available:scanMedOk,onClick:()=>setStep("scanConfirm")},
-          {id:"indication",label:"INDICATION",value:reason,detail:reason?"DMP pathway selected":"Select reason for use",complete:!!reason,active:step==="age"&&!ageClass,available:scanMedOk&&scanConcOk,onClick:()=>setStep("age")},
+          {id:"indication",label:"INDICATION",value:reason,detail:reason?"DMP pathway selected":"Select reason for use",complete:!!reason,active:step==="reason",available:scanMedOk&&scanConcOk,onClick:()=>setStep(reasons[drug].length===1?"age":"reason")},
           {id:"route",label:"ROUTE",value:administrationRoute||"",detail:route?"Approved route selected":"Select approved route",complete:!!route,active:step==="age"&&!!reason,available:!!reason,onClick:()=>setStep("age")},
           {id:"patient",label:"PATIENT",value:ageOk?`${adult?"Adult":"Pediatric"} • ${ageText}${needWeight&&weightOk?` • ${fmt(kg)} kg`:""}`:"",detail:ageOk&&(!needWeight||weightOk)?"Dose-changing information complete":"Enter dose-changing information",complete:ageOk&&(!needWeight||weightOk),active:step==="age"&&!!ageClass,available:!!reason,onClick:()=>setStep("age")},
           {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyComplete?"One confirmation":"Review complete safety list",complete:safetyComplete,active:step==="safety",available:ageOk&&(!needWeight||weightOk),onClick:()=>setStep("safety")},
@@ -856,37 +877,19 @@ function ClinicalApp() {
               reset={reset}
               calculationComplete={step==="review"&&safetyComplete}
             >
-          <div className="progress legacy-medication-progress">
-            <i style={{ width: `${((pos + 1) / visible.length) * 100}%` }} />
-          </div>
-          <div className="clinical-banner">
-            <b>DMP verified</b>
-            <span>July 2026 • Approved July 1, 2026 • Next review January 2027</span>
-          </div>
         {step === "scanConfirm" && scannedVial && (
           <Screen e="MEDICATION CHECK" t="Confirm the medication in your hand" h="Compare the physical vial with the selected medication.">
             <div className="scan-confirm-card">
               <div className="scan-med-photo">{scannedVial.photo ? <img src={scannedVial.photo} alt={`${scannedVial.label} reference vial`}/> : <div className="reference-vial"><small>{medName(scannedVial.drug).toUpperCase()}</small><b>VIAL</b><span>Reference photo not saved</span></div>}</div>
-              <div className="scan-med-identity"><small>{scannedVial.barcode?"BARCODE MATCH":"MANUAL SELECTION"}</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?<><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></>:<span className="manual-vial-note">Enter the concentration from the physical vial below.</span>}</div>
+              <div className="scan-med-identity"><small>{scannedVial.barcode==="admin-default"?"ADMIN / FIELD DEFAULT":scannedVial.barcode==="admin-missing"?"ADMIN SETUP REQUIRED":scannedVial.barcode?"BARCODE MATCH":"MANUAL SELECTION"}</small><h2>{medName(scannedVial.drug)}</h2><p>{scannedVial.label}</p>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?<><strong>{scannedVial.amount} {scannedVial.unit} in {scannedVial.volume} mL</strong><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></>:<span className="manual-vial-note">No field concentration is configured. Admin must set the department stock concentration before this calculator can be used.</span>}</div>
             </div>
-            {!scannedVial.barcode&&<>
-              <h3 className="label-heading">Enter exactly what the physical vial says</h3>
-              <div className="vial-entry">
-                <label><span>Total drug</span><div>
-                  <input inputMode="decimal" value={scannedVial.amount} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,amount:value});setAmt(normalizedVialAmount(value,scannedVial.unit,scannedVial.drug));setScanConcOk(false)}} placeholder="0"/>
-                  {scannedVial.drug==="magnesium"?<select aria-label="Magnesium vial amount unit" value={scannedVial.unit} onChange={e=>{const unit=e.target.value as DoseUnit;setScannedVial({...scannedVial,unit});setAmt(normalizedVialAmount(scannedVial.amount,unit,scannedVial.drug));setScanConcOk(false)}}><option value="g">g</option><option value="mg">mg</option></select>:<b>{scannedVial.unit}</b>}
-                </div></label>
-                <label><span>Total volume</span><div><input inputMode="decimal" value={scannedVial.volume} onChange={e=>{const value=e.target.value;setScannedVial({...scannedVial,volume:value});setMl(value);setScanConcOk(false)}} placeholder="0"/><b>mL</b></div></label>
-              </div>
-              {Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0&&<div className="manual-concentration-result"><span>Calculated concentration — confirm only after both label values are complete</span><b>{fmt(Number(scannedVial.amount)/Number(scannedVial.volume))} {scannedVial.unit}/mL</b></div>}
-            </>}
             {scannedVial.drug==="magnesium"&&scannedVial.unit==="g"&&Number(scannedVial.amount)>0&&<div className="input-guidance"><b>Calculation conversion</b><span>{scannedVial.amount} g = {fmt(Number(scannedVial.amount)*1000)} mg. The dose calculation uses milligrams internally.</span></div>}
             {scannedVial.drug==="epinephrine"&&Number(scannedVial.amount)>0&&<div className="input-guidance"><b>Epinephrine units locked</b><span>All Epinephrine concentrations and doses remain in milligrams throughout this calculation.</span></div>}
             <div className="scan-confirm-checks compact-confirmations">
               <label className={scanMedOk?"checked":""}><input type="checkbox" checked={scanMedOk} onChange={e=>setScanMedOk(e.target.checked)}/><span><b>Medication matches</b>{medName(scannedVial.drug)}</span></label>
               <label className={scanConcOk?"checked":""}><input type="checkbox" disabled={!(Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0)} checked={scanConcOk} onChange={e=>setScanConcOk(e.target.checked)}/><span><b>Concentration matches</b>{Number(scannedVial.amount)>0&&Number(scannedVial.volume)>0?`${scannedVial.amount} ${scannedVial.unit} / ${scannedVial.volume} mL`:"Enter label values"}</span></label>
             </div>
-            <Next ok={scanMedOk&&scanConcOk} go={()=>setStep("age")} text="Continue to patient information"/>
+            <Next ok={scanMedOk&&scanConcOk} go={()=>setStep(reasons[drug].length===1?"age":"reason")} text={reasons[drug].length===1?"Continue to patient information":"Continue to indication"}/>
           </Screen>
         )}
         {step === "reason" && drug && (
@@ -1631,7 +1634,7 @@ function Screen({
   children: ReactNode;
 }) {
   return (
-    <section className="wizard-card">
+    <section className="builder-stage-form">
       <small className="eyebrow">{e}</small>
       <h1>{t}</h1>
       <p className="screen-help">{h}</p>
