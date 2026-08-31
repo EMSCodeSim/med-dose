@@ -53,6 +53,7 @@ export default function MedicationEngine({medication,close,record,openProtocol,o
     finalVolumeText=isDopamine?`${fmt(dopamineMlHr)} mL/hr`:showingLinkedDose&&needsConcentration?`${fmt(linkedAmount/conc)} mL`:result?.unit==="mL"?`${fmt(result.dose)} mL`:needsConcentration&&result?`${fmt(result.dose/conc)} mL`:"No volume calculation required",needsConcentrationStep=needsConcentration&&!concConfirmed;
 
   useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);
+  useEffect(()=>{if(step!=="result")return;window.requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:"auto"}))},[step]);
   useEffect(()=>{if(!onContextChange)return;if(!path||!result){onContextChange(null);return}onContextChange({medication:path.agent,indication:path.label,route:selectedRoute,dose:ageRequired&&age===""?"Age required":needsWeight&&!(kg>0)?"Weight required":finalGiveText,volume:needsConcentration&&!(conc>0)?"Concentration required":finalVolumeText,administration:path.administration,repeat:path.repeat,monitoring,protocolId:medication.protocolId,protocolName:path.protocol,protocolPage:medication.page})},[onContextChange,path,result,selectedRoute,ageChangesDose,age,needsWeight,kg,needsConcentration,conc,finalGiveText,finalVolumeText,medication,monitoring]);
   useEffect(()=>()=>onContextChange?.(null),[onContextChange]);
   const choosePath=(next:GenericDosePath)=>{
