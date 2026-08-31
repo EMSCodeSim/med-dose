@@ -5,6 +5,7 @@ import "./versedForm.css";
 import "./versedConsole.css";
 import "./fentanylBuilder.css";
 import "./medicationBuilderShell.css";
+import "./finalScrollFix.css";
 
 export type MedicationReference={
   name:string;
