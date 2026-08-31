@@ -10,6 +10,7 @@ import type {EncounterPatient} from "./VersedBuilder";
 import FentanylBuilder from "./FentanylBuilder";
 import KetamineBuilder from "./KetamineBuilder";
 import MedicationBuilderShell from "./MedicationBuilderShell";
+import FentanylDoseDashboard from "./FentanylDoseDashboard";
 import "./reviewGate.css";
 import "./pilotHome.css";
 import {genericMedication} from "./dmpMedicationData";
@@ -1273,190 +1274,42 @@ function ClinicalApp() {
           </Screen>
         )}
         {step === "review" && drug && r && (
-          <Screen
-            e="FINAL CROSS-CHECK"
-            t="Select and confirm the dose"
-            h="Choose the ordered DMP dose when required, then read the action line aloud."
-          >
-            <section className="entered-summary" aria-label="Entered medication information">
-              <header><small>ENTERED INFORMATION</small><b>Tap a field to correct it</b></header>
-              <div>
-                <button onClick={()=>setStep("scanConfirm")}><small>MEDICATION</small><b>{medName(drug)}</b></button>
-                <button onClick={()=>setStep("age")}><small>PATIENT</small><b>{adult?"Adult":"Pediatric"} • {ageText}</b>{needWeight&&<span>{fmt(kg)} kg</span>}</button>
-                <button onClick={()=>setStep("age")}><small>ROUTE</small><b>{administrationRoute}</b></button>
-                <button onClick={()=>setStep("scanConfirm")}><small>CONCENTRATION</small><b>{fmt(conc)} {unit}/mL</b><span>{fmt(vialAmountForCalculation)} {unit} in {fmt(vialVolumeForCalculation)} mL</span></button>
-                <button className="summary-indication" onClick={()=>setStep("age")}><small>INDICATION</small><b>{reason}</b></button>
-                {rate!==null&&<><span className="summary-result"><small>PROTOCOL DOSE</small><b>{epiWeightBandDose?`${kg<25?"<25":"≥25"} kg → ${formatDose(drug,dose,unit)}`:r.perKg?`${fmt(rate)} ${unit}/kg`:formatDose(drug,rate,unit)}</b></span><span className="summary-result primary"><small>CALCULATED RESULT</small><b>{doseText} • {fmt(vol)} mL{epiInfusion?"/min":""}</b></span></>}
-              </div>
-              <a href={protocolUrl(drug)} target="_blank" rel="noreferrer">Medication {protocolId(drug)} ↗</a>
-            </section>
-            {baseApproval&&<div className="base-approved compact"><small>BASE AUTHORIZATION</small><b>Approved by {baseApproval.physician}</b><time>{new Date(baseApproval.time).toLocaleString()}</time></div>}
-            {epiVariableDose?<section className="epi-dose-entry" aria-label="Enter ordered Epinephrine dose"><header><small>DMP PROTOCOL RANGE</small><strong>{fmt(epiDoseMinimum)}–{fmt(epiDoseMaximum)} mg{epiInfusion?"/min":""}</strong><span>{epiInfusion?"Enter the ordered starting infusion rate.":"Enter the ordered IV push-dose aliquot."}</span></header><label><span>Ordered dose</span><div><input inputMode="decimal" value={customRate} onChange={e=>{const value=e.target.value;setCustomRate(value);setRate(value.trim()===""?null:Number(value))}} placeholder={epiInfusion?"0.002–0.009":"0.01–0.02"}/><b>mg{epiInfusion?"/min":""}</b></div></label>{customRate!==""&&!epiEnteredDoseValid&&<div className="partial-error" role="alert">Enter a dose from {fmt(epiDoseMinimum)} through {fmt(epiDoseMaximum)} mg{epiInfusion?"/min":""}.</div>}</section>:r.rates.length>1&&<><div className="route-label">Select the ordered DMP initial dose</div><div className="dose-rate-grid">{r.rates.map((x)=><button key={x} className={rate===x?"selected":""} onClick={()=>setRate(x)}><b>{x} {unit}/kg</b><span>DMP option</span></button>)}</div></>}
-            {rate===null||!epiEnteredDoseValid?<div className="completion-prompt"><b>{epiVariableDose?"Ordered dose required":"Dose selection required"}</b><span>{epiVariableDose?`Enter a dose within the displayed DMP range of ${fmt(epiDoseMinimum)}–${fmt(epiDoseMaximum)} mg${epiInfusion?"/min":""}.`:"Select the ordered DMP dose above to calculate the administration volume."}</span></div>:inTooHigh?<HardStop title="IN VOLUME EXCEEDS LIMIT" reason={`The calculated total volume of ${fmt(vol)} mL would require more than 1 mL in at least one nostril. DMP limits IN Fentanyl to 1 mL per nostril.`} source="DMP 9230 Opioids" action="Select another DMP-approved route or confirm an appropriate higher-concentration vial, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:magImTooHigh?<HardStop title="IM VOLUME EXCEEDS SITE LIMIT" reason={`The calculated stock volume is ${fmt(vol)} mL, or ${fmt(vol/2)} mL per buttock. DMP 9190 limits each IM site to 10 mL.`} source="DMP 9190 Magnesium Sulfate" action="Confirm an appropriate higher-concentration vial or select the IV/IO route, then recalculate." recoveryLabel="Correct route or concentration" onRecover={()=>setStep("age")}/>:epiConcentrationMismatch?<HardStop title="WRONG EPINEPHRINE CONCENTRATION" reason={`This pathway requires ${epiExpectedConcentration===0.1?"0.1 mg/mL (1:10,000)":"1 mg/mL (1:1,000)"}, but the confirmed medication is ${fmt(conc)} mg/mL.`} source="DMP 9120 Epinephrine" action="Do not calculate through the mismatch. Return to the medication check and confirm the correct formulation from the physical label." recoveryLabel="Correct medication concentration" onRecover={()=>setStep("scanConfirm")}/>:<>
-            {drug==="fentanyl"&&adult&&<div className="dose-guidance"><b>ADULT DOSING GUIDANCE</b><span>Initial dose is typically 100 mcg. Adult doses may be rounded to the nearest 25 mcg.</span></div>}
-            {drug==="fentanyl"&&fentanylOlderFrail&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>ELDERLY/FRAIL STARTING DOSE APPLIED</b><strong>{fmt(baseDose)} mcg × ½ = GIVE {fmt(dose)} mcg</strong><span>DMP 9230 directs providers to start with ½ the traditional dose in elderly patients and strongly consider ½ typical dosing in elderly or frail patients. The cumulative protocol ceiling is unchanged.</span></div>}
-            {drug==="midazolam"&&midazolamHalfConsideration&&<div className="ceiling-alert geriatric-adjustment" role="alert"><b>MIDAZOLAM ½-DOSE CONSIDERATION APPLIED</b><strong>{fmt(baseDose)} mg × ½ = GIVE {fmt(dose)} mg</strong><span>DMP 9070 states lower doses may be sufficient for patients over 65 or small adults under 50 kg. This calculation applies the protocol’s ½-dose consideration.</span></div>}
-            {capped && <div className="ceiling-alert" role="alert"><b>PROTOCOL MAXIMUM APPLIED</b><strong>{fmt(baseDose)} {unit} calculated → GIVE {fmt(dose)} {unit}</strong><span>Do not administer the uncapped weight-based result.</span></div>}
-            {isIntranasal&&<div className={`in-split-card ${inVolumeOverTarget?"caution":""}`} role={inVolumeOverTarget?"alert":undefined}>
-              <small>INTRANASAL DELIVERY</small>
-              <strong>{fmt(vol/2)} mL LEFT + {fmt(vol/2)} mL RIGHT</strong>
-              <span>{fmt(vol)} mL total • Split evenly between nostrils</span>
-              {inVolumeOverTarget&&drug==="midazolam"&&<em>Above the app's 1 mL-per-nostril atomization target; verify concentration and route.</em>}
-            </div>}
-            {drug==="magnesium"&&reason==="Eclampsia"&&route==="IM"&&<div className="in-split-card"><small>IM SITE SPLIT</small><strong>5 g LEFT + 5 g RIGHT BUTTOCK</strong><span>{fmt(vol/2)} mL per site • {fmt(vol)} mL total stock volume</span></div>}
-            {magInfusion&&<MagnesiumDripCalculator durationMinutes={magInfusionMinutes}/>}
-            {epiInfusion&&<EpinephrineInfusionCalculator rate={rate||0} stockConcentration={conc}/>}
-            {epiPediatricDilution&&<section className="mag-drip-calculator" aria-label="Pediatric Epinephrine push-dose dilution"><header><small>PEDIATRIC PUSH-DOSE DILUTION</small><strong>BASE CONTACT REQUIRED</strong><span>Prepare 0.01 mg/mL before giving</span></header><div className="drip-results"><span><small>DRAW</small><b>1 mL of 0.1 mg/mL Epinephrine</b></span><span><small>ADD</small><b>9 mL Normal Saline</b></span></div><p><b>Final syringe: 0.01 mg/mL.</b> Give {fmt(dose)} mg ({fmt(vol)} mL) by slow IV/IO push under the recorded Base authorization.</p></section>}
-            <div className={`monitoring-cautions ${drug}`}><small>MONITORING & ADMINISTRATION</small><ul>{monitoringCautions(drug,reason,route,adult).map((x)=><li key={x}>{x}</li>)}</ul></div>
-            {!epiInfusion&&<DoseTracker
-              entries={dosesGiven}
-              unit={unit}
-              total={totalGiven}
-              totalVolume={totalVolume}
-              maxTotal={maxTotal}
-              repeatsLeft={repeatsLeft}
-              repeatMinutes={r.repeat}
-              secondsLeft={secondsLeft}
-              nextDose={nextRepeat}
-              concentration={administrationConcentration}
-              drug={drug}
-              reason={reason}
+          <div className="legacy-dashboard-stage">
+            <FentanylDoseDashboard
+              medication={medName(drug)}
               route={administrationRoute||""}
-              intranasal={isIntranasal}
-              record={recordDose}
-              openEndedRepeats={epiOpenEndedRepeats}
-            />}
-            {!epiInfusion&&!epiPediatricDilution&&<details className="calculation-details">
-              <summary>Show calculation and syringe guide</summary>
-              <MathPicture
-                perKg={r.perKg}
-                kg={kg}
-                rate={rate || 0}
-                dose={dose}
-                amount={vialAmountForCalculation}
-                vialMl={vialVolumeForCalculation}
-                concentration={administrationConcentration}
-                volume={vol}
-                unit={unit}
-                doseModifier={doseModifier}
-              />
-              <SyringeDiagram volume={vol} />
-            </details>}
-            <MedicationReport
-              drug={medName(drug)}
-              reason={reason}
-              route={administrationRoute || ""}
-              age={ageText}
-              patientClass={adult ? "Adult" : "Pediatric"}
-              weight={needWeight ? `${fmt(kg)} kg` : undefined}
-              weightSource={
-                ws === "age"
-                  ? "age-based estimate"
-                  : ws === "tape"
-                    ? `${tapeColor} length-based band`
-                    : ws
-              }
-              protocol={`${protocolId(drug)} • July 2026`}
-              doseRule={
-                (epiWeightBandDose
-                  ? `${fmt(kg)} kg ${kg<25?"<":"≥"} 25 kg = ${formatDose(drug,dose,unit)}`
-                  : r.perKg
-                  ? `${fmt(kg)} kg × ${rate} ${unit}/kg${doseModifier!==1?" × ½ medication-specific adjustment":""}`
-                  : `${rate} ${unit}${epiInfusion?"/min infusion rate":" fixed dose"}${doseModifier!==1?" × ½ medication-specific adjustment":""}`) + ((drug==="magnesium"||drug==="epinephrine")?` • ${r.note}`:"")
-              }
-              concentration={epiInfusion?`${fmt(conc)} mg/mL confirmed stock • prepared bag 0.001 mg/mL`:epiPediatricDilution?`${fmt(conc)} mg/mL confirmed stock • diluted syringe 0.01 mg/mL`:`${fmt(conc)} ${unit}/mL`}
-              calculatedDose={doseText}
-              calculatedVolume={epiInfusion?`${fmt(vol)} mL/min from prepared 0.001 mg/mL bag`:isIntranasal?`${fmt(vol)} mL total (${fmt(vol/2)} mL per nostril)`:`${fmt(vol)} mL`}
-              unit={unit}
-              entries={dosesGiven}
-              encounterEntries={encounterAdministrations}
-              baseApproval={baseApproval||undefined}
-              openSignal={reportSignal}
-              hideLauncher
+              ready={safetyComplete&&rate!==null&&epiEnteredDoseValid&&!volumeBlocked}
+              previewReady={rate!==null&&epiEnteredDoseValid}
+              dose={doseText}
+              volume={epiInfusion?`${fmt(vol)} mL/min`: `${fmt(vol)} mL`}
+              secondaryDetail={isIntranasal?`${fmt(vol/2)} mL per nostril`:undefined}
+              doseDetail={`${reason}${needWeight?` • ${fmt(kg)} kg`:""}`}
+              math={epiWeightBandDose?`${fmt(kg)} kg ${kg<25?"<":"≥"} 25 kg = ${formatDose(drug,dose,unit)}`:r.perKg?`${fmt(kg)} kg × ${rate||0} ${unit}/kg${doseModifier!==1?" × ½ adjustment":""} = ${fmt(dose)} ${unit}`:`${rate||0} ${unit}${epiInfusion?"/min":""} fixed protocol dose`}
+              mathDetails={[epiInfusion?`${fmt(dose)} mg/min ÷ 0.001 mg/mL = ${fmt(vol)} mL/min`:epiPediatricDilution?`${fmt(dose)} mg ÷ 0.01 mg/mL = ${fmt(vol)} mL`:`${fmt(dose)} ${unit} ÷ ${fmt(administrationConcentration)} ${unit}/mL = ${fmt(vol)} mL`]}
+              showMath={true}
+              setShowMath={()=>{}}
+              syringeVolume={!epiInfusion?vol:undefined}
+              instructions={[{label:"Route",value:administrationRoute||""},{label:"How to give",value:r.note||"Follow DMP administration instructions",wide:true},{label:"Repeat",value:r.repeatText,wide:true}]}
+              correction={volumeBlocked?{title:"Administration blocked",detail:epiConcentrationMismatch?"Confirmed Epinephrine concentration does not match this pathway.":magImTooHigh?"Calculated IM volume exceeds the site limit.":"Calculated administration volume exceeds the route limit.",action:"Correct",onClick:()=>setStep(epiConcentrationMismatch?"scanConfirm":"age")} : rate===null?{title:"Dose selection required",detail:"Select the ordered DMP dose before administration.",action:"Select dose",onClick:()=>setStep("age")} : null}
+              giveLabel={dosesGiven.length?"GIVE NEXT DOSE NOW":"GIVE NOW"}
+              giveText={`${doseText} • ${epiInfusion?`${fmt(vol)} mL/min`:`${fmt(vol)} mL`}`}
+              giveDetail={`${administrationRoute||"Route pending"} • records administration and starts reassessment timer`}
+              giveDisabled={!safetyComplete||rate===null||!epiEnteredDoseValid||volumeBlocked||(dosesGiven.length>0&&secondsLeft>0)||repeatsLeft<=0}
+              onGive={()=>recordDose(dose)}
+              repeat={!dosesGiven.length?{label:"REPEAT / REASSESS",value:r.repeat>0?`${String(r.repeat).padStart(2,"0")}:00`:"PER PROTOCOL",detail:r.repeatText}:repeatsLeft<=0?{label:"NO REPEAT AVAILABLE",value:"LIMIT",detail:r.repeatText,state:"unavailable"}:secondsLeft>0?{label:"REPEAT DOSE AVAILABLE IN",value:`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`,detail:r.repeatText,nextDose:`Up to ${fmt(nextRepeat)} ${unit}`,state:"running"}:{label:"REPEAT DOSE",value:"AVAILABLE NOW",detail:r.repeatText,nextDose:`Up to ${fmt(nextRepeat)} ${unit}`,state:"ready"}}
+              recorded={dosesGiven.length?{count:dosesGiven.length,detail:`${fmt(totalGiven)} ${unit} recorded`}:null}
             />
-            <details className="full-cross-check">
-              <summary>Show full medication cross-check</summary>
-            <div className="final-card">
-              <div className="final-drug">
-                <span>Medication</span>
-                <b>{medName(drug)}</b>
-                <small>
-                  {reason} • {administrationRoute}
-                </small>
-              </div>
-              <Review
-                l="Patient"
-                v={`${adult ? "Adult" : "Pediatric"} • age ${ageText}${needWeight ? ` • ${fmt(kg)} kg${ws === "age" ? " (age-based estimate)" : ws === "tape" ? ` ( length-based band)` : ""}` : ""}`}
-              />
-              <Review
-                l="Medication check"
-                v={`Physical vial confirmed as ${medName(drug)}`}
-              />
-              {baseApproval&&<Review l="Base authorization" v={`Direct verbal order approved by ${baseApproval.physician} • ${new Date(baseApproval.time).toLocaleString()} • ${baseApproval.reason}`}/>}
-              <Review
-                l="DMP dose"
-                v={
-                  epiWeightBandDose
-                    ? `${fmt(kg)} kg ${kg<25?"<":"≥"} 25 kg = ${formatDose(drug,dose,unit)}`
-                    : r.perKg
-                    ? `${fmt(kg)} kg × ${rate} ${unit}/kg${doseModifier!==1?" × ½":""} = ${fmt(dose)} ${unit}`
-                    : `${rate} ${unit} fixed dose${doseModifier!==1?" × ½ = "+fmt(dose)+" "+unit:""}`
-                }
-              />
-              {capped && (
-                <Review
-                  l="Maximum applied"
-                  v={`${fmt(baseDose)} ${unit} capped at ${r.maxSingle} ${unit}`}
-                />
-              )}
-              <Review
-                l="Repeat rule"
-                v={`${r.repeat>0?`After ${r.repeat} min`:"Per protocol"} • ${r.repeatText}`}
-              />
-              {isIntranasal && (
-                <Review
-                  l="IN volume split"
-                  v={`${fmt(vol / 2)} mL per nostril (${fmt(vol)} mL total)`}
-                />
-              )}
-              <Review
-                l="Vial"
-                v={`${fmt(vialAmountForCalculation)} ${unit} in ${fmt(vialVolumeForCalculation)} mL = ${fmt(conc)} ${unit}/mL`}
-              />
-              <Review
-                l="Volume calculation"
-                v={epiInfusion?`${fmt(dose)} mg/min ÷ 0.001 mg/mL = ${fmt(vol)} mL/min`:epiPediatricDilution?`${fmt(dose)} mg ÷ 0.01 mg/mL = ${fmt(vol)} mL from prepared syringe`:`${fmt(dose)} ${unit} ÷ ${fmt(conc)} ${unit}/mL = ${fmt(vol)} mL`}
-              />
-              <Review
-                l="Protocol"
-                v={
-                  drug === "fentanyl"
-                    ? "DMP 9230 • July 2026"
-                    : drug === "adenosine"
-                      ? "DMP 9010 • July 2026"
-                      : drug === "magnesium"
-                        ? "DMP 9190 • July 2026"
-                        : drug === "epinephrine"
-                          ? "DMP 9120 • July 2026"
-                          : "DMP 9070 • July 2026"
-                }
-              />
-            </div>
-            <div className="final-warning">
-              <b>DMP cross-check required</b>
-              <span>
-                The syringe diagram is a visual cross-check, not an actual-size
-                measuring tool. Verify the physical syringe markings, Six Rights
-                and verbal repeat-back. Obtain repeat vital signs after
-                administration.
-              </span>
-            </div>
-            </details>
-            </>}
-            <button className="new-calc" onClick={reset}>
-              Start a new calculation
-            </button>
-          </Screen>
+            <MedicationReport
+              drug={medName(drug)} reason={reason} route={administrationRoute||""} age={ageText}
+              patientClass={adult?"Adult":"Pediatric"} weight={needWeight?`${fmt(kg)} kg`:undefined}
+              weightSource={ws==="age"?"age-based estimate":ws==="tape"?`${tapeColor} length-based band`:ws}
+              protocol={`${protocolId(drug)} • July 2026`}
+              doseRule={epiWeightBandDose?`${fmt(kg)} kg ${kg<25?"<":"≥"} 25 kg = ${formatDose(drug,dose,unit)}`:r.perKg?`${fmt(kg)} kg × ${rate} ${unit}/kg`: `${rate} ${unit}${epiInfusion?"/min":""}`}
+              concentration={epiInfusion?`${fmt(conc)} mg/mL confirmed stock • prepared bag 0.001 mg/mL`:epiPediatricDilution?`${fmt(conc)} mg/mL confirmed stock • diluted syringe 0.01 mg/mL`:`${fmt(conc)} ${unit}/mL`}
+              calculatedDose={doseText} calculatedVolume={epiInfusion?`${fmt(vol)} mL/min`:isIntranasal?`${fmt(vol)} mL total (${fmt(vol/2)} mL per nostril)`:`${fmt(vol)} mL`}
+              unit={unit} entries={dosesGiven} encounterEntries={encounterAdministrations} baseApproval={baseApproval||undefined} openSignal={reportSignal} hideLauncher
+            />
+          </div>
         )}
             </MedicationBuilderShell>
           </div>

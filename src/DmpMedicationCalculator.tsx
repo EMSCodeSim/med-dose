@@ -3,6 +3,7 @@ import type {GenericMedication,GenericDosePath} from "./dmpMedicationData";
 import DoseTracker from "./DoseTracker";
 import CalculationBoard from "./CalculationBoard";
 import MedicationBuilderShell from "./MedicationBuilderShell";
+import FentanylDoseDashboard from "./FentanylDoseDashboard";
 import type {EncounterPatient} from "./VersedBuilder";
 import WeightQuickSelect from "./WeightQuickSelect";
 import {commonEmsConcentrationsFor} from "./emsMedicationDefaults";
@@ -88,8 +89,27 @@ export default function DmpMedicationCalculator({medication,close,record,openPro
       {step==="safety"&&path&&result&&<><small className="eyebrow">SAFETY CHECK</small><h1>Review all contraindications</h1><p className="screen-help">Read every applicable item, then confirm the complete list once.</p><div className="action-line"><small>DMP DOSE</small><b>{selectedRoute}</b><strong>{isDopamine?`${fmt(kg)} kg × 5 mcg/kg/min = ${fmt(kg*5)} mcg/min • ${fmt(kg*5/conc*60)} mL/hr`:result.text+(needsConcentration?` = ${fmt(volume)} mL`:"")}</strong></div><div className="safety-review-list">{contraindications.map((x,i)=><div key={x}><b>{i+1}</b><span>{x}</span></div>)}{specialChecksText.map((x,i)=><div key={x}><b>{contraindications.length+i+1}</b><span>{x}</span></div>)}</div><label className={safetyListConfirmed?"safety-master-confirm checked":"safety-master-confirm"}><input type="checkbox" checked={safetyListConfirmed} onChange={e=>{const confirmed=e.target.checked;setContraChecks(Array(contraindications.length).fill(confirmed));setSpecialChecks(Array(specialChecksText.length).fill(confirmed))}}/><span><b>Confirm all safety checks</b>I reviewed every item above. No listed contraindication is present, and all required conditions are met.</span></label>{path.baseContact&&<div className="generic-base"><b>BASE CONTACT REQUIRED</b><span>{path.baseContact}</span><input placeholder="Approving physician name" value={basePhysician} onChange={e=>{setBasePhysician(e.target.value);setBaseApproved(false)}}/><label><input type="checkbox" checked={baseApproved} onChange={e=>setBaseApproved(e.target.checked)}/><span>Direct verbal order received and read back</span></label></div>}<div className={safetyComplete?"generic-check-progress complete":"generic-check-progress"}><b>{safetyListConfirmed?"Contraindications confirmed":"Confirmation required"}</b><span>{safetyComplete?"Safety checklist complete.":path.baseContact&&safetyListConfirmed?"Complete the Base-contact authorization to continue.":"Review the list and confirm once to continue."}</span></div><button className="continue" disabled={!safetyComplete} onClick={showResult}>Continue to final dose <span>→</span></button></>}
 
       {step==="result"&&path&&result&&<>
-        <small className="eyebrow">FINAL DOSE</small><h1>{administrations.length?"Administration tracker":"Dose ready"}</h1>
-        <div className="final-dose-answer" aria-label="Final medication dose"><div><small>MEDICATION</small><b>{path.agent}</b></div><div><small>ROUTE</small><b>{selectedRoute}</b></div><div className="final-give"><small>GIVE DOSE</small><strong>{finalGiveText}</strong></div><div className="final-draw"><small>{isDopamine?"INFUSION RATE":"DRAW VOLUME"}</small><strong>{finalVolumeText}</strong></div></div>
+        <FentanylDoseDashboard
+          medication={path.agent}
+          route={selectedRoute}
+          ready={safetyComplete}
+          previewReady={!!result}
+          dose={finalGiveText}
+          volume={finalVolumeText}
+          doseDetail={patientText?`${patientText} • ${path.label}`:path.label}
+          math={result.numeric?(isDopamine?`${fmt(kg)} kg × ${dopamineRate} mcg/kg/min = ${fmt(dopamineTotal)} mcg/min`:`Protocol dose ${result.text}${needsConcentration?` • ${fmt(result.dose)} ${result.unit} ÷ ${fmt(conc)} ${result.unit}/mL = ${fmt(result.dose/conc)} mL`:""}`):undefined}
+          showMath={false}
+          setShowMath={()=>{}}
+          syringeVolume={!isDopamine&&needsConcentration&&result.numeric?result.dose/conc:undefined}
+          instructions={[{label:"Route",value:selectedRoute},{label:"How to give",value:path.administration,wide:true},{label:"Repeat",value:path.repeat,wide:true}]}
+          giveLabel={administrations.length?"GIVE NEXT DOSE NOW":"GIVE NOW"}
+          giveText={`${finalGiveText}${finalVolumeText?` • ${finalVolumeText}`:""}`}
+          giveDetail="Records administration using the medication-specific rule set"
+          giveDisabled={!safetyComplete||!result||isDopamine||!!linkedDose}
+          onGive={()=>result&&result.numeric&&recordAmount(result.dose)}
+          repeat={{label:"REPEAT / REASSESS",value:secondsLeft?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`:repeatRemaining>0&&administrations.length?"AVAILABLE NOW":administrations.length?"LIMIT":"AFTER FIRST DOSE",detail:path.repeat,nextDose:repeatRemaining>0&&doseMaximum>0?`Up to ${fmt(doseMaximum)} ${result.unit}`:undefined,state:secondsLeft?"running":repeatRemaining===0&&administrations.length?"unavailable":"ready"}}
+          recorded={administrations.length?{count:administrations.length,detail:`${fmt(totalDose)} ${result.numeric?result.unit:"treatments"} recorded`}:null}
+        />
         <details className="result-collapsible"><summary>Review entered information</summary><div className="entered-summary"><header><small>ENTERED INFORMATION</small><b>Tap a field to correct it</b></header><div>
           <button onClick={()=>setStep("medication")}><small>MEDICATION</small><b>{path.agent}</b></button>
           {needsPatientInfo&&<button onClick={()=>setStep("patient")}><small>PATIENT</small><b>{path.patient==="adult"?"Adult":path.patient==="pediatric"?"Pediatric":"All ages"} • {patientText}</b>{needsWeight&&<span>{fmt(kg)} kg</span>}</button>}
