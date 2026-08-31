@@ -699,3 +699,14 @@
   .dashboard-next-dose-action { min-height:64px; }
   .gravity-primary-lines b { font-size:16px; }
 }
+
+
+/* Medication administration controls are never hidden in More Details. */
+.final-primary-administration-actions { width:100%; margin:8px 0 10px; }
+.final-primary-administration-actions:empty { display:none; }
+.final-primary-administration-actions .generic-summary { margin:0; }
+.final-primary-administration-actions .initial-record-dose { width:100%; min-height:74px; }
+@media(max-width:760px){
+  .final-primary-administration-actions { margin:6px 0 8px; }
+  .final-primary-administration-actions .initial-record-dose { min-height:68px; }
+}
