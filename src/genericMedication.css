@@ -513,3 +513,13 @@
   .final-selection-review > div { grid-template-columns:1fr; }
   .final-selection-review > div > button { min-height:76px; }
 }
+
+
+/* Simplified final screen: compact editable selections above the dose action. */
+.final-selection-review > header { padding:10px 12px; }
+.final-selection-review > header b { font-size:11px; }
+.final-selection-review > div { gap:6px; padding:8px; }
+.final-selection-review > div > button { min-height:64px; padding:9px 32px 9px 10px; }
+.final-selection-review button b { font-size:12px; }
+.final-selection-review button span { margin-top:4px; font-size:8px; }
+@media (min-width:781px){.final-selection-review > div{grid-template-columns:repeat(3,minmax(0,1fr));}}
