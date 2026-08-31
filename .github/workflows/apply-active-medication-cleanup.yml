@@ -1,0 +1,44 @@
+name: Apply active medication cleanup
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, '[active-clean-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/clean-active-medication-workflow.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit streamlined workflow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          shell=Path('src/MedicationBuilderShell.tsx').read_text()
+          engine=Path('src/MedicationEngine.tsx').read_text()
+          css=Path('src/medicationBuilderShell.css').read_text()
+          assert 'streamlined-medication-flow' in shell
+          assert 'unified-reference-vial' not in shell
+          assert ' FORMAT' not in shell
+          assert 'screen-help">Select the DMP indication' not in engine
+          assert 'streamlined-choice-workspace .builder-options' in css
+          assert 'streamlined-progress-column { display:none' in css
+          assert 'max-height:calc(100dvh - 48px)' in css
+          print('Streamlined post-selection workflow and full-screen quick picks verified')
+          PY
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/MedicationBuilderShell.tsx src/MedicationEngine.tsx src/medicationBuilderShell.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Clean active medication workflow [active-clean-generated]"
+          git push
