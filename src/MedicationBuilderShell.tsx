@@ -1,5 +1,9 @@
 import type {ReactNode} from "react";
 import CalculationBoard, {type CalculationBox} from "./CalculationBoard";
+import "./versedBuilder.css";
+import "./versedForm.css";
+import "./versedConsole.css";
+import "./fentanylBuilder.css";
 import "./medicationBuilderShell.css";
 
 export type MedicationReference={
@@ -21,16 +25,20 @@ type Props={
 };
 
 export default function MedicationBuilderShell({medication,boxes,close,reset,children,leftTools,calculationComplete=false,ariaLabel}:Props){
-  const reference=<aside className="medication-builder-reference" aria-label={`${medication.name} reference`}>
-    <div className="medication-builder-vial"><small>{(medication.vialLabel||medication.name).toUpperCase()}</small><b>Rx</b><span>MEDICATION</span></div>
-    <span><small>SELECTED MEDICATION</small><b>{medication.name}</b>{medication.subtitle&&<em>{medication.subtitle}</em>}{medication.protocolId&&<i>DMP {medication.protocolId}</i>}</span>
+  const reference=<aside className="versed-medication-reference fentanyl-medication-reference unified-medication-reference" aria-label={`${medication.name} reference`}>
+    <div className="versed-reference-vial fentanyl-reference-vial unified-reference-vial"><small>{(medication.vialLabel||medication.name).toUpperCase()}</small><b>Rx</b><span>MEDICATION</span></div>
+    <span><small>SELECTED MEDICATION</small><b>{medication.name}</b>{medication.subtitle&&<em>{medication.subtitle}</em>}{medication.protocolId&&<em>DMP {medication.protocolId}</em>}</span>
   </aside>;
-  return <main className="medication-builder" aria-label={ariaLabel||`${medication.name} calculator`}>
-    <div className="medication-builder-top"><button className="drug-back-button" onClick={close}>‹ Back to medications</button><span>{medication.name.toUpperCase()}</span><button onClick={reset||close}>Start over</button></div>
-    <div className={`medication-builder-layout${calculationComplete?" calculation-complete":""}`}>
-      <header className="medication-builder-banner">{reference}</header>
-      <aside className="medication-builder-left" aria-label="Calculation controls"><CalculationBoard boxes={boxes} className="medication-builder-status-board"/>{leftTools&&<div className="medication-builder-left-tools">{leftTools}</div>}</aside>
-      <section className="medication-builder-workspace">{reference}{children}</section>
+
+  return <main className="versed-builder fentanyl-builder unified-medication-builder" aria-label={ariaLabel||`${medication.name} calculator`}>
+    <div className="versed-builder-top"><button className="drug-back-button" onClick={close}>‹ Back to medications</button><span>{medication.name.toUpperCase()} FORMAT</span><button onClick={reset||close}>Start over</button></div>
+    <div className={`versed-layout${calculationComplete?" calculation-complete":""}`}>
+      <header className="builder-medication-banner">{reference}</header>
+      <aside className="versed-left-column unified-left-column" aria-label="Calculation controls">
+        <CalculationBoard boxes={boxes} className="versed-status-board"/>
+        {leftTools&&<div className="versed-left-tools">{leftTools}</div>}
+      </aside>
+      <section className="unified-medication-workspace">{reference}{children}</section>
     </div>
   </main>;
 }
