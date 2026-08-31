@@ -523,3 +523,49 @@
 .final-selection-review button b { font-size:12px; }
 .final-selection-review button span { margin-top:4px; font-size:8px; }
 @media (min-width:781px){.final-selection-review > div{grid-template-columns:repeat(3,minmax(0,1fr));}}
+
+
+/* Final screen priority: selections, dose, change dose, and math stay large/open. */
+.final-selection-review > header { padding:14px 16px; }
+.final-selection-review > header b { font-size:13px; }
+.final-selection-review > div { gap:10px; padding:12px; }
+.final-selection-review > div > button { min-height:96px; padding:14px 42px 14px 14px; }
+.final-selection-review button small { font-size:9px; }
+.final-selection-review button b { font-size:15px; line-height:1.25; }
+.final-selection-review button span { margin-top:8px; font-size:10px; }
+.final-change-dose { margin:14px 0; }
+.final-change-dose > button { width:100%; min-height:92px; padding:14px 16px; border:3px solid #0873b5; border-radius:14px; background:#eef8fe; color:#123f58; text-align:left; }
+.final-change-dose > button small,.final-change-dose > button strong,.final-change-dose > button span { display:block; }
+.final-change-dose > button small { color:#0873b5; font-size:10px; font-weight:900; letter-spacing:.12em; }
+.final-change-dose > button strong { margin-top:4px; font-size:23px; }
+.final-change-dose > button span { margin-top:4px; color:#55707f; font-size:11px; }
+.final-dose-editor { margin-top:8px; padding:14px; border:2px solid #b9d2df; border-radius:12px; background:#fff; }
+.final-dose-editor label>span { display:block; margin-bottom:6px; font-size:10px; font-weight:900; }
+.final-dose-editor label>div { display:flex; }
+.final-dose-editor input { width:100%; min-width:0; height:64px; padding:0 14px; border:2px solid #9eb7c5; border-radius:10px 0 0 10px; font-size:30px; font-weight:900; }
+.final-dose-editor label>div>b { display:grid; min-width:72px; place-items:center; border:2px solid #9eb7c5; border-left:0; border-radius:0 10px 10px 0; background:#e9f0f4; font-size:18px; }
+.final-dose-editor>button { width:100%; min-height:52px; margin-top:9px; border:0; border-radius:9px; background:#e8eef1; color:#24495c; font-weight:900; }
+.final-dose-editor>strong,.final-dose-editor>em { display:block; margin-top:9px; padding:10px; border-radius:9px; }
+.final-dose-editor>strong { background:#e7f7f2; color:#09604f; font-size:18px; }
+.final-dose-editor>em { background:#fff0e8; color:#8a3415; font-style:normal; font-weight:800; }
+.shared-fentanyl-dashboard .dashboard-primary-dose { padding:18px; }
+.shared-fentanyl-dashboard .dashboard-dose-answer strong { font-size:42px !important; line-height:1; }
+.shared-fentanyl-dashboard .dashboard-dose-answer>span { margin-top:8px; font-size:18px; }
+.shared-fentanyl-dashboard .dashboard-dose-answer>span b { font-size:28px; }
+.shared-fentanyl-dashboard .dashboard-give-now-inline { min-height:92px; margin-top:14px; }
+.shared-fentanyl-dashboard .dashboard-give-now-inline strong { font-size:25px; }
+.shared-fentanyl-dashboard .dose-math-always-open { margin:14px 0; }
+.shared-fentanyl-dashboard .dose-math-always-open>button { display:none; }
+.shared-fentanyl-dashboard .dose-math-box { display:flex; flex-direction:column; gap:6px; padding:16px; border:3px solid #173f56; border-radius:13px; background:#f7fafb; }
+.shared-fentanyl-dashboard .dose-math-box small { font-size:10px; font-weight:900; letter-spacing:.12em; }
+.shared-fentanyl-dashboard .dose-math-box b { font-size:20px; line-height:1.35; }
+.dashboard-more-details,.final-secondary-details { margin:12px 0; overflow:hidden; border:1px solid #cbd9e0; border-radius:10px; background:#fff; }
+.dashboard-more-details>summary,.final-secondary-details>summary { padding:14px; color:#365565; font-size:12px; font-weight:900; cursor:pointer; }
+.dashboard-more-details>div,.final-secondary-details>div { padding:0 12px 12px; }
+.generic-hidden-old-monitoring { display:none; }
+@media(max-width:780px){
+  .final-selection-review>div>button { min-height:88px; }
+  .shared-fentanyl-dashboard .dashboard-dose-answer strong { font-size:38px !important; }
+  .shared-fentanyl-dashboard .dashboard-give-now-inline strong { font-size:22px; }
+  .shared-fentanyl-dashboard .dose-math-box b { font-size:18px; }
+}
