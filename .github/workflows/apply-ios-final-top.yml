@@ -1,0 +1,42 @@
+name: Apply iOS final top fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, '[ios-final-top-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/fix-ios-final-top.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit iOS final top behavior
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          e=Path('src/MedicationEngine.tsx').read_text()
+          s=Path('src/MedicationBuilderShell.tsx').read_text()
+          c=Path('src/medicationBuilderShell.css').read_text()
+          assert 'active-medication-screen-top' in s
+          assert 'const resetFinalTop=()=>{' in e
+          assert 'document.scrollingElement' in e
+          assert 'shell.scrollIntoView({block:"start",behavior:"auto"})' in e
+          assert 'iOS Safari: final screen uses the document as the only scroll container.' in c
+          print('iOS final screen top reset verified')
+          PY
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/MedicationBuilderShell.tsx src/MedicationEngine.tsx src/medicationBuilderShell.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix iOS final-screen top position [ios-final-top-generated]"
+          git push
