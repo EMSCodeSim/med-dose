@@ -5,7 +5,6 @@ type Concentration={label:string;amount?:number;amountUnit?:string;volume?:numbe
 
 const common:Record<string,Concentration[]>={
   adenosine:[
-    {label:"6 mg / 2 mL",amount:6,amountUnit:"mg",volume:2,volumeUnit:"mL",concentration:3,concentrationUnit:"mg/mL"},
     {label:"12 mg / 4 mL",amount:12,amountUnit:"mg",volume:4,volumeUnit:"mL",concentration:3,concentrationUnit:"mg/mL"},
   ],
   albuterol:[{label:"2.5 mg / 3 mL unit dose",amount:2.5,amountUnit:"mg",volume:3,volumeUnit:"mL",concentration:0.833333,concentrationUnit:"mg/mL"}],
