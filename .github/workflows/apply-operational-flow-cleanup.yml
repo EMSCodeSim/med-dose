@@ -17,6 +17,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: python scripts/apply-operational-flow-cleanup.py
+      - run: python scripts/remove-legacy-repeat-block.py
       - run: npm ci
       - run: npm run build
       - name: Audit operational flow cleanup
@@ -31,6 +32,7 @@ jobs:
           assert 'DMP DOSE' not in e[e.find('step==="safety"'):e.find('step==="result"')]
           assert 'repeatAction=' in e
           assert 'infusionContent=' in e
+          assert 'false&&result.numeric' not in e
           assert 'DOSE {recorded.count} GIVEN' in d
           assert 'dashboard-next-dose-action' in d
           assert 'primary?:boolean' in g
