@@ -34,11 +34,8 @@ export default function MedicationBuilderShell({medication,boxes,close,reset,chi
     <div className="versed-builder-top"><button className="drug-back-button" onClick={close}>‹ Back to medications</button><span>{medication.name.toUpperCase()} FORMAT</span><button onClick={reset||close}>Start over</button></div>
     <div className={`versed-layout${calculationComplete?" calculation-complete":""}`}>
       <header className="builder-medication-banner">{reference}</header>
-      <aside className="versed-left-column unified-left-column" aria-label="Calculation controls">
-        <CalculationBoard boxes={boxes} className="versed-status-board"/>
-        {leftTools&&<div className="versed-left-tools">{leftTools}</div>}
-      </aside>
-      <section className="unified-medication-workspace">{reference}{children}</section>
+      <aside className="versed-left-column unified-left-column" aria-label="Calculation controls"><CalculationBoard boxes={boxes} className="versed-status-board"/>{leftTools&&<div className="versed-left-tools">{leftTools}</div>}</aside>
+      <section className="builder-workspace versed-inline-workspace unified-medication-workspace" aria-label={`${medication.name} selection workspace`}>{reference}{children}</section>
     </div>
   </main>;
 }
