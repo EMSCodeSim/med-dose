@@ -64,7 +64,10 @@ export default function MedicationEngine({medication,close,record,openProtocol,o
       const host=document.querySelector(".generic-calculator-host");
       if(host instanceof HTMLElement)host.scrollTop=0;
       const shell=document.getElementById("active-medication-screen-top");
-      if(shell instanceof HTMLElement){shell.scrollTop=0;shell.scrollIntoView({block:"start",behavior:"auto"})}
+      if(shell instanceof HTMLElement){
+        shell.scrollTop=0;
+        shell.scrollTo({top:0,left:0,behavior:"auto"});
+      }
     };
     resetFinalTop();
     const frame=window.requestAnimationFrame(resetFinalTop);
