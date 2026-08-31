@@ -1,0 +1,28 @@
+name: Apply shared Fentanyl dashboard
+on:
+  push:
+    branches: [refactor/unified-medication-builder]
+permissions:
+  contents: write
+jobs:
+  migrate:
+    if: ${{ !contains(github.event.head_commit.message, '[shared-dashboard-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/unified-medication-builder
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/apply-shared-fentanyl-dashboard.py
+      - run: npm ci
+      - run: npm run build
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/FentanylBuilder.tsx src/DmpMedicationCalculator.tsx src/App.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Apply shared Fentanyl dashboard [shared-dashboard-generated]"
+          git push
