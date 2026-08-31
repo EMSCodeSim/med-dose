@@ -1,0 +1,42 @@
+name: Clean indications and age groups
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, '[indication-age-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/clean-indications-age-groups.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit indication cleanup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('src/MedicationEngine.tsx').read_text()
+          c=Path('src/genericMedication.css').read_text()
+          assert 'cleanIndicationLabel(x.label)' in s
+          assert 'indication-age-groups' in s
+          assert 'patient-path-badge' in s
+          assert 'cleanIndicationLabel(path.label)' in s
+          assert 'Route now has its own quick-pick step' in s
+          assert 'Indication screen: route is selected separately' in c
+          print('Indication cleanup and age grouping verified')
+          PY
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/MedicationEngine.tsx src/genericMedication.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Clean indication labels and separate adult/peds [indication-age-generated]"
+          git push
