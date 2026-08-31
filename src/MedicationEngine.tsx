@@ -53,7 +53,25 @@ export default function MedicationEngine({medication,close,record,openProtocol,o
     finalVolumeText=isDopamine?`${fmt(dopamineMlHr)} mL/hr`:showingLinkedDose&&needsConcentration?`${fmt(linkedAmount/conc)} mL`:result?.unit==="mL"?`${fmt(result.dose)} mL`:needsConcentration&&result?`${fmt(result.dose/conc)} mL`:"No volume calculation required",needsConcentrationStep=needsConcentration&&!concConfirmed;
 
   useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);
-  useEffect(()=>{if(step!=="result")return;window.requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:"auto"}))},[step]);
+  useEffect(()=>{
+    if(step!=="result")return;
+    const resetFinalTop=()=>{
+      if("scrollRestoration" in history)history.scrollRestoration="manual";
+      const doc=document.scrollingElement;
+      if(doc)doc.scrollTop=0;
+      document.documentElement.scrollTop=0;
+      document.body.scrollTop=0;
+      const host=document.querySelector(".generic-calculator-host");
+      if(host instanceof HTMLElement)host.scrollTop=0;
+      const shell=document.getElementById("active-medication-screen-top");
+      if(shell instanceof HTMLElement){shell.scrollTop=0;shell.scrollIntoView({block:"start",behavior:"auto"})}
+    };
+    resetFinalTop();
+    const frame=window.requestAnimationFrame(resetFinalTop);
+    const shortTimer=window.setTimeout(resetFinalTop,60);
+    const safariTimer=window.setTimeout(resetFinalTop,260);
+    return()=>{window.cancelAnimationFrame(frame);window.clearTimeout(shortTimer);window.clearTimeout(safariTimer)};
+  },[step]);
   useEffect(()=>{if(!onContextChange)return;if(!path||!result){onContextChange(null);return}onContextChange({medication:path.agent,indication:path.label,route:selectedRoute,dose:ageRequired&&age===""?"Age required":needsWeight&&!(kg>0)?"Weight required":finalGiveText,volume:needsConcentration&&!(conc>0)?"Concentration required":finalVolumeText,administration:path.administration,repeat:path.repeat,monitoring,protocolId:medication.protocolId,protocolName:path.protocol,protocolPage:medication.page})},[onContextChange,path,result,selectedRoute,ageChangesDose,age,needsWeight,kg,needsConcentration,conc,finalGiveText,finalVolumeText,medication,monitoring]);
   useEffect(()=>()=>onContextChange?.(null),[onContextChange]);
   const choosePath=(next:GenericDosePath)=>{

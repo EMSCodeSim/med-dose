@@ -245,3 +245,33 @@ html, body, #root, .wizard-app.unified-runtime {
     padding:4px 8px 24px !important;
   }
 }
+
+
+/* iOS Safari: final screen uses the document as the only scroll container. */
+#active-medication-screen-top.calculation-complete-flow {
+  overflow:visible !important;
+  overscroll-behavior:auto !important;
+  scroll-margin-top:0 !important;
+}
+#active-medication-screen-top.calculation-complete-flow .streamlined-medication-layout,
+#active-medication-screen-top.calculation-complete-flow .streamlined-choice-workspace,
+#active-medication-screen-top.calculation-complete-flow .builder-stage-form,
+.generic-calculator-host:has(#active-medication-screen-top.calculation-complete-flow) {
+  overflow:visible !important;
+  max-height:none !important;
+  height:auto !important;
+}
+.generic-calculator-host:has(#active-medication-screen-top.calculation-complete-flow) {
+  position:static !important;
+}
+#active-medication-screen-top.calculation-complete-flow .final-selection-review {
+  margin-top:8px !important;
+}
+@media(max-width:760px){
+  #active-medication-screen-top.calculation-complete-flow {
+    padding-top:0 !important;
+  }
+  #active-medication-screen-top.calculation-complete-flow .streamlined-medication-top {
+    margin-top:0 !important;
+  }
+}
