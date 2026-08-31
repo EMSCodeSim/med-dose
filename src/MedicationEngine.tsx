@@ -5,6 +5,7 @@ import CalculationBoard from "./CalculationBoard";
 import MedicationBuilderShell from "./MedicationBuilderShell";
 import FentanylDoseDashboard from "./FentanylDoseDashboard";
 import DoseSyringe from "./DoseSyringe";
+import GravityDripCalculator from "./GravityDripCalculator";
 import type {EncounterPatient} from "./encounterTypes";
 import WeightQuickSelect from "./WeightQuickSelect";
 import {commonEmsConcentrationsFor} from "./emsMedicationDefaults";
@@ -50,7 +51,8 @@ export default function MedicationEngine({medication,close,record,openProtocol,o
     linkedDose=path?.linkedDose,linkedAmount=linkedDose?Math.min(linkedDose.max??Infinity,(linkedDose.amount??kg*(linkedDose.perKg||0))*(medication.id==="diltiazem"&&effectiveAgeYears>65?.5:1)):0,
     dopamineTotal=kg*dopamineRate,dopamineMlMin=conc>0?dopamineTotal/conc:0,dopamineMlHr=dopamineMlMin*60,dopamineGttMin=Math.round(dopamineMlMin*dropFactor),lastDopamineRate=lastAdministration&&kg>0?lastAdministration.dose/kg:0,dopamineIncreaseWaiting=administrations.length>0&&dopamineRate>lastDopamineRate&&!!secondsLeft,dopamineRateUnchanged=administrations.length>0&&Math.abs(dopamineRate-lastDopamineRate)<.001,
     showingLinkedDose=!!linkedDose&&administrations.length===1,finalGiveText=isDopamine?`${dopamineRate} mcg/kg/min • ${fmt(dopamineTotal)} mcg/min`:showingLinkedDose?`${fmt(linkedAmount)} ${linkedDose?.unit}`:result?.numeric?result.text:result?.text||"Treatment",
-    finalVolumeText=isDopamine?`${fmt(dopamineMlHr)} mL/hr`:showingLinkedDose&&needsConcentration?`${fmt(linkedAmount/conc)} mL`:result?.unit==="mL"?`${fmt(result.dose)} mL`:needsConcentration&&result?`${fmt(result.dose/conc)} mL`:"No volume calculation required",needsConcentrationStep=needsConcentration&&!concConfirmed;
+    finalVolumeText=isDopamine?`${fmt(dopamineMlHr)} mL/hr`:showingLinkedDose&&needsConcentration?`${fmt(linkedAmount/conc)} mL`:result?.unit==="mL"?`${fmt(result.dose)} mL`:needsConcentration&&result?`${fmt(result.dose/conc)} mL`:"No volume calculation required",needsConcentrationStep=needsConcentration&&!concConfirmed,
+    infusionLike=!!path&&(isDopamine||/infusion|drip/i.test(`${selectedRoute} ${path.administration}`));
 
   useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);
   useEffect(()=>{
@@ -155,6 +157,7 @@ export default function MedicationEngine({medication,close,record,openProtocol,o
           repeat={{label:"REPEAT / REASSESS",value:secondsLeft?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`:repeatRemaining>0&&administrations.length?"AVAILABLE NOW":administrations.length?"LIMIT":"AFTER FIRST DOSE",detail:path.repeat,nextDose:repeatRemaining>0&&doseMaximum>0?`Up to ${fmt(doseMaximum)} ${result.unit}`:undefined,state:secondsLeft?"running":repeatRemaining===0&&administrations.length?"unavailable":"ready"}}
           recorded={administrations.length?{count:administrations.length,detail:`${fmt(totalDose)} ${result.numeric?result.unit:"treatments"} recorded`}:null}
         />
+        {infusionLike&&<GravityDripCalculator administration={path.administration} route={selectedRoute} calculatedMlHr={isDopamine?dopamineMlHr:undefined}/>}
         {result.numeric&&!isDopamine&&!linkedDose&&administrations.length>0&&<div className="final-repeat-dose-action">
           <DoseTracker entries={administrations} unit={result.unit} total={totalDose} totalVolume={totalVolume} maxTotal={protocolMaxTotal} repeatsLeft={path.openEndedRepeats?1:repeatRemaining} repeatMinutes={path.repeatAfterMinutes||0} secondsLeft={secondsLeft} nextDose={doseMaximum} initialDose={result.minDose||result.dose} concentration={needsConcentration?conc:1} drug={medication.id} reason={path.label} route={selectedRoute} intranasal={selectedRoute==="IN"} record={recordAmount} openEndedRepeats={!!path.openEndedRepeats} volumeEnabled={needsConcentration||result.unit==="mL"} hideInitialAction/>
         </div>}
