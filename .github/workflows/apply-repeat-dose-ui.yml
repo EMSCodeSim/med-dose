@@ -1,0 +1,39 @@
+name: Apply repeat dose UI
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, '[repeat-dose-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/surface-repeat-dose.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit repeat-dose action
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          e=Path('src/MedicationEngine.tsx').read_text()
+          c=Path('src/genericMedication.css').read_text()
+          assert 'final-repeat-dose-action' in e
+          assert e.count('hideInitialAction/>') == 1
+          assert 'Repeat-dose action stays visible on Final Dose' in c
+          print('Visible repeat-dose action verified')
+          PY
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/MedicationEngine.tsx src/genericMedication.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Surface repeat-dose action on Final Dose [repeat-dose-generated]"
+          git push
