@@ -1,0 +1,38 @@
+name: Apply safety dose overlap fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, '[safety-overlap-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/fix-safety-dose-overlap.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit safety dose layout
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          c=Path('src/genericMedication.css').read_text()
+          assert 'Safety screen: DMP dose preview must stay in normal document flow' in c
+          assert 'position:static !important' in c
+          assert 'clear:both !important' in c
+          print('Safety dose overlap fix verified')
+          PY
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/genericMedication.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix safety dose overlap [safety-overlap-generated]"
+          git push
