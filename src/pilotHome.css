@@ -14,6 +14,9 @@
 .pilot-vial b,.pilot-vial small{position:relative;z-index:1;text-align:center}
 .pilot-vial b{max-width:66px;color:#0b628f;font-size:10px;letter-spacing:.05em;overflow-wrap:anywhere}
 .pilot-vial small{margin-top:5px;color:#5b7482;font-size:6px;letter-spacing:.1em}
+.pilot-vial.has-photo{overflow:hidden;border:1px solid #c7d5dc;background:#fff;box-shadow:0 5px 12px #17364c20}
+.pilot-vial.has-photo:before{display:none}
+.pilot-vial.has-photo img{width:100%;height:100%;object-fit:contain;display:block;padding:4px;box-sizing:border-box}
 .pilot-medication-card.fentanyl .pilot-vial b{color:#8c3d63}
 .pilot-medication-card.fentanyl .pilot-vial i{background:linear-gradient(145deg,#f9eef4,#fff)}
 .pilot-medication-copy{min-width:0;display:flex;flex-direction:column}
