@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import Home from "./App";
+import Home from "./UnifiedApp";
 import "./styles.css";
 import "./unifiedMedicationFlow.css";
 import "./adminReadableFix.css";
