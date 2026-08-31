@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import ProtocolViewer, { type ProtocolTarget } from "./ProtocolViewer";
-import type { GenericTreatmentContext } from "./DmpMedicationCalculator";
+import type { GenericTreatmentContext } from "./MedicationEngine";
 
 type SupportedDrug = "adenosine" | "fentanyl" | "midazolam" | "magnesium" | "epinephrine" | "albuterol" | "diphenhydramine" | "methylprednisolone";
 type Tool = "meds" | "vitals" | "treatment" | "protocols" | null;
