@@ -25,17 +25,11 @@ type Props={
 };
 
 export default function MedicationBuilderShell({medication,boxes,close,reset,children,leftTools,calculationComplete=false,ariaLabel}:Props){
-  const reference=<aside className="versed-medication-reference fentanyl-medication-reference unified-medication-reference" aria-label={`${medication.name} reference`}>
-    <div className="versed-reference-vial fentanyl-reference-vial unified-reference-vial"><small>{(medication.vialLabel||medication.name).toUpperCase()}</small><b>Rx</b><span>MEDICATION</span></div>
-    <span><small>SELECTED MEDICATION</small><b>{medication.name}</b>{medication.subtitle&&<em>{medication.subtitle}</em>}{medication.protocolId&&<em>DMP {medication.protocolId}</em>}</span>
-  </aside>;
-
-  return <main className="versed-builder fentanyl-builder unified-medication-builder" aria-label={ariaLabel||`${medication.name} calculator`}>
-    <div className="versed-builder-top"><button className="drug-back-button" onClick={close}>‹ Back to medications</button><span>{medication.name.toUpperCase()} FORMAT</span><button onClick={reset||close}>Start over</button></div>
-    <div className={`versed-layout${calculationComplete?" calculation-complete":""}`}>
-      <header className="builder-medication-banner">{reference}</header>
-      <aside className="versed-left-column unified-left-column" aria-label="Calculation controls"><CalculationBoard boxes={boxes} className="versed-status-board"/>{leftTools&&<div className="versed-left-tools">{leftTools}</div>}</aside>
-      <section className="builder-workspace versed-inline-workspace unified-medication-workspace" aria-label={`${medication.name} selection workspace`}>{reference}{children}</section>
+  return <main className="versed-builder fentanyl-builder unified-medication-builder streamlined-medication-flow" aria-label={ariaLabel||`${medication.name} calculator`}>
+    <div className="versed-builder-top streamlined-medication-top"><button className="drug-back-button" onClick={close}>‹ Medications</button><strong>{medication.name}</strong><button onClick={reset||close}>Start over</button></div>
+    <div className={`versed-layout streamlined-medication-layout${calculationComplete?" calculation-complete":""}`}>
+      <aside className="versed-left-column unified-left-column streamlined-progress-column" aria-label="Calculation controls"><CalculationBoard boxes={boxes} className="versed-status-board"/>{leftTools&&<div className="versed-left-tools">{leftTools}</div>}</aside>
+      <section className="builder-workspace versed-inline-workspace unified-medication-workspace streamlined-choice-workspace" aria-label={`${medication.name} selection workspace`}>{children}</section>
     </div>
   </main>;
 }
