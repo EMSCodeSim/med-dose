@@ -456,3 +456,60 @@
   .generic-calculator-host .generic-patient-strip { margin: 0 0 10px; }
   .generic-calculator-host .generic-body { margin: 0; }
 }
+
+
+/* Final screen: make the cross-check the primary navigation surface. */
+.final-selection-review {
+  margin: 0 0 14px;
+  border: 2px solid #0873b5;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+.final-selection-review > header {
+  padding: 13px 14px;
+  background: #eaf6fd;
+  border-bottom: 1px solid #c5dfea;
+}
+.final-selection-review > header small,
+.final-selection-review > header b { display:block; }
+.final-selection-review > header small { color:#0873b5; font-size:10px; font-weight:900; letter-spacing:.11em; }
+.final-selection-review > header b { margin-top:4px; color:#294b5f; font-size:12px; line-height:1.35; }
+.final-selection-review > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:10px; }
+.final-selection-review > div > button {
+  position:relative;
+  min-height:86px;
+  padding:11px 36px 11px 12px;
+  border:2px solid #b9d2df;
+  border-radius:10px;
+  background:#fff;
+  color:#173f56;
+  text-align:left;
+  cursor:pointer;
+}
+.final-selection-review > div > button:not(:disabled):hover,
+.final-selection-review > div > button:not(:disabled):active { border-color:#0873b5; background:#f0f9fe; }
+.final-selection-review > div > button:not(:disabled)::after {
+  content:'›';
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#0873b5;
+  font-size:30px;
+  font-weight:900;
+}
+.final-selection-review button small,
+.final-selection-review button b,
+.final-selection-review button span { display:block; }
+.final-selection-review button small { color:#627a88; font-size:8px; font-weight:900; letter-spacing:.1em; }
+.final-selection-review button b { margin-top:3px; font-size:13px; line-height:1.25; }
+.final-selection-review button span { margin-top:7px; color:#0873b5; font-size:9px; font-weight:900; letter-spacing:.04em; }
+.final-selection-review button:disabled { opacity:.65; cursor:default; }
+.final-selection-review .summary-result { padding:11px 12px; border-radius:10px; background:#eef3f6; }
+.final-selection-review .summary-result.primary { background:#e7f7f2; }
+.final-selection-review .generic-protocol-link { border-top:1px solid #d5e3ea; padding:10px 12px; }
+@media (max-width:780px){
+  .final-selection-review > div { grid-template-columns:1fr; }
+  .final-selection-review > div > button { min-height:76px; }
+}
