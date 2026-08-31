@@ -46,3 +46,62 @@
   .streamlined-choice-workspace .builder-options>button b { font-size:14px !important; }
   .streamlined-choice-workspace .builder-options>button span { font-size:8px !important; }
 }
+
+/* Balanced quick picks: large touch targets without stretching to fill the viewport. */
+.streamlined-choice-workspace .builder-options {
+  flex:0 0 auto;
+  grid-auto-rows:minmax(86px,auto);
+  align-content:start;
+  overflow:visible;
+}
+.streamlined-choice-workspace .builder-options>button {
+  height:auto;
+  min-height:86px !important;
+  padding:12px 14px !important;
+}
+.streamlined-choice-workspace .builder-options>button b {
+  font-size:clamp(15px,1.8vw,20px) !important;
+}
+.streamlined-choice-workspace .builder-options>button span {
+  font-size:clamp(9px,1vw,12px) !important;
+}
+
+/* The result can be longer than one screen; allow normal vertical scrolling. */
+.streamlined-medication-layout.calculation-complete .streamlined-choice-workspace,
+.streamlined-medication-layout.calculation-complete .streamlined-choice-workspace>.builder-stage-form {
+  min-height:0;
+  max-height:none;
+  height:auto;
+  overflow:visible !important;
+}
+
+@media(max-width:760px){
+  .streamlined-choice-workspace .builder-options {
+    grid-auto-rows:minmax(78px,auto);
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .streamlined-choice-workspace .builder-options>button {
+    min-height:78px !important;
+    padding:10px !important;
+  }
+  .streamlined-choice-workspace .builder-options>button b {
+    font-size:16px !important;
+  }
+  .streamlined-choice-workspace .builder-options>button span {
+    font-size:9px !important;
+  }
+  .streamlined-medication-layout.calculation-complete,
+  .streamlined-medication-layout.calculation-complete .streamlined-choice-workspace,
+  .streamlined-medication-layout.calculation-complete .streamlined-choice-workspace>.builder-stage-form {
+    min-height:0 !important;
+    max-height:none !important;
+    height:auto !important;
+    overflow:visible !important;
+  }
+  .streamlined-medication-flow:has(.calculation-complete) {
+    min-height:100dvh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+}
