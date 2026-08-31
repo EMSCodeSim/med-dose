@@ -611,3 +611,15 @@
   .final-action-row>button { min-height:68px; }
   .final-math-line strong { font-size:18px; }
 }
+
+
+/* Repeat-dose action stays visible on Final Dose after the first administration. */
+.final-repeat-dose-action { margin:12px 0; }
+.final-repeat-dose-action .dose-tracker { margin:0; }
+.final-repeat-dose-action .tracker-head { border-radius:12px 12px 0 0; }
+.final-repeat-dose-action .repeat-panel { margin-top:0; }
+.final-repeat-dose-action .record-dose { min-height:68px; font-size:16px; font-weight:900; }
+@media(max-width:780px){
+  .final-repeat-dose-action { margin:10px 0; }
+  .final-repeat-dose-action .record-dose { min-height:64px; }
+}
