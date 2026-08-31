@@ -4,7 +4,7 @@ import DoseTracker from "./DoseTracker";
 import CalculationBoard from "./CalculationBoard";
 import MedicationBuilderShell from "./MedicationBuilderShell";
 import FentanylDoseDashboard from "./FentanylDoseDashboard";
-import type {EncounterPatient} from "./VersedBuilder";
+import type {EncounterPatient} from "./encounterTypes";
 import WeightQuickSelect from "./WeightQuickSelect";
 import {commonEmsConcentrationsFor} from "./emsMedicationDefaults";
 import {loadClinicalOverrides} from "./adminMedicationStore";
