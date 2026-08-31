@@ -1,0 +1,40 @@
+name: Install one medication engine
+on:
+  push:
+    branches: [refactor/unified-medication-builder]
+permissions:
+  contents: write
+jobs:
+  migrate:
+    if: ${{ !contains(github.event.head_commit.message, '[one-engine-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/unified-medication-builder
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/install-one-medication-engine.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit released medication definitions
+        run: |
+          node -e "const ids=['adenosine','amiodarone','ondansetron','haloperidol','atropine','midazolam','fentanyl','calcium','dextrose','diphenhydramine','epinephrine','magnesium','methylprednisolone','naloxone','sodium-bicarbonate','ketamine']; const fs=require('fs'); const s=fs.readFileSync('src/fieldMedicationDefinitions.ts','utf8'); for (const id of ids) if (!s.includes(id)) throw new Error('missing released definition '+id); console.log('16 released IDs represented in one-engine definition layer')"
+      - name: Audit runtime engine imports
+        run: |
+          grep -q 'import Home from "./UnifiedApp"' src/main.tsx
+          grep -q 'from "./MedicationEngine"' src/UnifiedApp.tsx
+          ! grep -q 'FentanylBuilder' src/UnifiedApp.tsx
+          ! grep -q 'VersedBuilder' src/UnifiedApp.tsx
+          ! grep -q 'KetamineBuilder' src/UnifiedApp.tsx
+          ! grep -q 'DmpMedicationCalculator' src/UnifiedApp.tsx
+          echo 'Runtime routes all released medications through MedicationEngine only'
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/MedicationEngine.tsx src/FieldToolbar.tsx src/main.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Install single medication engine runtime [one-engine-generated]"
+          git push
