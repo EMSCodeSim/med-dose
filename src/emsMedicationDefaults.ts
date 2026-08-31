@@ -45,10 +45,7 @@ const common:Record<string,Concentration[]>={
     {label:"4 mg / 0.1 mL nasal device",amount:4,amountUnit:"mg",volume:0.1,volumeUnit:"mL",concentration:40,concentrationUnit:"mg/mL"},
   ],
   fentanyl:[{label:"100 mcg / 2 mL",amount:100,amountUnit:"mcg",volume:2,volumeUnit:"mL",concentration:50,concentrationUnit:"mcg/mL"}],
-  ketamine:[
-    {label:"500 mg / 5 mL stock vial",amount:500,amountUnit:"mg",volume:5,volumeUnit:"mL",concentration:100,concentrationUnit:"mg/mL"},
-    {label:"200 mg / 20 mL department working dilution",amount:200,amountUnit:"mg",volume:20,volumeUnit:"mL",concentration:10,concentrationUnit:"mg/mL"},
-  ],
+  ketamine:[{label:"200 mg / 20 mL",amount:200,amountUnit:"mg",volume:20,volumeUnit:"mL",concentration:10,concentrationUnit:"mg/mL"}],
   morphine:[{label:"10 mg / 1 mL",amount:10,amountUnit:"mg",volume:1,volumeUnit:"mL",concentration:10,concentrationUnit:"mg/mL"}],
   hydromorphone:[{label:"1 mg / 1 mL",amount:1,amountUnit:"mg",volume:1,volumeUnit:"mL",concentration:1,concentrationUnit:"mg/mL"}],
   "racemic-epinephrine":[{label:"2.25% solution",amount:22.5,amountUnit:"mg",volume:1,volumeUnit:"mL",concentration:22.5,concentrationUnit:"mg/mL"}],
