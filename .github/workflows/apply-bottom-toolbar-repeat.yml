@@ -17,6 +17,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: python scripts/restore-bottom-toolbar-repeat.py
+      - run: python scripts/fix-repeat-dashboard-props.py
       - run: npm ci
       - run: npm run build
       - name: Audit toolbar and timer
@@ -27,6 +28,7 @@ jobs:
           c=Path('src/medicationBuilderShell.css').read_text()
           assert 'NEXT DOSE / REASSESS' in d
           assert 'MAX NEXT DOSE' in d
+          assert 'onGive,repeat,recorded}:Props)' in d
           assert 'final-next-dose' in d
           assert 'bottom:calc(8px + env(safe-area-inset-bottom))' in c
           assert 'grid-template-columns:repeat(3,minmax(0,1fr))' in c
