@@ -1,0 +1,32 @@
+name: Fix smart indication advance
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, '[smart-indication-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/fix-smart-indication.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit indication smart skip
+        run: |
+          grep -q 'onClick={()=>choosePath(x)}' src/MedicationEngine.tsx
+          ! grep -q 'choosePath(x);setStep("route")' src/MedicationEngine.tsx
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/MedicationEngine.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Let indication use smart next-step logic [smart-indication-generated]"
+          git push
