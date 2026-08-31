@@ -1,0 +1,41 @@
+name: Apply bottom toolbar repeat timer
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, '[bottom-repeat-generated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/restore-bottom-toolbar-repeat.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit toolbar and timer
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          d=Path('src/FentanylDoseDashboard.tsx').read_text()
+          c=Path('src/medicationBuilderShell.css').read_text()
+          assert 'NEXT DOSE / REASSESS' in d
+          assert 'MAX NEXT DOSE' in d
+          assert 'final-next-dose' in d
+          assert 'bottom:calc(8px + env(safe-area-inset-bottom))' in c
+          assert 'grid-template-columns:repeat(3,minmax(0,1fr))' in c
+          print('Bottom Report/Treatment/Protocols toolbar and repeat timer verified')
+          PY
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/FentanylDoseDashboard.tsx src/medicationBuilderShell.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Restore bottom actions and repeat timer [bottom-repeat-generated]"
+          git push
