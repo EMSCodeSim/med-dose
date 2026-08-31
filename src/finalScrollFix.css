@@ -1,0 +1,62 @@
+/* Final result must use normal document flow; choice-screen viewport locks do not apply here. */
+.calculation-complete-flow,
+.calculation-complete-flow .streamlined-medication-layout,
+.calculation-complete-flow .streamlined-choice-workspace,
+.calculation-complete-flow .streamlined-choice-workspace > .builder-stage-form {
+  min-height: 0 !important;
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.calculation-complete-flow {
+  width: 100%;
+  padding-bottom: 140px !important;
+}
+
+.calculation-complete-flow .streamlined-choice-workspace {
+  padding-bottom: 24px !important;
+}
+
+.calculation-complete-flow .streamlined-choice-workspace > .builder-stage-form {
+  display: block !important;
+  padding-bottom: 32px !important;
+}
+
+.generic-calculator-host:has(.calculation-complete-flow),
+.single-engine-host:has(.calculation-complete-flow),
+.unified-runtime:has(.calculation-complete-flow) {
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+html:has(.calculation-complete-flow),
+body:has(.calculation-complete-flow) {
+  height: auto !important;
+  min-height: 100%;
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto;
+}
+
+@media (max-width: 760px) {
+  .calculation-complete-flow {
+    min-height: 100dvh !important;
+    padding-bottom: calc(132px + env(safe-area-inset-bottom)) !important;
+    overflow: visible !important;
+  }
+
+  .calculation-complete-flow .streamlined-medication-layout,
+  .calculation-complete-flow .streamlined-choice-workspace,
+  .calculation-complete-flow .streamlined-choice-workspace > .builder-stage-form {
+    width: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .calculation-complete-flow .streamlined-choice-workspace > .builder-stage-form {
+    padding: 10px 10px 34px !important;
+  }
+}
