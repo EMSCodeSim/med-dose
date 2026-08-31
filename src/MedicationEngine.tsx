@@ -109,7 +109,7 @@ export default function MedicationEngine({medication,close,record,openProtocol,o
     <div className="builder-stage-form generic-body">
       {step==="medication"&&<><small className="eyebrow">MEDICATION</small><h1>Select medication agent</h1><div className="builder-options">{medicationAgents.map(x=><button key={x} className={selectedAgent===x?"selected":""} onClick={()=>{setSelectedAgent(x);setPath(null);setConcConfirmed(false);setCustomConcentrationMode(false);setCustomConcentration("");const paths=medication.paths.filter(p=>p.agent===x);if(paths.some(pathUsesConcentration))setStep("concentration");else if(paths.length===1)choosePath(paths[0]);else setStep("indication")}}><b>{x}</b><span>DMP {medication.protocolId}</span></button>)}</div></>}
 
-      {step==="indication"&&<><small className="eyebrow">INDICATION</small><h1>Why is {selectedAgent} being given?</h1><div className="builder-options">{agentPaths.map(x=><button className={path?.id===x.id?"selected":""} key={x.id} onClick={()=>choosePath(x)}><b>{x.label}</b><span>{x.protocol}</span></button>)}</div></>}
+      {step==="indication"&&<><small className="eyebrow">INDICATION</small><h1>Why is {selectedAgent} being given?</h1><div className="indication-age-groups">{(["adult","pediatric","all"] as const).map(group=>{const options=agentPaths.filter(x=>x.patient===group);if(!options.length)return null;return <section key={group} className={`indication-age-group ${group}`}><header><b>{group==="adult"?"ADULT":group==="pediatric"?"PEDIATRIC":"ALL AGES"}</b><span>{group==="adult"?"Adult pathway":group==="pediatric"?"Pediatric pathway":"Age-neutral pathway"}</span></header><div className="builder-options">{options.map(x=><button className={path?.id===x.id?"selected":""} key={x.id} onClick={()=>choosePath(x)}><i className={`patient-path-badge ${group}`}>{group==="adult"?"ADULT":group==="pediatric"?"PEDS":"ALL AGES"}</i><b>{cleanIndicationLabel(x.label)}</b><span>{x.protocol}</span></button>)}</div></section>})}</div></>}
 
       {step==="route"&&path&&<><small className="eyebrow">ROUTE</small><h1>Select route</h1><div className="route-quick-pick-label">ROUTE QUICK PICK</div><div className="builder-options route-options">{routeChoices.map(x=><button key={x} className={selectedRoute===x?"selected":""} onClick={()=>{setRoute(x);if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(needsPatientInfo&&!patientComplete)setStep("patient");else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}}><b>{x}</b><span>Approved route</span></button>)}</div></>}
 
@@ -123,7 +123,7 @@ export default function MedicationEngine({medication,close,record,openProtocol,o
         <section className="entered-summary final-selection-review final-edit-grid"><header><small>SELECTIONS</small><b>Tap any box to edit</b></header><div>
           <button onClick={()=>medicationAgents.length>1?setStep("medication"):close()}><small>MEDICATION</small><b>{path.agent}</b><span>{medicationAgents.length>1?"EDIT →":"CHANGE →"}</span></button>
           {agentNeedsConcentration&&<button onClick={()=>{setReturnToResult(true);setStep("concentration")}}><small>CONCENTRATION</small><b>{customConcentrationMode?`${fmt(conc)} ${concentrationUnit}/mL • Custom`:fieldConcentration?.label||`${fmt(conc)} ${concentrationUnit}/mL`}</b><span>EDIT →</span></button>}
-          <button className="summary-indication" onClick={()=>{setReturnToResult(true);setStep("indication")}}><small>INDICATION</small><b>{path.label}</b><span>EDIT →</span></button>
+          <button className="summary-indication" onClick={()=>{setReturnToResult(true);setStep("indication")}}><small>INDICATION</small><b>{cleanIndicationLabel(path.label)}</b><span>{path.patient==="adult"?"ADULT • EDIT →":path.patient==="pediatric"?"PEDS • EDIT →":"EDIT →"}</span></button>
           <button onClick={()=>{setReturnToResult(true);setStep("route")}}><small>ROUTE</small><b>{selectedRoute}</b><span>EDIT →</span></button>
           {needsPatientInfo&&<button onClick={()=>{setReturnToResult(true);setStep("patient")}}><small>PATIENT</small><b>{path.patient==="adult"?"Adult":path.patient==="pediatric"?"Pediatric":"All ages"} • {patientText}</b><span>{needsWeight?`${fmt(kg)} kg • EDIT →`:"EDIT →"}</span></button>}
           {(contraindications.length>0||specialChecksText.length>0||!!path.baseContact)&&<button onClick={()=>{setReturnToResult(true);setStep("safety")}}><small>SAFETY</small><b>{safetyComplete?"Confirmed":"Review required"}</b><span>EDIT →</span></button>}
@@ -234,6 +234,15 @@ function concentrationInUnit(item:FieldConcentration,target:string){
   const toMg:Record<string,number>={mcg:.001,mg:1,g:1000};
   if(toMg[source]&&toMg[target])return value*toMg[source]/toMg[target];
   return value;
+}
+
+function cleanIndicationLabel(label:string){
+  let text=String(label||"").trim();
+  // Route now has its own quick-pick step, so remove route/patient qualifiers from the indication display only.
+  text=text.replace(/\s*[—-]\s*(adult|pediatric|peds?)\s*(iv\/io drip|iv\/io|iv|io|im\/in|im|in|po|odt|nebulized|sublingual)?\s*$/i,"");
+  text=text.replace(/\s*[—-]\s*(iv\/io drip|iv\/io|iv|io|im\/in|im|in|po|odt|nebulized|sublingual|auto-injector)\s*$/i,"");
+  text=text.replace(/\s*[—-]\s*(adult|pediatric|peds?)\s*$/i,"");
+  return text.trim();
 }
 
 function routesFor(route:string){const map:Record<string,string[]>={"IV/IM/PO/ODT":["IV","IM","PO","ODT"],"IV/PO/ODT":["IV","PO","ODT"],"IV/IO/IM/IN":["IV/IO","IM","IN"],"IV/IO/IM":["IV/IO","IM"],"IV/IM":["IV","IM"],"Slow IV/IM":["IV","IM"],"IM or ODT":["IM","ODT"]};return map[route]||[route]}

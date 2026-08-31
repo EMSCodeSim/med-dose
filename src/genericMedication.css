@@ -710,3 +710,25 @@
   .final-primary-administration-actions { margin:6px 0 8px; }
   .final-primary-administration-actions .initial-record-dose { min-height:68px; }
 }
+
+
+/* Indication screen: route is selected separately; make Adult vs Pediatric unmistakable. */
+.indication-age-groups{display:grid;gap:18px}
+.indication-age-group{display:grid;gap:10px;padding:0}
+.indication-age-group>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:2px solid #bccbd4;border-radius:12px;background:#f5f8fa}
+.indication-age-group>header b{font-size:15px;letter-spacing:.08em}
+.indication-age-group>header span{font-size:11px;font-weight:800;color:#607583}
+.indication-age-group.adult>header{border-left:7px solid #145f91}
+.indication-age-group.pediatric>header{border-left:7px solid #9a4b75}
+.indication-age-group.all>header{border-left:7px solid #55736a}
+.indication-age-group .builder-options button{position:relative;padding-top:38px}
+.patient-path-badge{position:absolute;top:10px;left:12px;display:inline-flex;align-items:center;min-height:20px;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:1000;font-style:normal;letter-spacing:.09em;background:#e9f1f6;color:#184f70}
+.patient-path-badge.pediatric{background:#f7eaf1;color:#7d365d}
+.patient-path-badge.all{background:#eaf1ee;color:#3e6257}
+@media(max-width:760px){
+  .indication-age-groups{gap:14px}
+  .indication-age-group>header{padding:9px 11px}
+  .indication-age-group>header b{font-size:14px}
+  .indication-age-group>header span{font-size:10px}
+  .indication-age-group .builder-options button{padding-top:36px}
+}
