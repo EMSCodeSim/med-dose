@@ -1,0 +1,50 @@
+name: Remove legacy medication engines
+on:
+  push:
+    branches: [refactor/unified-medication-builder]
+permissions:
+  contents: write
+jobs:
+  migrate:
+    if: ${{ !contains(github.event.head_commit.message, '[legacy-engines-removed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/unified-medication-builder
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: python scripts/remove-legacy-engines.py
+      - run: npm ci
+      - run: npm run build
+      - name: Audit one engine only
+        run: |
+          test -f src/MedicationEngine.tsx
+          test -f src/UnifiedApp.tsx
+          test ! -e src/App.tsx
+          test ! -e src/DmpMedicationCalculator.tsx
+          test ! -e src/FentanylBuilder.tsx
+          test ! -e src/VersedBuilder.tsx
+          test ! -e src/KetamineBuilder.tsx
+          grep -q 'import Home from "./UnifiedApp"' src/main.tsx
+          grep -q 'from "./MedicationEngine"' src/UnifiedApp.tsx
+          ! grep -R 'DmpMedicationCalculator\|FentanylBuilder\|VersedBuilder\|KetamineBuilder' src --include='*.ts' --include='*.tsx'
+          echo 'One medication engine is the only runtime calculator source'
+      - name: Audit all released medications resolve
+        run: |
+          npx esbuild src/fieldMedicationDefinitions.ts --bundle --platform=node --format=cjs --outfile=/tmp/field-defs.cjs
+          node - <<'NODE'
+          const defs=require('/tmp/field-defs.cjs');
+          const ids=['adenosine','amiodarone','ondansetron','haloperidol','atropine','midazolam','fentanyl','calcium','dextrose','diphenhydramine','epinephrine','magnesium','methylprednisolone','naloxone','sodium-bicarbonate','ketamine'];
+          const missing=ids.filter(id=>!defs.fieldMedicationDefinition(id));
+          if(missing.length) throw new Error('released definitions missing: '+missing.join(', '));
+          console.log('All 16 released medications resolve through MedicationEngine');
+          NODE
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Remove alternate medication engines [legacy-engines-removed]"
+          git push
