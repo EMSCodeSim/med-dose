@@ -24,7 +24,7 @@ type Props={
   recorded?:{count:number;detail:string}|null;
 };
 
-export default function FentanylDoseDashboard({medication,ready,previewReady,dose,volume,doseDetail,giveLabel="GIVE NOW",giveText,giveDetail,giveDisabled,showGiveAction=true,onGive}:Props){
+export default function FentanylDoseDashboard({medication,ready,previewReady,dose,volume,doseDetail,giveLabel="GIVE NOW",giveText,giveDetail,giveDisabled,showGiveAction=true,onGive,repeat,recorded}:Props){
   return <section className="shared-fentanyl-dashboard final-dose-card" aria-label={`Final ${medication} dose`}>
     <section className={ready?"dashboard-primary-dose ready":"dashboard-primary-dose pending"}>
       <small>FINAL DOSE</small>
@@ -34,5 +34,11 @@ export default function FentanylDoseDashboard({medication,ready,previewReady,dos
         {showGiveAction&&<button type="button" className="dashboard-give-now dashboard-give-now-inline" disabled={giveDisabled} onClick={onGive} aria-label={`${giveLabel}: ${giveText}`}><small>{giveLabel}</small><strong>{giveText}</strong>{giveDetail&&<span>{giveDetail}</span>}</button>}
       </>:<strong className="dashboard-dose-pending">Complete required checks</strong>}
     </section>
+    {previewReady&&<section className={`final-next-dose repeat-status ${repeat.state==="running"?"running":""} ${repeat.state==="unavailable"?"unavailable":""}`} aria-live="polite">
+      <span><small>NEXT DOSE / REASSESS</small><strong>{repeat.value}</strong></span>
+      {repeat.nextDose&&<span><small>MAX NEXT DOSE</small><b>{repeat.nextDose}</b></span>}
+      <p>{repeat.detail}</p>
+    </section>}
+    {recorded&&<div className="final-recorded-summary"><b>✓ {recorded.count} dose{recorded.count===1?"":"s"} recorded</b><span>{recorded.detail}</span></div>}
   </section>;
 }
