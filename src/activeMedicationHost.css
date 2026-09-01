@@ -1,7 +1,7 @@
 /* Active medication workflow desktop host.
-   Desktop previously kept the legacy .wizard-shell as a visible container behind
-   the current medication builder. Remove that wrapper box entirely so the active
-   medication workflow is the only visible format. Phone behavior is unchanged. */
+   Desktop previously kept legacy wizard/layout surfaces visible around the
+   current medication step. The active medication screen now owns the desktop
+   workspace completely. Phone behavior is unchanged. */
 
 @media (min-width: 761px) {
   .wizard-shell.generic-calculator-host.single-engine-host {
@@ -26,6 +26,48 @@
     background: #edf2f5;
   }
 
+  /* The left-side CalculationBoard is the previous desktop template. It was
+     still painting underneath the new step workspace, which made the old cards
+     visible on both sides of the current concentration/route/safety screen. */
+  #active-medication-screen-top .streamlined-progress-column,
+  #active-medication-screen-top .streamlined-progress-column .fixed-calculation-board,
+  #active-medication-screen-top .versed-status-board {
+    display: none !important;
+  }
+
+  /* One medication step = one desktop screen. Do not reserve the former status
+     column or allow the current workspace to behave like a centered overlay. */
+  #active-medication-screen-top .streamlined-medication-layout {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 10px 0 !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace {
+    display: block !important;
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative !important;
+    z-index: 2 !important;
+    background: #fff !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    box-shadow: 0 10px 30px #17364c12 !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace > .builder-stage-form {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
   /* A legacy iOS final-dose rule was unintentionally global and turned the
      desktop final result into a fixed overlay. Keep desktop in normal document
      flow so there is never an older medication surface visible underneath. */
@@ -38,6 +80,13 @@
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
+  }
+
+  #active-medication-screen-top.calculation-complete-flow .streamlined-choice-workspace {
+    width: min(780px, 100%) !important;
+    max-width: 780px !important;
     margin: 0 auto !important;
     overflow: visible !important;
   }
