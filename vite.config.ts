@@ -15,6 +15,36 @@ const clinicalMedicationOverrides={
     return null;
   },
   transform(code:string,id:string){
+    if(id.endsWith("/src/UnifiedApp.tsx")){
+      const stateSignature='[catalogRevision,setCatalogRevision]=useState(0);';
+      const stateReplacement='[catalogRevision,setCatalogRevision]=useState(0),[drugSearch,setDrugSearch]=useState("");';
+      if(!code.includes(stateSignature))throw new Error("UnifiedApp search-state signature changed");
+      code=code.replace(stateSignature,stateReplacement);
+
+      const visibleSignature='const visibleIds=useMemo(()=>DEFAULT_FIELD_MEDICATION_IDS.filter(id=>!medicationCatalogRetired(id)&&medicationCatalogVisible(id,true)&&!!fieldMedicationDefinition(id)),[catalogRevision]);';
+      const filteredReplacement=`const visibleIds=useMemo(()=>DEFAULT_FIELD_MEDICATION_IDS.filter(id=>!medicationCatalogRetired(id)&&medicationCatalogVisible(id,true)&&!!fieldMedicationDefinition(id)),[catalogRevision]);
+  const filteredVisibleIds=useMemo(()=>{const q=drugSearch.trim().toLowerCase();if(!q)return visibleIds;return visibleIds.filter(id=>{const def=fieldMedicationDefinition(id),med=catalog.find(item=>item.id===id);if(!def)return false;const searchable=[id,def.name,def.protocolId,med?.brand,med?.sub,...def.paths.map(path=>path.label),...def.paths.map(path=>path.protocol)].filter(Boolean).join(" ").toLowerCase();return searchable.includes(q)})},[visibleIds,drugSearch,catalog]);`;
+      if(!code.includes(visibleSignature))throw new Error("UnifiedApp visible medication signature changed");
+      code=code.replace(visibleSignature,filteredReplacement);
+
+      const gridSignature='</p></div><div className="pilot-medication-grid">{visibleIds.map(id=>';
+      const gridReplacement='</p></div><div className="pilot-medication-search"><label htmlFor="drug-search">Find a medication</label><div><span aria-hidden="true">⌕</span><input id="drug-search" type="search" inputMode="search" autoComplete="off" placeholder="Search drug, indication, or protocol" value={drugSearch} onChange={e=>setDrugSearch(e.target.value)}/>{drugSearch&&<button type="button" onClick={()=>setDrugSearch("")} aria-label="Clear medication search">×</button>}</div><small>{filteredVisibleIds.length} of {visibleIds.length} medications</small></div><div className="pilot-medication-grid">{filteredVisibleIds.map(id=>';
+      if(!code.includes(gridSignature))throw new Error("UnifiedApp medication grid signature changed");
+      code=code.replace(gridSignature,gridReplacement);
+
+      const cardInfoSignature='<span>{med?.sub||subtitles[id]||`DMP ${def.protocolId}`}</span>';
+      const cardInfoReplacement='<span>{def.paths.length?`${def.paths.slice(0,2).map(path=>path.label).join(" • ")}${def.paths.length>2?` • +${def.paths.length-2} more`:""}`:med?.sub||subtitles[id]||`DMP ${def.protocolId}`}</span>';
+      if(!code.includes(cardInfoSignature))throw new Error("UnifiedApp medication card information signature changed");
+      code=code.replace(cardInfoSignature,cardInfoReplacement);
+
+      const footerSignature='<span>{visibleIds.length} released medications • one renderer • one state machine</span>';
+      const footerReplacement='<span>{drugSearch?`${filteredVisibleIds.length} matching medications`:`${visibleIds.length} released medications`} • one renderer • one state machine</span>';
+      if(!code.includes(footerSignature))throw new Error("UnifiedApp footer signature changed");
+      code=code.replace(footerSignature,footerReplacement);
+
+      return {code,map:null};
+    }
+
     if(!id.endsWith("/src/MedicationEngine.tsx"))return null;
 
     const singleConcentration='const fieldConcentration=useMemo(()=>fieldConcentrationFor(medication.id),[medication.id]);';
