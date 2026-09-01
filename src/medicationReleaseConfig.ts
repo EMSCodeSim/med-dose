@@ -2,7 +2,6 @@ export const DEFAULT_FIELD_MEDICATION_IDS:string[] = [
   "adenosine",
   "amiodarone",
   "ondansetron",
-  "haloperidol",
   "atropine",
   "midazolam",
   "fentanyl",
