@@ -26,6 +26,22 @@
     background: #edf2f5;
   }
 
+  /* A legacy iOS final-dose rule was unintentionally global and turned the
+     desktop final result into a fixed overlay. Keep desktop in normal document
+     flow so there is never an older medication surface visible underneath. */
+  #active-medication-screen-top.calculation-complete-flow {
+    position: relative !important;
+    inset: auto !important;
+    z-index: 1 !important;
+    width: min(1120px, calc(100vw - 32px)) !important;
+    max-width: 1120px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
+  }
+
   /* Do not let any generic/legacy wizard surfaces paint behind the active flow. */
   #active-medication-screen-top .generic-workspace,
   #active-medication-screen-top .wizard-card,
