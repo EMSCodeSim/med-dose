@@ -1,0 +1,25 @@
+/* Active medication workflow desktop host.
+   The unified medication builder is wider than the legacy 760px wizard shell.
+   Keep the active calculator inside one opaque, correctly-sized surface so no
+   legacy wizard container appears behind or around the current workflow. */
+
+@media (min-width: 761px) {
+  .wizard-shell.generic-calculator-host.single-engine-host {
+    width: min(1180px, 100%);
+    max-width: 1180px;
+    margin-inline: auto;
+    padding: 16px 16px 130px;
+    overflow: visible;
+    position: relative;
+    isolation: isolate;
+    background: #edf2f5;
+  }
+
+  .wizard-shell.generic-calculator-host.single-engine-host > #active-medication-screen-top {
+    width: min(1120px, 100%);
+    max-width: 1120px;
+    margin-inline: auto;
+    position: relative;
+    z-index: 1;
+  }
+}
