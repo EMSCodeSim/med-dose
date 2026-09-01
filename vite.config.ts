@@ -81,10 +81,10 @@ function epinephrinePathMatchesConcentration(path:GenericDosePath,stockConcentra
     if(!code.includes(oldHelper))throw new Error("MedicationEngine concentration helper signature changed");
     code=code.replace(oldHelper,newHelper);
 
-    const oldAgentPaths='agentPaths=selectedAgentPaths,agentConcentrationPath=';
-    const newAgentPaths='agentPaths=selectedAgentPaths.filter(path=>epinephrinePathMatchesConcentration(path,conc,medication.id)),agentConcentrationPath=';
-    if(!code.includes(oldAgentPaths))throw new Error("MedicationEngine agent path signature changed");
-    code=code.replace(oldAgentPaths,newAgentPaths);
+    const indicationSignature='const options=agentPaths.filter(x=>x.patient===group);';
+    const indicationReplacement='const options=agentPaths.filter(x=>x.patient===group&&epinephrinePathMatchesConcentration(x,conc,medication.id));';
+    if(!code.includes(indicationSignature))throw new Error("MedicationEngine indication filtering signature changed");
+    code=code.replace(indicationSignature,indicationReplacement);
 
     code=code.replace(
       'className={!customConcentrationMode&&concConfirmed?"selected":""}',
