@@ -1,19 +1,25 @@
 export const DEFAULT_FIELD_MEDICATION_IDS:string[] = [
   "adenosine",
+  "albuterol",
   "amiodarone",
   "ondansetron",
+  "droperidol",
   "atropine",
   "midazolam",
-  "fentanyl",
   "calcium",
   "dextrose",
   "diphenhydramine",
   "epinephrine",
+  "ipratropium",
   "magnesium",
   "methylprednisolone",
   "naloxone",
+  "nitroglycerin",
+  "ketorolac",
+  "fentanyl",
+  "oral-glucose",
+  "racemic-epinephrine",
   "sodium-bicarbonate",
-  "ketamine",
 ];
 
 export const CURRENT_DMP_PROTOCOL_REVISION = "July 2026";
