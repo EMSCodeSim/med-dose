@@ -14,6 +14,49 @@ const clinicalMedicationOverrides={
     }
     return null;
   },
+  transform(code:string,id:string){
+    if(!id.endsWith("/src/MedicationEngine.tsx"))return null;
+
+    const singleConcentration='const fieldConcentration=useMemo(()=>fieldConcentrationFor(medication.id),[medication.id]);';
+    const multiConcentration='const fieldConcentrations=useMemo(()=>fieldConcentrationsFor(medication.id),[medication.id]),[fieldConcentrationIndex,setFieldConcentrationIndex]=useState(0),fieldConcentration=fieldConcentrations[fieldConcentrationIndex]||null;';
+    if(!code.includes(singleConcentration))throw new Error("MedicationEngine concentration state signature changed");
+    code=code.replace(singleConcentration,multiConcentration);
+
+    const oldHelper=`function fieldConcentrationFor(id:string):FieldConcentration|null{
+  try{
+    const overrides=loadClinicalOverrides() as Record<string,{concentrations?:FieldConcentration[]}>;
+    const admin=overrides[id]?.concentrations?.find(item=>Number(item?.concentration)>0);
+    if(admin)return admin;
+  }catch{}
+  return commonEmsConcentrationsFor(id).find(item=>Number(item?.concentration)>0)||null;
+}`;
+    const newHelper=`function fieldConcentrationsFor(id:string):FieldConcentration[]{
+  try{
+    const overrides=loadClinicalOverrides() as Record<string,{concentrations?:FieldConcentration[]}>;
+    const admin=(overrides[id]?.concentrations||[]).filter(item=>Number(item?.concentration)>0);
+    if(admin.length)return admin;
+  }catch{}
+  return commonEmsConcentrationsFor(id).filter(item=>Number(item?.concentration)>0);
+}`;
+    if(!code.includes(oldHelper))throw new Error("MedicationEngine concentration helper signature changed");
+    code=code.replace(oldHelper,newHelper);
+
+    code=code.replace(
+      'className={!customConcentrationMode&&concConfirmed?"selected":""}',
+      'className={!customConcentrationMode&&concConfirmed&&fieldConcentrationIndex===0?"selected":""}'
+    );
+    code=code.replace(
+      'onClick={()=>{setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);',
+      'onClick={()=>{setFieldConcentrationIndex(0);setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);'
+    );
+
+    const customButton='<button type="button" className={customConcentrationMode?"selected":""} onClick={()=>{setCustomConcentrationMode(true);setCustomConcentration("");setConcConfirmed(false)}}><b>Custom</b><span>Physical label is different</span></button>';
+    const extraButtons='{fieldConcentrations.slice(1).map((item,index)=><button type="button" key={`${item.label||item.concentration}-${index}`} className={!customConcentrationMode&&concConfirmed&&fieldConcentrationIndex===index+1?"selected":""} onClick={()=>{setFieldConcentrationIndex(index+1);setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")}}><b>{item.label||`${fmt(Number(item.concentration))} ${concentrationUnit}/mL`}</b><span>{fmt(Number(item.concentration))} {concentrationUnit}/mL • Department/Admin</span></button>)}';
+    if(!code.includes(customButton))throw new Error("MedicationEngine custom concentration button signature changed");
+    code=code.replace(customButton,extraButtons+customButton);
+
+    return {code,map:null};
+  },
 };
 
 export default defineConfig({ plugins: [clinicalMedicationOverrides,react()] });
