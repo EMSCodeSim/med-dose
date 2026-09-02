@@ -57,6 +57,41 @@ const clinicalMedicationOverrides={
     if(!code.includes(singleConcentration))throw new Error("MedicationEngine concentration state signature changed");
     code=code.replace(singleConcentration,multiConcentration);
 
+    const helperAnchor='export default function MedicationEngine';
+    const versedHelpers=`function midazolamReasonKey(path:GenericDosePath){
+  const id=path.id.replace(/-half$/,'');
+  if(id.includes('seizure'))return 'seizure';
+  if(id.includes('cardiovert'))return 'cardioversion';
+  if(id.includes('pacing'))return 'pacing';
+  if(id.includes('imminent'))return 'imminent';
+  if(id.includes('agitation-under8'))return 'agitation-under8';
+  if(id.includes('agitation'))return 'agitation';
+  return id;
+}
+function midazolamReasonLabel(path:GenericDosePath){
+  switch(midazolamReasonKey(path)){
+    case 'seizure': return 'Seizure / status epilepticus';
+    case 'cardioversion': return 'Sedation for synchronized cardioversion';
+    case 'pacing': return 'Sedation for transcutaneous pacing';
+    case 'agitation': return path.patient==='pediatric'?'Agitated / combative — age 8 to 11':'Agitated / combative patient';
+    case 'agitation-under8': return 'Agitated / combative — under age 8 • BASE CONTACT';
+    case 'imminent': return 'Imminent risk of bodily harm';
+    default: return cleanIndicationLabel(path.label);
+  }
+}
+function midazolamReasonOptions(paths:GenericDosePath[],group:'adult'|'pediatric'|'all'){
+  const preferred=new Set(['adult-seizure-iv','adult-cardiovert','adult-pacing','adult-agitation','adult-imminent','ped-seizure-iv','ped-cardiovert-iv','ped-pacing-iv','ped-agitation-8-11','ped-agitation-under8']);
+  return paths.filter(path=>path.patient===group&&preferred.has(path.id));
+}
+function midazolamRoutePaths(paths:GenericDosePath[],selected:GenericDosePath){
+  const key=midazolamReasonKey(selected);
+  return paths.filter(path=>path.patient===selected.patient&&midazolamReasonKey(path)===key&&!path.id.endsWith('-half'));
+}
+
+export default function MedicationEngine`;
+    if(!code.includes(helperAnchor))throw new Error("MedicationEngine export signature changed");
+    code=code.replace(helperAnchor,versedHelpers);
+
     const oldHelper=`function fieldConcentrationFor(id:string):FieldConcentration|null{
   try{
     const overrides=loadClinicalOverrides() as Record<string,{concentrations?:FieldConcentration[]}>;
@@ -87,9 +122,26 @@ function epinephrinePathMatchesConcentration(path:GenericDosePath,stockConcentra
     code=code.replace(oldHelper,newHelper);
 
     const indicationSignature='const options=agentPaths.filter(x=>x.patient===group);';
-    const indicationReplacement='const options=agentPaths.filter(x=>x.patient===group&&epinephrinePathMatchesConcentration(x,conc,medication.id));';
+    const indicationReplacement='const options=medication.id==="midazolam"?midazolamReasonOptions(agentPaths,group):agentPaths.filter(x=>x.patient===group&&epinephrinePathMatchesConcentration(x,conc,medication.id));';
     if(!code.includes(indicationSignature))throw new Error("MedicationEngine indication filtering signature changed");
     code=code.replace(indicationSignature,indicationReplacement);
+
+    const reasonButton='<b>{cleanIndicationLabel(x.label)}</b><span>{x.protocol}</span>';
+    const clearerReasonButton='<b>{medication.id==="midazolam"?midazolamReasonLabel(x):cleanIndicationLabel(x.label)}</b><span>{medication.id==="midazolam"?"Choose route next":x.protocol}</span>';
+    if(!code.includes(reasonButton))throw new Error("MedicationEngine reason button signature changed");
+    code=code.replace(reasonButton,clearerReasonButton);
+
+    const routeChoicesSignature='<div className="builder-options route-options">{routeChoices.map(x=><button key={x} className={selectedRoute===x?"selected":""} onClick={()=>{setRoute(x);if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(needsPatientInfo&&!patientComplete)setStep("patient");else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}}><b>{x}</b><span>Approved route</span></button>)}</div>';
+    const routeChoicesReplacement='<div className="builder-options route-options">{(medication.id==="midazolam"?Array.from(new Set(midazolamRoutePaths(agentPaths,path).flatMap(p=>routesFor(p.route)))):routeChoices).map(x=><button key={x} className={selectedRoute===x?"selected":""} onClick={()=>{let activePath=path;if(medication.id==="midazolam"){const matched=midazolamRoutePaths(agentPaths,path).find(p=>routesFor(p.route).includes(x));if(matched){activePath=matched;setPath(matched)}}setRoute(x);const activeNeedsWeight=activePath.formula.kind==="perKg"||!!activePath.requiresWeight;const activeAgeRequired=(activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined)&&activePath.patient!=="adult";const activeNeedsPatient=activeNeedsWeight||activeAgeRequired;if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(activeNeedsPatient)setStep("patient");else{setStep("safety")}}}><b>{x}</b><span>{medication.id==="midazolam"?midazolamReasonLabel(activePathForRoute(agentPaths,path,x)):"Approved route"}</span></button>)}</div>';
+    const activePathHelper=`function activePathForRoute(paths:GenericDosePath[],selected:GenericDosePath,route:string){
+  if(selected.agent!=="Midazolam")return selected;
+  return midazolamRoutePaths(paths,selected).find(path=>routesFor(path.route).includes(route))||selected;
+}
+
+`;
+    if(!code.includes(routeChoicesSignature))throw new Error("MedicationEngine route choice signature changed");
+    code=code.replace('function midazolamRoutePaths(paths:GenericDosePath[],selected:GenericDosePath){\n  const key=midazolamReasonKey(selected);\n  return paths.filter(path=>path.patient===selected.patient&&midazolamReasonKey(path)===key&&!path.id.endsWith(\'-half\'));\n}\n\n','function midazolamRoutePaths(paths:GenericDosePath[],selected:GenericDosePath){\n  const key=midazolamReasonKey(selected);\n  return paths.filter(path=>path.patient===selected.patient&&midazolamReasonKey(path)===key&&!path.id.endsWith(\'-half\'));\n}\n'+activePathHelper);
+    code=code.replace(routeChoicesSignature,routeChoicesReplacement);
 
     code=code.replace(
       'className={!customConcentrationMode&&concConfirmed?"selected":""}',
