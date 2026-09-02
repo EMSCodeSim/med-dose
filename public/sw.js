@@ -1,4 +1,4 @@
-const CACHE = "metro-med-dose-v32";
+const CACHE = "metro-med-dose-v33-field-shell";
 const CORE = ["/", "/offline.html", "/manifest.webmanifest", "/medications/adenosine-vial.webp", "/icons/metro-med-dose-192.png", "/icons/metro-med-dose-512.png", "/icons/apple-touch-icon.png", "/icons/favicon-32.png"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting())));
 self.addEventListener("activate", event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
@@ -16,6 +16,6 @@ self.addEventListener("fetch", event => {
   }
   event.respondWith(networkFirst(request));
 });
-async function networkWithTimeout(request, milliseconds) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), milliseconds); try { const response = await fetch(request, { signal: controller.signal }); if (response.ok) (await caches.open(CACHE)).put(request, response.clone()); return response; } finally { clearTimeout(timer); } }
+async function networkWithTimeout(request, milliseconds) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), milliseconds); try { const response = await fetch(request, { signal: controller.signal, cache: "no-store" }); if (response.ok) (await caches.open(CACHE)).put(request, response.clone()); return response; } finally { clearTimeout(timer); } }
 async function cacheFirst(request) { const cached = await caches.match(request); if (cached) return cached; const response = await fetch(request); if (response.ok) (await caches.open(CACHE)).put(request, response.clone()); return response; }
 async function networkFirst(request) { try { const response = await fetch(request); if (response.ok || response.type === "opaque") (await caches.open(CACHE)).put(request, response.clone()); return response; } catch { return (await caches.match(request)) || Response.error(); } }
