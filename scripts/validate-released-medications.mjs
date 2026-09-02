@@ -78,7 +78,8 @@ try{
       if(f.kind==="perKg"&&!(Number(f.amount)>0))failures.push(`${med.id}/${path.id}: invalid weight-based dose`);
       if(f.kind==="ageBands"&&(!Array.isArray(f.bands)||!f.bands.length))failures.push(`${med.id}/${path.id}: age bands missing`);
       if(f.kind==="instruction"&&!String(f.text||"").trim())failures.push(`${med.id}/${path.id}: instruction text missing`);
-      if(path.repeatAfterMinutes&&!(path.maxAdministrations>1)&&!path.openEndedRepeats&&!path.linkedDose)failures.push(`${med.id}/${path.id}: repeat timer has no repeat allowance`);
+      const hasCumulativeRepeatCeiling=path.maxCumulative!==undefined||path.maxCumulativePerKg!==undefined||path.absoluteCumulativeMax!==undefined;
+      if(path.repeatAfterMinutes&&!(path.maxAdministrations>1)&&!path.openEndedRepeats&&!path.linkedDose&&!hasCumulativeRepeatCeiling)failures.push(`${med.id}/${path.id}: repeat timer has no repeat allowance`);
       if(path.maxAdministrations!==undefined&&path.maxAdministrations<1)failures.push(`${med.id}/${path.id}: invalid maxAdministrations`);
 
       const age=representativeAge(path),kg=representativeWeight(path);
