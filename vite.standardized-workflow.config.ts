@@ -18,7 +18,7 @@ const standardizedWorkflow:Plugin={
   return cleanIndicationLabel(label);
 }
 function standardizedReasonKey(path:GenericDosePath){
-  return \\`${path.patient}|${standardizedReasonLabel(path).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}\\`;
+  return path.patient+"|"+standardizedReasonLabel(path).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 }
 function standardizedReasonOptions(paths:GenericDosePath[],group:"adult"|"pediatric"|"all",medicationId:string,stockConcentration:number){
   const source=medicationId==="midazolam"?midazolamReasonOptions(paths,group):paths.filter(path=>path.patient===group&&epinephrinePathMatchesConcentration(path,stockConcentration,medicationId));
