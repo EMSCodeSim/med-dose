@@ -16,6 +16,11 @@ const clinicalMedicationOverrides={
   },
   transform(code:string,id:string){
     if(id.endsWith("/src/UnifiedApp.tsx")){
+      const directive='"use client";\n';
+      const approvalImport='"use client";\nimport {medicationApprovalStatus} from "./medicationApprovalStatus";\n';
+      if(!code.includes(directive))throw new Error("UnifiedApp client directive changed");
+      code=code.replace(directive,approvalImport);
+
       const stateSignature='[catalogRevision,setCatalogRevision]=useState(0);';
       const stateReplacement='[catalogRevision,setCatalogRevision]=useState(0),[drugSearch,setDrugSearch]=useState("");';
       if(!code.includes(stateSignature))throw new Error("UnifiedApp search-state signature changed");
@@ -33,12 +38,12 @@ const clinicalMedicationOverrides={
       code=code.replace(gridSignature,gridReplacement);
 
       const cardInfoSignature='<span>{med?.sub||subtitles[id]||`DMP ${def.protocolId}`}</span>';
-      const cardInfoReplacement='<span>{def.paths.length?`${def.paths.slice(0,2).map(path=>path.label).join(" • ")}${def.paths.length>2?` • +${def.paths.length-2} more`:""}`:med?.sub||subtitles[id]||`DMP ${def.protocolId}`}</span>';
+      const cardInfoReplacement='<span>{def.paths.length?`${def.paths.slice(0,2).map(path=>path.label).join(" • ")}${def.paths.length>2?` • +${def.paths.length-2} more`:""}`:med?.sub||subtitles[id]||`DMP ${def.protocolId}`}</span><em className={`med-approval ${medicationApprovalStatus(id).state}`}>{medicationApprovalStatus(id).label}</em>';
       if(!code.includes(cardInfoSignature))throw new Error("UnifiedApp medication card information signature changed");
       code=code.replace(cardInfoSignature,cardInfoReplacement);
 
       const footerSignature='<span>{visibleIds.length} released medications • one renderer • one state machine</span>';
-      const footerReplacement='<span>{drugSearch?`${filteredVisibleIds.length} matching medications`:`${visibleIds.length} released medications`} • one renderer • one state machine</span>';
+      const footerReplacement='<span>{drugSearch?`${filteredVisibleIds.length} matching medications`:`${visibleIds.length} released medications`} • one renderer • one state machine • approval tracked per medication</span>';
       if(!code.includes(footerSignature))throw new Error("UnifiedApp footer signature changed");
       code=code.replace(footerSignature,footerReplacement);
 
