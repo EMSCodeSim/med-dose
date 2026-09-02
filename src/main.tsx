@@ -7,6 +7,7 @@ import "./adminReadableFix.css";
 import "./activeMedicationHost.css";
 import "./desktopTopVisibilityFix.css";
 import "./approvalStatus.css";
+import "./quickSelectScrollFix.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><Home /></React.StrictMode>);
 
