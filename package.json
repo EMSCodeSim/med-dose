@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "npm run test:clinical",
     "test:clinical": "node scripts/validate-released-medications.mjs",
     "release:check": "npm run test:clinical && tsc -b && vite build",
     "build": "npm run test:clinical && tsc -b && vite build",
