@@ -26,17 +26,14 @@
     background: #edf2f5;
   }
 
-  /* The left-side CalculationBoard is the previous desktop template. It was
-     still painting underneath the new step workspace, which made the old cards
-     visible on both sides of the current concentration/route/safety screen. */
+  /* The left-side CalculationBoard is the previous desktop template. */
   #active-medication-screen-top .streamlined-progress-column,
   #active-medication-screen-top .streamlined-progress-column .fixed-calculation-board,
   #active-medication-screen-top .versed-status-board {
     display: none !important;
   }
 
-  /* One medication step = one desktop screen. Do not reserve the former status
-     column or allow the current workspace to behave like a centered overlay. */
+  /* One medication step = one desktop screen. */
   #active-medication-screen-top .streamlined-medication-layout {
     display: block !important;
     grid-template-columns: 1fr !important;
@@ -68,9 +65,8 @@
     box-sizing: border-box !important;
   }
 
-  /* A legacy iOS final-dose rule was unintentionally global and turned the
-     desktop final result into a fixed overlay. Keep desktop in normal document
-     flow so there is never an older medication surface visible underneath. */
+  /* A legacy iOS final-dose rule was unintentionally global. Desktop remains in
+     normal document flow so another medication surface can never show beneath it. */
   #active-medication-screen-top.calculation-complete-flow {
     position: relative !important;
     inset: auto !important;
@@ -91,11 +87,198 @@
     overflow: visible !important;
   }
 
-  /* Do not let any generic/legacy wizard surfaces paint behind the active flow. */
   #active-medication-screen-top .generic-workspace,
   #active-medication-screen-top .wizard-card,
   #active-medication-screen-top .generic-body {
     background: transparent;
     box-shadow: none;
+  }
+}
+
+/* Desktop workstation treatment. This intentionally starts above the phone/tablet
+   breakpoint so the compact mobile layout remains unchanged. */
+@media (min-width: 900px) {
+  #active-medication-screen-top {
+    width: min(1260px, calc(100vw - 56px));
+    max-width: 1260px;
+    padding: 18px 22px 116px;
+    box-sizing: border-box;
+    background: transparent;
+  }
+
+  #active-medication-screen-top .streamlined-medication-top {
+    width: min(1060px, 100%);
+    min-height: 58px;
+    margin: 0 auto 14px !important;
+    padding: 8px 10px !important;
+    box-sizing: border-box;
+    display: grid !important;
+    grid-template-columns: 150px minmax(0, 1fr) 150px;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid #cbd8df;
+    border-radius: 15px;
+    background: #fff !important;
+    box-shadow: 0 8px 24px #17364c0d;
+  }
+
+  #active-medication-screen-top .streamlined-medication-top > strong {
+    min-width: 0;
+    text-align: center;
+    color: #173f56 !important;
+    font-size: 20px !important;
+    font-weight: 850;
+    letter-spacing: -.01em;
+  }
+
+  #active-medication-screen-top .streamlined-medication-top > button {
+    min-height: 40px;
+    padding: 0 14px !important;
+    border: 1px solid #b8c9d2 !important;
+    border-radius: 10px !important;
+    background: #f7fafb !important;
+    color: #174b68 !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    box-shadow: none !important;
+  }
+
+  #active-medication-screen-top .streamlined-medication-top > button:first-child {
+    justify-self: start;
+  }
+
+  #active-medication-screen-top .streamlined-medication-top > button:last-child {
+    justify-self: end;
+  }
+
+  #active-medication-screen-top .streamlined-medication-top > button:hover {
+    border-color: #7fa9bd !important;
+    background: #edf6fa !important;
+  }
+
+  #active-medication-screen-top .streamlined-medication-layout {
+    width: min(1060px, 100%) !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace {
+    width: 100% !important;
+    min-height: 500px;
+    border: 1px solid #cfdae0 !important;
+    border-radius: 20px !important;
+    background: #fff !important;
+    box-shadow: 0 18px 48px #17364c16 !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace > .builder-stage-form {
+    min-height: 500px !important;
+    padding: 30px 34px 34px !important;
+    box-sizing: border-box !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace .eyebrow {
+    margin-bottom: 5px !important;
+    color: #607984 !important;
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    letter-spacing: .14em !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace h1 {
+    margin: 0 0 22px !important;
+    color: #102f43 !important;
+    font-size: clamp(30px, 2.4vw, 38px) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -.025em;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace .builder-options {
+    width: 100% !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-auto-rows: minmax(112px, auto) !important;
+    gap: 14px !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace .builder-options > button {
+    min-height: 112px !important;
+    padding: 18px 20px !important;
+    border-width: 2px !important;
+    border-radius: 15px !important;
+    box-shadow: 0 5px 14px #17364c0a !important;
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace .builder-options > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 9px 20px #17364c14 !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace .builder-options > button b {
+    font-size: clamp(19px, 1.55vw, 24px) !important;
+    line-height: 1.12 !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace .builder-options > button span {
+    margin-top: 8px !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Concentration and route are decision pairs. Keep those in two balanced
+     columns even on very wide monitors. Indication lists may use a third column. */
+  #active-medication-screen-top .streamlined-choice-workspace .concentration-options,
+  #active-medication-screen-top .streamlined-choice-workspace .route-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #active-medication-screen-top .streamlined-choice-workspace .builder-custom {
+    width: min(720px, 100%);
+    margin: 0 auto;
+    padding: 20px 22px;
+    box-sizing: border-box;
+    border: 1px solid #d8e2e7;
+    border-radius: 14px;
+    background: #f8fbfc;
+  }
+
+  #active-medication-screen-top.calculation-complete-flow {
+    width: min(1260px, calc(100vw - 56px)) !important;
+    max-width: 1260px !important;
+    padding: 18px 22px 140px !important;
+  }
+
+  #active-medication-screen-top.calculation-complete-flow .streamlined-choice-workspace {
+    width: min(860px, 100%) !important;
+    max-width: 860px !important;
+    min-height: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  #active-medication-screen-top.calculation-complete-flow .streamlined-choice-workspace > .builder-stage-form {
+    min-height: 0 !important;
+    padding: 12px 16px 28px !important;
+  }
+
+  .streamlined-medication-flow ~ .field-toolbar,
+  .unified-runtime > .field-toolbar,
+  body > .field-toolbar {
+    width: min(660px, calc(100vw - 40px)) !important;
+    bottom: 16px !important;
+    padding: 8px !important;
+    border-radius: 16px !important;
+  }
+
+  .streamlined-medication-flow ~ .field-toolbar button,
+  .unified-runtime > .field-toolbar button,
+  body > .field-toolbar button {
+    min-height: 56px !important;
+  }
+}
+
+@media (min-width: 1220px) {
+  #active-medication-screen-top .streamlined-choice-workspace .builder-options:not(.concentration-options):not(.route-options) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
