@@ -1,0 +1,60 @@
+/* Keep long medication decision screens usable on every device.
+   Short quick-pick screens retain their current layout; when content exceeds the
+   available viewport, the active step becomes the vertical scroll container. */
+
+#active-medication-screen-top:not(.calculation-complete-flow) .streamlined-choice-workspace {
+  min-height: 0 !important;
+  max-height: calc(100dvh - 92px) !important;
+  overflow: hidden !important;
+}
+
+#active-medication-screen-top:not(.calculation-complete-flow) .streamlined-choice-workspace > .builder-stage-form,
+#active-medication-screen-top:not(.calculation-complete-flow) .streamlined-choice-workspace > .generic-body {
+  min-height: 0 !important;
+  max-height: calc(100dvh - 92px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  padding-bottom: 110px !important;
+}
+
+/* Let option groups take their natural height. The step container above owns
+   scrolling, which avoids nested-scroll traps and makes the final row reachable. */
+#active-medication-screen-top:not(.calculation-complete-flow) .builder-options,
+#active-medication-screen-top:not(.calculation-complete-flow) .indication-age-groups,
+#active-medication-screen-top:not(.calculation-complete-flow) .indication-age-group,
+#active-medication-screen-top:not(.calculation-complete-flow) .weight-quick-select,
+#active-medication-screen-top:not(.calculation-complete-flow) .adult-weight-grid,
+#active-medication-screen-top:not(.calculation-complete-flow) .age-weight-grid,
+#active-medication-screen-top:not(.calculation-complete-flow) .infant-length-grid,
+#active-medication-screen-top:not(.calculation-complete-flow) .weight-methods,
+#active-medication-screen-top:not(.calculation-complete-flow) .safety-review-list {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+@media (max-width: 760px) {
+  #active-medication-screen-top:not(.calculation-complete-flow) .streamlined-choice-workspace {
+    max-height: calc(100dvh - 48px) !important;
+  }
+
+  #active-medication-screen-top:not(.calculation-complete-flow) .streamlined-choice-workspace > .builder-stage-form,
+  #active-medication-screen-top:not(.calculation-complete-flow) .streamlined-choice-workspace > .generic-body {
+    max-height: calc(100dvh - 48px) !important;
+    padding-bottom: calc(118px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (min-width: 900px) {
+  #active-medication-screen-top:not(.calculation-complete-flow) .streamlined-choice-workspace {
+    max-height: calc(100dvh - 130px) !important;
+  }
+
+  #active-medication-screen-top:not(.calculation-complete-flow) .streamlined-choice-workspace > .builder-stage-form,
+  #active-medication-screen-top:not(.calculation-complete-flow) .streamlined-choice-workspace > .generic-body {
+    max-height: calc(100dvh - 130px) !important;
+    padding-bottom: 124px !important;
+  }
+}
