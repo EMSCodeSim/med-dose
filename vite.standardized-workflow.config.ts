@@ -64,6 +64,11 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
     if(!code.includes(repeatAllowanceOld))throw new Error("MedicationEngine repeat allowance signature changed");
     code=code.replace(repeatAllowanceOld,repeatAllowanceNew);
 
+    const ageRequiredOld='ageRequired=ageChangesDose&&path?.patient!=="adult"';
+    const ageRequiredNew='ageRequired=ageChangesDose&&(path?.patient!=="adult"||medication.id==="midazolam")';
+    if(!code.includes(ageRequiredOld))throw new Error("MedicationEngine age-required signature changed");
+    code=code.replace(ageRequiredOld,ageRequiredNew);
+
     return {code,map:null};
   },
 };
