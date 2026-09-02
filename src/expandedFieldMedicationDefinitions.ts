@@ -43,6 +43,22 @@ function ketorolacDefinition():GenericMedication|null{
   };
 }
 
+function midazolamAgeChecked(base:GenericMedication):GenericMedication{
+  const paths=base.paths.map(path=>{
+    // DMEMSMD 0015: adult is >=12 and pediatric is <12 unless a medication pathway says otherwise.
+    if(path.patient==="adult")return {...path,minAge:12};
+    if(path.patient!=="pediatric")return path;
+
+    // DMEMSMD 9070: pediatric agitation has its own narrower age bands.
+    if(path.id==="ped-agitation-8-11")return {...path,minAge:8,maxAge:12};
+    if(path.id==="ped-agitation-under8")return {...path,maxAge:8};
+
+    // Seizure and cardioversion/TCP sedation are listed for pediatric patients generally.
+    return {...path,maxAge:12};
+  });
+  return {...base,paths};
+}
+
 const displayNames:Record<string,string>={
   albuterol:"Albuterol Sulfate",
   atropine:"Atropine Sulfate",
@@ -55,7 +71,8 @@ export function fieldMedicationDefinition(id:string):GenericMedication|null{
   if(id==="ketorolac")return ketorolacDefinition();
   const base=clinicalFieldMedicationDefinition(id);
   if(!base)return null;
-  return displayNames[id]?{...base,name:displayNames[id]}:base;
+  const ageChecked=id==="midazolam"?midazolamAgeChecked(base):base;
+  return displayNames[id]?{...ageChecked,name:displayNames[id]}:ageChecked;
 }
 
 export function assertReleasedMedicationDefinitions(){
