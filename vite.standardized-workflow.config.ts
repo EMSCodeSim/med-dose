@@ -59,6 +59,11 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
     if(!code.includes(routeDetailOld))throw new Error("MedicationEngine route detail signature changed");
     code=code.replace(routeDetailOld,routeDetailNew);
 
+    const repeatAllowanceOld='maxAdministrations=path?.openEndedRepeats?Number.MAX_SAFE_INTEGER:path?.linkedDose?2:path?.maxAdministrations||1,';
+    const repeatAllowanceNew='maxAdministrations=path?.openEndedRepeats||path?.maxCumulative!==undefined||path?.maxCumulativePerKg!==undefined||path?.absoluteCumulativeMax!==undefined?Number.MAX_SAFE_INTEGER:path?.linkedDose?2:path?.maxAdministrations||1,';
+    if(!code.includes(repeatAllowanceOld))throw new Error("MedicationEngine repeat allowance signature changed");
+    code=code.replace(repeatAllowanceOld,repeatAllowanceNew);
+
     return {code,map:null};
   },
 };
