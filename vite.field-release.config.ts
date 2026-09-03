@@ -16,6 +16,19 @@ const temporaryFieldRelease:Plugin={
       if(!code.includes(badgeOld))throw new Error("FieldApp review badge signature changed");
       code=code.replace(badgeOld,badgeNew);
 
+      const ketamineCategory='nitroglycerin:["Adult","Cardiac"], ketorolac:["Adult","Peds","Pain/Sedation"], fentanyl:["Adult","Peds","Pain/Sedation"],';
+      const ketamineCategoryNew='nitroglycerin:["Adult","Cardiac"], ketorolac:["Adult","Peds","Pain/Sedation"], fentanyl:["Adult","Peds","Pain/Sedation"], ketamine:["Adult","Pain/Sedation"],';
+      if(code.includes(ketamineCategory))code=code.replace(ketamineCategory,ketamineCategoryNew);
+
+      const ketamineAlias='midazolam:["versed","seizure","sedation"], fentanyl:["pain","opioid"], epinephrine:';
+      const ketamineAliasNew='midazolam:["versed","seizure","sedation"], fentanyl:["pain","opioid"], ketamine:["ketamine","ketalar","pain","analgesia"], epinephrine:';
+      if(code.includes(ketamineAlias))code=code.replace(ketamineAlias,ketamineAliasNew);
+
+      const vialOld='<div className="vial-art" aria-hidden="true"><span></span><b>{def.name.slice(0,3).toUpperCase()}</b></div>';
+      const vialNew='<div className={`vial-art ${id==="adenosine"?"has-photo":""}`} aria-hidden="true">{id==="adenosine"?<img src="/medications/adenosine-vial.webp" alt=""/>:<><span></span><b>{def.name.slice(0,3).toUpperCase()}</b></>}</div>';
+      if(!code.includes(vialOld))throw new Error("FieldApp vial art signature changed");
+      code=code.replace(vialOld,vialNew);
+
       // Field home is medication-first. Age and weight belong inside a selected
       // protocol pathway only when that pathway actually requires them.
       const patientStart='      <section className={`patient-card';
