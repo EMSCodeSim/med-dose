@@ -1,0 +1,68 @@
+/* Experienced-paramedic fast path: keep the dose above the fold and reduce review-card height. */
+.field-mode-shell #active-medication-screen-top .final-selection-review{
+  margin-bottom:8px!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review>header{
+  padding:8px 10px!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review>header small,
+.field-mode-shell #active-medication-screen-top .final-selection-review>header b{
+  font-size:10px!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review>div{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:6px!important;
+  padding:7px!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review button,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result{
+  min-height:50px!important;
+  padding:7px 9px!important;
+  border-radius:9px!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review button small,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result small{
+  font-size:8px!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review button b,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result b{
+  font-size:12px!important;
+  line-height:1.15!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review button span{
+  margin-top:3px!important;
+  font-size:8px!important;
+}
+.field-mode-shell #active-medication-screen-top .speed-next-medication{
+  width:100%!important;
+  min-height:58px!important;
+  margin:8px 0 10px!important;
+  padding:10px 14px!important;
+  border:2px solid #79b9ff!important;
+  border-radius:12px!important;
+  background:#12355a!important;
+  color:#fff!important;
+  text-align:left!important;
+}
+.field-mode-shell #active-medication-screen-top .speed-next-medication b,
+.field-mode-shell #active-medication-screen-top .speed-next-medication span{
+  display:block!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+}
+.field-mode-shell #active-medication-screen-top .speed-next-medication b{
+  font-size:15px!important;
+  letter-spacing:.04em!important;
+}
+.field-mode-shell #active-medication-screen-top .speed-next-medication span{
+  margin-top:3px!important;
+  font-size:11px!important;
+  color:#cfe5ff!important;
+  -webkit-text-fill-color:#cfe5ff!important;
+}
+@media(max-width:480px){
+  .field-mode-shell #active-medication-screen-top .final-selection-review>div{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+}
