@@ -3,7 +3,10 @@ import standardizedConfig from "./vite.standardized-workflow.config";
 
 const temporaryFieldRelease:Plugin={
   name:"temporary-field-release-all-source-meds",
-  enforce:"post",
+  // This guard matches source-level TypeScript/JSX signatures, so it must run
+  // before React/Vite compiles FieldApp.tsx. Running post-transform makes the
+  // safety assertion fail even when the source approval gate is unchanged.
+  enforce:"pre",
   transform(code,id){
     if(!id.endsWith("/src/FieldApp.tsx"))return null;
 
