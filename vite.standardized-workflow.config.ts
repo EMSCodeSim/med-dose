@@ -69,6 +69,35 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
     if(!code.includes(ageRequiredOld))throw new Error("MedicationEngine age-required signature changed");
     code=code.replace(ageRequiredOld,ageRequiredNew);
 
+    // Field-first sequence. Epinephrine remains concentration-first until its
+    // concentration-specific pathway data is normalized independently.
+    const initialStepOld='[step,setStep]=useState<Step>(()=>medicationAgents.length===1?(medication.paths.some(pathUsesConcentration)?"concentration":"indication"):"medication")';
+    const initialStepNew='[step,setStep]=useState<Step>(()=>medicationAgents.length===1?(medication.id==="epinephrine"&&medication.paths.some(pathUsesConcentration)?"concentration":"indication"):"medication")';
+    if(!code.includes(initialStepOld))throw new Error("MedicationEngine initial-step signature changed");
+    code=code.replace(initialStepOld,initialStepNew);
+
+    const visibleStepsOld='const visibleSteps:Step[]=[...(medicationAgents.length>1?["medication" as Step]:[]),...(agentNeedsConcentration?["concentration" as Step]:[]),"indication","route",...(needsPatientInfo?["patient" as Step]:[]),"safety","result"]';
+    const visibleStepsNew='const visibleSteps:Step[]=[...(medicationAgents.length>1?["medication" as Step]:[]),...(medication.id==="epinephrine"&&agentNeedsConcentration?["concentration" as Step]:[]),"indication","route",...(needsPatientInfo?["patient" as Step]:[]),...(medication.id!=="epinephrine"&&agentNeedsConcentration?["concentration" as Step]:[]),"safety","result"]';
+    if(!code.includes(visibleStepsOld))throw new Error("MedicationEngine visible-step signature changed");
+    code=code.replace(visibleStepsOld,visibleStepsNew);
+
+    const routePatientOld='const activeNeedsPatient=activeNeedsWeight||activeAgeRequired;if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(activeNeedsPatient)setStep("patient");else{setStep("safety")}';
+    const routePatientNew='const activeNeedsPatient=activeNeedsWeight||activeAgeRequired;const activeNeedsConcentration=activePath.formula.kind!=="instruction"&&!['+"'"+'mL'+"'"+','+"'"+'drops'+"'"+','+"'"+'sprays'+"'"+','+"'"+'device'+"'"+'].includes(activePath.formula.unit)&&(!!activePath.volumeRequired||!!activePath.suggestedConcentration);if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(activeNeedsPatient)setStep("patient");else if(medication.id!=="epinephrine"&&activeNeedsConcentration&&!concConfirmed)setStep("concentration");else{setStep("safety")}';
+    if(!code.includes(routePatientOld))throw new Error("MedicationEngine route-next-step signature changed");
+    code=code.replace(routePatientOld,routePatientNew);
+
+    const finishPatientOld='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}};';
+    const finishPatientNew='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(medication.id!=="epinephrine"&&needsConcentration&&!concConfirmed)setStep("concentration");else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}};';
+    if(!code.includes(finishPatientOld))throw new Error("MedicationEngine patient-next-step signature changed");
+    code=code.replace(finishPatientOld,finishPatientNew);
+
+    // When concentration is selected after reason/route, continue forward instead
+    // of restarting indication/path selection. This replacement applies to the
+    // stock concentration buttons injected by the base clinical plugin.
+    const concentrationForwardOld='if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")';
+    const concentrationForwardNew='if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(path){if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")';
+    if(code.includes(concentrationForwardOld))code=code.split(concentrationForwardOld).join(concentrationForwardNew);
+
     return {code,map:null};
   },
 };
