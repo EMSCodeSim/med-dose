@@ -1,0 +1,92 @@
+/* Field readability overrides based on real iPhone screenshots. Loaded last. */
+.field-mode-shell #active-medication-screen-top .indication-age-group>header,
+.field-mode-shell #active-medication-screen-top .indication-age-group>header *{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+
+.field-mode-shell #active-medication-screen-top .indication-age-group>header{
+  background:#173f73!important;
+  border-color:#8fc5ff!important;
+}
+
+/* Final dose must never render white-on-white. */
+.field-mode-shell #active-medication-screen-top .generic-final{
+  background:#0c2433!important;
+  border-color:#69b49c!important;
+  color:#ffffff!important;
+}
+.field-mode-shell #active-medication-screen-top .generic-final *,
+.field-mode-shell #active-medication-screen-top .final-selection-review *{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .generic-final small,
+.field-mode-shell #active-medication-screen-top .generic-final .eyebrow,
+.field-mode-shell #active-medication-screen-top .generic-final .generic-eyebrow{
+  color:#d7e5ec!important;
+  -webkit-text-fill-color:#d7e5ec!important;
+}
+.field-mode-shell #active-medication-screen-top .generic-final strong,
+.field-mode-shell #active-medication-screen-top .final-give strong{
+  color:#a7f3b3!important;
+  -webkit-text-fill-color:#a7f3b3!important;
+}
+
+/* Repeat/reassessment area: keep instructional text readable in bright daylight. */
+.field-mode-shell #active-medication-screen-top .final-next-dose,
+.field-mode-shell #active-medication-screen-top .generic-repeat{
+  background:#0d1b24!important;
+  color:#ffffff!important;
+}
+.field-mode-shell #active-medication-screen-top .final-next-dose small,
+.field-mode-shell #active-medication-screen-top .final-next-dose span,
+.field-mode-shell #active-medication-screen-top .final-next-dose p,
+.field-mode-shell #active-medication-screen-top .generic-repeat span,
+.field-mode-shell #active-medication-screen-top .generic-repeat p{
+  color:#d7e5ec!important;
+  -webkit-text-fill-color:#d7e5ec!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .final-next-dose strong,
+.field-mode-shell #active-medication-screen-top .generic-repeat>b{
+  color:#a7f3b3!important;
+  -webkit-text-fill-color:#a7f3b3!important;
+}
+.field-mode-shell #active-medication-screen-top .generic-repeat button:disabled,
+.field-mode-shell #active-medication-screen-top .final-next-dose button:disabled{
+  background:#dbe4e8!important;
+  color:#17364c!important;
+  -webkit-text-fill-color:#17364c!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .generic-repeat button:disabled * ,
+.field-mode-shell #active-medication-screen-top .final-next-dose button:disabled *{
+  color:#17364c!important;
+  -webkit-text-fill-color:#17364c!important;
+  opacity:1!important;
+}
+
+/* Calculation and action cards should use dark text when the card itself is light. */
+.field-mode-shell #active-medication-screen-top .calculation-box{
+  background:#f4f8fa!important;
+  color:#17364c!important;
+}
+.field-mode-shell #active-medication-screen-top .calculation-box *,
+.field-mode-shell #active-medication-screen-top .final-dose-action-card *{
+  color:#17364c!important;
+  -webkit-text-fill-color:#17364c!important;
+  opacity:1!important;
+}
+
+/* Prevent inherited opacity from dimming any major field-use text. */
+.field-mode-shell #active-medication-screen-top h1,
+.field-mode-shell #active-medication-screen-top h2,
+.field-mode-shell #active-medication-screen-top h3,
+.field-mode-shell #active-medication-screen-top button,
+.field-mode-shell #active-medication-screen-top strong{
+  opacity:1!important;
+}
