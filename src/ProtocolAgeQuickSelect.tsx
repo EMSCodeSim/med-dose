@@ -36,9 +36,19 @@ function labelFor(min:number,maxExclusive:number,patient:GenericDosePath["patien
   return `${patient==="adult"?"Adult ":patient==="pediatric"?"Pediatric ":""}${Math.round(min)}+`;
 }
 
+// One display convention across the medication set:
+// standard/adult choices first, pediatric choices next, infant choices last.
+// This changes presentation only; pathway eligibility and calculations are untouched.
+function orderAgeChoices(choices:Choice[]){
+  return choices.map((choice,index)=>({choice,index})).sort((a,b)=>{
+    const rank=(choice:Choice)=>choice.years>=12?0:choice.years>=1?1:2;
+    return rank(a.choice)-rank(b.choice)||a.index-b.index;
+  }).map(item=>item.choice);
+}
+
 function choicesFor(medicationId:string,path:GenericDosePath):Choice[]{
   if(path.formula.kind==="ageBands"){
-    return path.formula.bands.map(b=>({label:labelFor(b.min,b.max,path.patient),detail:`Protocol age band • ${ageText(b.min)} to under ${ageText(b.max)}`,years:representative(b.min,b.max)}));
+    return orderAgeChoices(path.formula.bands.map(b=>({label:labelFor(b.min,b.max,path.patient),detail:`Protocol age band • ${ageText(b.min)} to under ${ageText(b.max)}`,years:representative(b.min,b.max)})));
   }
   const baseMin=path.minAge??(path.patient==="adult"?12:0);
   const baseMax=path.maxAge??(path.patient==="pediatric"?12:Infinity);
@@ -59,7 +69,7 @@ function choicesFor(medicationId:string,path:GenericDosePath):Choice[]{
   if(out.length===0){
     out.push({label:labelFor(baseMin,baseMax,path.patient),detail:"Protocol age group",years:representative(baseMin,baseMax)});
   }
-  return out;
+  return orderAgeChoices(out);
 }
 
 function persistAge(years:number|string){
@@ -88,7 +98,7 @@ export default function ProtocolAgeQuickSelect({medicationId,path,value,onSelect
     onExact(next);
   };
   return <section className="protocol-age-select">
-    <div className="protocol-age-heading"><b>Select patient age group</b><span>Only age bands that can affect this protocol are shown.</span></div>
+    <div className="protocol-age-heading"><b>Select patient age group</b><span>Adult choices first, then pediatric age bands that affect this protocol.</span></div>
     <div className="protocol-age-grid">{choices.map(choice=><button type="button" key={`${choice.label}-${choice.years}`} onClick={()=>choose(choice)}><strong>{choice.label}</strong><span>{choice.detail}</span></button>)}</div>
     <details className="protocol-exact-age"><summary>Enter exact age instead</summary><label><span>Age in years</span><input inputMode="decimal" value={value} onChange={e=>exact(e.target.value)} placeholder="Exact age"/></label></details>
   </section>;
