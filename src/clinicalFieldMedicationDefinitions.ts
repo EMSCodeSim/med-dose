@@ -14,7 +14,7 @@ function patchDiphenhydramine(base:GenericMedication):GenericMedication{
   ]};
   return {...base,contraindications:[...base.contraindications,"Patients over 65 years receive the DMP half-dose of 25 mg"],paths:base.paths.map(path=>{
     if(path.patient!=="adult")return path;
-    return {...path,patient:"all" as const,minAge:12,maxAge:130,formula:adultFormula,label:`${path.label} — age required`,special:[...(path.special||[]),"DMP 9100: patients over 65 years receive 25 mg rather than 50 mg."]};
+    return {...path,patient:"adult" as const,minAge:12,maxAge:130,formula:adultFormula,label:`${path.label} — age required`,special:[...(path.special||[]),"DMP 9100: patients over 65 years receive 25 mg rather than 50 mg."]};
   })};
 }
 
