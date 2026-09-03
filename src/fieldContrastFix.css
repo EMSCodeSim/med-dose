@@ -102,3 +102,19 @@
 .field-mode-shell #active-medication-screen-top .calculation-box{
   border-color:#5f7d8d!important;
 }
+.field-mode-shell .vial-art.has-photo{
+  background:#f7fafb!important;
+  box-shadow:inset 0 0 0 1px #b9c7ce,0 5px 12px #0005!important;
+  overflow:hidden;
+}
+.field-mode-shell .vial-art.has-photo:before{
+  display:none!important;
+}
+.field-mode-shell .vial-art.has-photo img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+  padding:3px;
+  box-sizing:border-box;
+}
