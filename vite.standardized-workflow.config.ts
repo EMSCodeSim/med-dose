@@ -15,6 +15,10 @@ const standardizedWorkflow:Plugin={
   let label=String(path.label||"");
   label=label.replace(/\\s*[—-]\\s*(?:½|1\\/2|half)\\s*dose option.*$/i,"");
   label=label.replace(/\\s*[—-]\\s*\\d+(?:\\.\\d+)?\\s*(?:mg|mcg|g|mEq)(?:\\/kg)?\\s*(?:upper-end|lower-dose)?\\s*option.*$/i,"");
+  // Route and age qualifiers belong to later steps, never the clinical reason.
+  // Examples collapsed here: "pediatric 1–12 years IV/IO", "adult IN", "IM/IN".
+  label=label.replace(/\\s*[—-]\\s*(?:(?:adult|pediatric|peds?)(?:\\s+\\d+(?:\\.\\d+)?(?:\\s*[–-]\\s*\\d+(?:\\.\\d+)?)?\\s*(?:years?|months?|days?)?)?\\s*)?(?:IV\\/IO|IV|IO|IM\\/IN|IM|IN|PO|ODT|SL|sublingual|nebulized|neb)(?:\\s+route)?\\s*$/i,"");
+  label=label.replace(/\\s*[—-]\\s*(?:adult|pediatric|peds?)\\s+\\d+(?:\\.\\d+)?(?:\\s*[–-]\\s*\\d+(?:\\.\\d+)?)?\\s*(?:years?|months?|days?)\\s*$/i,"");
   return cleanIndicationLabel(label);
 }
 function standardizedReasonKey(path:GenericDosePath){
