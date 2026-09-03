@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --config vite.standardized-workflow.config.ts",
+    "dev": "vite --config vite.field-release.config.ts",
     "test": "npm run test:clinical",
     "test:clinical": "node scripts/validate-released-medications.mjs",
-    "release:check": "npm run test:clinical && tsc -b && vite build --config vite.standardized-workflow.config.ts",
-    "build": "npm run test:clinical && tsc -b && vite build --config vite.standardized-workflow.config.ts",
+    "release:check": "npm run test:clinical && tsc -b && vite build --config vite.field-release.config.ts",
+    "build": "npm run test:clinical && tsc -b && vite build --config vite.field-release.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {
