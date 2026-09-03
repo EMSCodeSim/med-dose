@@ -46,6 +46,14 @@ const temporaryFieldRelease:Plugin={
     }
 
     if(id.endsWith("/src/MedicationEngine.tsx")){
+      // Fentanyl has an intentional 1–2 mcg/kg protocol range for most adult
+      // and pediatric IV/IO/IM pathways. Keep those as separate user choices
+      // while still grouping route-specific copies of the same dose.
+      const reasonAnchor='if(path.agent==="Midazolam")return midazolamReasonLabel(path);';
+      const fentanylReason='if(path.agent==="Midazolam")return midazolamReasonLabel(path);\n  if(path.agent==="Fentanyl"&&path.formula.kind==="perKg")return `Moderate to severe pain — ${path.formula.amount} mcg/kg`;';
+      if(!code.includes(reasonAnchor))throw new Error("Standardized reason helper signature changed before fentanyl dose-choice transform");
+      code=code.replace(reasonAnchor,fentanylReason);
+
       const importAnchor='import WeightQuickSelect from "./WeightQuickSelect";';
       const ageImport='import WeightQuickSelect from "./WeightQuickSelect";\nimport ProtocolAgeQuickSelect from "./ProtocolAgeQuickSelect";';
       if(!code.includes(importAnchor))throw new Error("MedicationEngine weight quick-select import signature changed");
