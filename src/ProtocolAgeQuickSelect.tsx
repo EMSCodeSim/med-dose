@@ -11,7 +11,8 @@ type Props={
 
 type Choice={label:string;detail:string;years:number};
 
-const elderlySensitive=new Set(["midazolam","diphenhydramine","ketorolac","diltiazem","antipsychotics","haloperidol","diazepam","lorazepam"]);
+const elderlyAt65=new Set(["antipsychotics","haloperidol"]);
+const elderlyOver65=new Set(["midazolam","diphenhydramine","ketorolac","diltiazem","diazepam","lorazepam"]);
 
 function ageText(years:number){
   if(years<1){const months=Math.max(1,Math.round(years*12));return `${months} month${months===1?"":"s"}`}
@@ -42,8 +43,8 @@ function choicesFor(medicationId:string,path:GenericDosePath):Choice[]{
   const baseMin=path.minAge??(path.patient==="adult"?12:0);
   const baseMax=path.maxAge??(path.patient==="pediatric"?12:Infinity);
   const cuts=[baseMin,baseMax];
-  if(elderlySensitive.has(medicationId)&&baseMin<65&&baseMax>65)cuts.push(65);
-  if(elderlySensitive.has(medicationId)&&baseMin<66&&baseMax>66)cuts.push(66);
+  if(elderlyAt65.has(medicationId)&&baseMin<65&&baseMax>65)cuts.push(65);
+  if(elderlyOver65.has(medicationId)&&baseMin<66&&baseMax>66)cuts.push(66);
   if(baseMin<1&&baseMax>1)cuts.push(1);
   const ordered=Array.from(new Set(cuts)).sort((a,b)=>a-b);
   const out:Choice[]=[];
@@ -56,7 +57,6 @@ function choicesFor(medicationId:string,path:GenericDosePath):Choice[]{
   if(!Number.isFinite(last)&&out.length===0)out.push({label:path.patient==="adult"?"Adult 12+":"All ages",detail:"Protocol age group",years:path.patient==="adult"?40:8});
   if(Number.isFinite(last)&&!Number.isFinite(baseMax))out.push({label:labelFor(last,Infinity,path.patient),detail:`Protocol age band • ${ageText(last)} and older`,years:last});
   if(out.length===0){
-    const years=path.patient==="adult"?Math.max(12,baseMin):Math.max(0,baseMin);
     out.push({label:labelFor(baseMin,baseMax,path.patient),detail:"Protocol age group",years:representative(baseMin,baseMax)});
   }
   return out;
