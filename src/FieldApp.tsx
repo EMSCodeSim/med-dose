@@ -22,8 +22,8 @@ const aliases:Record<string,string[]>={
   nitroglycerin:["nitro","chest pain","acs","pulmonary edema"], diphenhydramine:["benadryl","allergy"], methylprednisolone:["solumedrol","solu-medrol"],
 };
 const brandNames:Record<string,string>={adenosine:"Adenocard",albuterol:"Ventolin",amiodarone:"Cordarone",ondansetron:"Zofran",atropine:"Atropine Sulfate",midazolam:"Versed",ipratropium:"Atrovent",ketorolac:"Toradol",naloxone:"Narcan",diphenhydramine:"Benadryl",methylprednisolone:"Solu-Medrol"};
-const filterLabels=["Adult","Peds","Arrest","Airway","Cardiac","Pain/Sedation"];
-type View="meds"|"treatments"|"favorites"|"recent";
+const treatmentFilters=["Arrest","Airway","Cardiac","Pain/Sedation"];
+type View="meds"|"treatments"|"favorites";
 type PatientState={weightKg:string;ageYears:string};
 const EMPTY_PATIENT:PatientState={weightKg:"",ageYears:""};
 const readPatient=():PatientState=>{try{const parsed=JSON.parse(sessionStorage.getItem("mmd-patient")||"null");return parsed&&typeof parsed==="object"?{weightKg:String(parsed.weightKg||""),ageYears:String(parsed.ageYears||"")}:EMPTY_PATIENT}catch{return EMPTY_PATIENT}};
@@ -47,11 +47,10 @@ export default function FieldApp(){
   const approvedIds=useMemo(()=>new Set(approvedMeds.map(x=>x.id)),[approvedMeds]);
   const visible=useMemo(()=>approvedMeds.filter(({id,def})=>{
     if(view==="favorites"&&!favorites.includes(id))return false;
-    if(view==="recent"&&!recent.includes(id))return false;
-    if(filter&&!categories[id]?.includes(filter))return false;
+    if(view==="treatments"&&filter&&!categories[id]?.includes(filter))return false;
     const q=query.trim().toLowerCase();if(!q)return true;
     const hay=[id,def.name,brandNames[id],def.protocolId,...(aliases[id]||[]),...def.paths.flatMap(p=>[p.label,p.protocol])].filter(Boolean).join(" ").toLowerCase();return hay.includes(q);
-  }).sort((a,b)=>view==="recent"?recent.indexOf(a.id)-recent.indexOf(b.id):view==="favorites"?favorites.indexOf(a.id)-favorites.indexOf(b.id):a.def.name.localeCompare(b.def.name)),[approvedMeds,query,filter,view,favorites,recent]);
+  }).sort((a,b)=>view==="favorites"?favorites.indexOf(a.id)-favorites.indexOf(b.id):a.def.name.localeCompare(b.def.name)),[approvedMeds,query,filter,view,favorites]);
 
   const openMed=(id:string)=>{if(!approvedIds.has(id))return;setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
   const toggleFav=(id:string)=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[id,...f]);
@@ -64,8 +63,9 @@ export default function FieldApp(){
     <MedicationEngine medication={selected} close={()=>setSelectedId(null)} record={()=>undefined} openProtocol={()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
   </div>;
 
-  const displayWeight=unit==="kg"?kg:(kg*2.20462),viewTitle=view==="favorites"?"FAVORITES":view==="recent"?"RECENT":view==="treatments"?"TREATMENT MEDICATIONS":"FIELD MEDICATIONS";
+  const displayWeight=unit==="kg"?kg:(kg*2.20462),viewTitle=view==="favorites"?"FAVORITES":view==="treatments"?"TREATMENT MEDICATIONS":"FIELD MEDICATIONS";
   const selectView=(next:View)=>{setView(next);setQuery("");if(next!=="treatments")setFilter("");window.scrollTo({top:0,behavior:"auto"})};
+  const openCurrentProtocol=()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer");
   return <div className="field-mode-shell">
     <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><span className={`connect-pill ${online?"online":"offline"}`}>{online?"Offline ready":"Offline"}</span></header>
     <main className="field-home">
@@ -73,11 +73,10 @@ export default function FieldApp(){
       {editingPatient&&<section className="patient-editor"><label>Weight<div><input inputMode="decimal" placeholder="Optional until required" value={unit==="kg"?patient.weightKg:(hasWeight?String(Math.round(kg*2.20462)):"")} onChange={e=>setPatient(p=>({...p,weightKg:unit==="kg"?e.target.value:(e.target.value?String((Number(e.target.value)/2.20462).toFixed(1)):"")}))}/><button onClick={()=>setUnit(u=>u==="kg"?"lb":"kg")}>{unit}</button></div></label><label>Age in years<input inputMode="decimal" placeholder="Optional until required" value={patient.ageYears} onChange={e=>setPatient(p=>({...p,ageYears:e.target.value}))}/></label><button className="clear-patient" onClick={()=>setPatient(EMPTY_PATIENT)}>New patient / clear</button></section>}
       {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using cached Denver Metro DMP {CURRENT_DMP_PROTOCOL_REVISION} data.</div>}
 
-      {view==="meds"&&recent.filter(id=>approvedIds.has(id)).length>0&&<section className="quick-row"><div className="section-head"><b>RECENT</b><button onClick={()=>selectView("recent")}>View all</button></div><div>{recent.filter(id=>approvedIds.has(id)).slice(0,5).map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
       {view==="meds"&&favorites.filter(id=>approvedIds.has(id)).length>0&&<section className="quick-row"><div className="section-head"><b>FAVORITES</b><button onClick={()=>selectView("favorites")}>View all</button></div><div>{favorites.filter(id=>approvedIds.has(id)).map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
 
       <div className="med-search"><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Drug, brand, indication or protocol"/><button onClick={()=>setQuery("")}>{query?"×":""}</button></div>
-      {(view==="meds"||view==="treatments")&&<div className="filter-row">{filterLabels.map(x=><button key={x} className={filter===x?"selected":""} onClick={()=>{setView("treatments");setFilter(f=>f===x?"":x)}}>{x}</button>)}</div>}
+      {view==="treatments"&&<section className="treatment-sort"><div className="section-head"><b>SORT BY TREATMENT</b></div><div className="filter-row">{treatmentFilters.map(x=><button key={x} className={filter===x?"selected":""} onClick={()=>setFilter(f=>f===x?"":x)}>{x}</button>)}</div></section>}
       <div className="results-head"><b>{query?"SEARCH RESULTS":viewTitle}</b><span>{visible.length} medications</span></div>
 
       {approvedMeds.length===0?<div className="empty-search release-empty"><b>No approved medications released to Field Mode.</b><span>Complete the current three-stage medication review in Admin before field use. Draft and in-review medications stay hidden from paramedics.</span></div>:
@@ -91,6 +90,6 @@ export default function FieldApp(){
       {approvedMeds.length>0&&visible.length===0&&<div className="empty-search"><b>No approved medication found.</b><span>Try the generic name, brand name, indication, or protocol.</span></div>}
       <footer className="field-disclaimer">Clinical decision-support tool. Follow your agency's current protocols and medical direction. Verify medication, concentration, dose and route before administration.</footer>
     </main>
-    <nav className="field-bottom-nav four"><button className={view==="meds"?"active":""} onClick={()=>selectView("meds")}>⌂<span>Meds</span></button><button className={view==="treatments"?"active":""} onClick={()=>selectView("treatments")}>☷<span>Treatments</span></button><button className={view==="favorites"?"active":""} onClick={()=>selectView("favorites")}>☆<span>Favorites</span></button><button className={view==="recent"?"active":""} onClick={()=>selectView("recent")}>◷<span>Recent</span></button></nav>
+    <nav className="field-bottom-nav four"><button className={view==="meds"?"active":""} onClick={()=>selectView("meds")}>⌂<span>Meds</span></button><button className={view==="treatments"?"active":""} onClick={()=>selectView("treatments")}>☷<span>Treatments</span></button><button className={view==="favorites"?"active":""} onClick={()=>selectView("favorites")}>☆<span>Favorites</span></button><button onClick={openCurrentProtocol}>▤<span>Protocol</span></button></nav>
   </div>;
 }
