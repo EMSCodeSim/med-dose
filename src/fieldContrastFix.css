@@ -1,0 +1,104 @@
+/* High-contrast field-use overrides. Loaded last so legacy/feature CSS cannot reduce legibility. */
+.field-mode-shell{
+  color:#ffffff!important;
+}
+.field-mode-shell .field-header,
+.field-mode-shell .field-bottom-nav,
+.field-mode-shell #active-medication-screen-top .streamlined-medication-top{
+  background:#020b11!important;
+}
+.field-mode-shell .med-card-copy>small,
+.field-mode-shell .more-indications,
+.field-mode-shell .med-meta span,
+.field-mode-shell .results-head,
+.field-mode-shell .section-head,
+.field-mode-shell .field-disclaimer,
+.field-mode-shell .patient-card span,
+.field-mode-shell #active-medication-screen-top .builder-options>button span,
+.field-mode-shell #active-medication-screen-top .calculation-box small,
+.field-mode-shell #active-medication-screen-top .calculation-box span{
+  color:#d7e5ec!important;
+}
+.field-mode-shell .med-search input::placeholder{
+  color:#c1d1d9!important;
+  opacity:1!important;
+}
+.field-mode-shell .field-bottom-nav button{
+  color:#c4d5dd!important;
+}
+.field-mode-shell .field-bottom-nav button.active{
+  color:#8fc5ff!important;
+  font-weight:800!important;
+}
+.field-mode-shell .filter-row button,
+.field-mode-shell .quick-row>div:last-child button,
+.field-mode-shell .patient-card button,
+.field-mode-shell .patient-editor button,
+.field-mode-shell #active-medication-screen-top .streamlined-medication-top button{
+  color:#ffffff!important;
+  border-color:#6f8b9a!important;
+}
+.field-mode-shell .filter-row button.selected,
+.field-mode-shell #active-medication-screen-top .builder-options>button.selected{
+  background:#0b4f9f!important;
+  border-color:#9bcaff!important;
+  color:#ffffff!important;
+}
+.field-mode-shell .med-meta em.reviewed{
+  background:#0f4a24!important;
+  color:#d9ffe2!important;
+  border:1px solid #62cf7b!important;
+}
+.field-mode-shell .med-meta em.in-review{
+  background:#3d3210!important;
+  color:#fff0ad!important;
+  border:1px solid #d8b845!important;
+}
+.field-mode-shell .connect-pill.online,
+.field-mode-shell .field-offline-banner.online,
+.field-mode-shell .offline-home-banner{
+  color:#dcffe6!important;
+  background:#0a321c!important;
+  border-color:#45a762!important;
+}
+.field-mode-shell .connect-pill.offline,
+.field-mode-shell .field-offline-banner.offline{
+  color:#fff2bf!important;
+  background:#3a2b08!important;
+  border-color:#d4a72c!important;
+}
+.field-mode-shell #active-medication-screen-top .eyebrow{
+  color:#a9d2ff!important;
+}
+.field-mode-shell #active-medication-screen-top .indication-age-group>header{
+  background:#0b427a!important;
+  color:#ffffff!important;
+  border-color:#7db9f1!important;
+}
+.field-mode-shell #active-medication-screen-top .final-next-dose strong,
+.field-mode-shell #active-medication-screen-top .final-give strong{
+  color:#9ff0ad!important;
+}
+.field-mode-shell #active-medication-screen-top .final-volume strong{
+  color:#9ecbff!important;
+}
+.field-mode-shell #active-medication-screen-top input,
+.field-mode-shell #active-medication-screen-top select{
+  color:#ffffff!important;
+  border-color:#7c9aa9!important;
+}
+.field-mode-shell #active-medication-screen-top input::placeholder{
+  color:#c6d5dc!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .builder-options>button,
+.field-mode-shell #active-medication-screen-top .safety-check,
+.field-mode-shell #active-medication-screen-top .checklist-row,
+.field-mode-shell #active-medication-screen-top .generic-final,
+.field-mode-shell #active-medication-screen-top .final-selection-review,
+.field-mode-shell #active-medication-screen-top .final-next-dose,
+.field-mode-shell #active-medication-screen-top .entered-summary,
+.field-mode-shell #active-medication-screen-top .builder-custom,
+.field-mode-shell #active-medication-screen-top .calculation-box{
+  border-color:#5f7d8d!important;
+}
