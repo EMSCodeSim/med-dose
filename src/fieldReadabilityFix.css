@@ -36,6 +36,34 @@
   -webkit-text-fill-color:#a7f3b3!important;
 }
 
+/* Exact dashboard classes used on the current final-dose screen. */
+.field-mode-shell #active-medication-screen-top .final-dose-card .dashboard-primary-dose,
+.field-mode-shell #active-medication-screen-top .final-dose-card .dashboard-primary-dose.ready{
+  background:#0c2433!important;
+  border-color:#69b49c!important;
+  color:#ffffff!important;
+}
+.field-mode-shell #active-medication-screen-top .final-dose-card .dashboard-primary-dose>small{
+  color:#d7e5ec!important;
+  -webkit-text-fill-color:#d7e5ec!important;
+}
+.field-mode-shell #active-medication-screen-top .dashboard-dose-given{
+  background:#12372e!important;
+  border:1px solid #69b49c!important;
+  border-radius:12px!important;
+  padding:14px!important;
+}
+.field-mode-shell #active-medication-screen-top .dashboard-dose-given small{
+  color:#e7fff0!important;
+  -webkit-text-fill-color:#e7fff0!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .dashboard-dose-given strong{
+  color:#a7f3b3!important;
+  -webkit-text-fill-color:#a7f3b3!important;
+  opacity:1!important;
+}
+
 /* Repeat/reassessment area: keep instructional text readable in bright daylight. */
 .field-mode-shell #active-medication-screen-top .final-next-dose,
 .field-mode-shell #active-medication-screen-top .generic-repeat{
@@ -47,8 +75,8 @@
 .field-mode-shell #active-medication-screen-top .final-next-dose p,
 .field-mode-shell #active-medication-screen-top .generic-repeat span,
 .field-mode-shell #active-medication-screen-top .generic-repeat p{
-  color:#d7e5ec!important;
-  -webkit-text-fill-color:#d7e5ec!important;
+  color:#eef6fa!important;
+  -webkit-text-fill-color:#eef6fa!important;
   opacity:1!important;
 }
 .field-mode-shell #active-medication-screen-top .final-next-dose strong,
@@ -57,14 +85,18 @@
   -webkit-text-fill-color:#a7f3b3!important;
 }
 .field-mode-shell #active-medication-screen-top .generic-repeat button:disabled,
-.field-mode-shell #active-medication-screen-top .final-next-dose button:disabled{
+.field-mode-shell #active-medication-screen-top .final-next-dose button:disabled,
+.field-mode-shell #active-medication-screen-top .dashboard-next-dose-action:disabled{
   background:#dbe4e8!important;
   color:#17364c!important;
   -webkit-text-fill-color:#17364c!important;
   opacity:1!important;
 }
-.field-mode-shell #active-medication-screen-top .generic-repeat button:disabled * ,
-.field-mode-shell #active-medication-screen-top .final-next-dose button:disabled *{
+.field-mode-shell #active-medication-screen-top .generic-repeat button:disabled *,
+.field-mode-shell #active-medication-screen-top .final-next-dose button:disabled *,
+.field-mode-shell #active-medication-screen-top .dashboard-next-dose-action:disabled small,
+.field-mode-shell #active-medication-screen-top .dashboard-next-dose-action:disabled strong,
+.field-mode-shell #active-medication-screen-top .dashboard-next-dose-action:disabled span{
   color:#17364c!important;
   -webkit-text-fill-color:#17364c!important;
   opacity:1!important;
