@@ -65,7 +65,7 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
     code=code.replace(repeatAllowanceOld,repeatAllowanceNew);
 
     const ageRequiredOld='ageRequired=ageChangesDose&&path?.patient!=="adult"';
-    const ageRequiredNew='ageRequired=ageChangesDose&&(path?.patient!=="adult"||medication.id==="midazolam")';
+    const ageRequiredNew='ageRequired=ageChangesDose';
     if(!code.includes(ageRequiredOld))throw new Error("MedicationEngine age-required signature changed");
     code=code.replace(ageRequiredOld,ageRequiredNew);
 
@@ -91,9 +91,6 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
     if(!code.includes(finishPatientOld))throw new Error("MedicationEngine patient-next-step signature changed");
     code=code.replace(finishPatientOld,finishPatientNew);
 
-    // When concentration is selected after reason/route, continue forward instead
-    // of restarting indication/path selection. This replacement applies to the
-    // stock concentration buttons injected by the base clinical plugin.
     const concentrationForwardOld='if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")';
     const concentrationForwardNew='if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(path){if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")';
     if(code.includes(concentrationForwardOld))code=code.split(concentrationForwardOld).join(concentrationForwardNew);
