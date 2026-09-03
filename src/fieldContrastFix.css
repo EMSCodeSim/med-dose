@@ -173,3 +173,119 @@
     z-index:2!important;
   }
 }
+
+/* Encounter report: available during the medication flow and after returning home. */
+.field-report-bar{
+  position:sticky;
+  top:30px;
+  z-index:85;
+  display:flex;
+  justify-content:flex-end;
+  padding:8px 12px;
+  background:#06131bf2;
+  border-bottom:1px solid #29495b;
+}
+.field-report-bar button,.field-home-report{
+  min-height:44px;
+  padding:0 14px;
+  border:1px solid #9bcaff;
+  border-radius:9px;
+  background:#0b4f9f;
+  color:#fff;
+  font-weight:900;
+  font-size:12px;
+}
+.field-report-bar button:disabled{
+  opacity:.5;
+  border-color:#5f7d8d;
+  background:#182832;
+}
+.field-home-report{
+  display:block;
+  width:min(496px,calc(100% - 24px));
+  margin:10px auto 0;
+}
+.encounter-report-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:250;
+  overflow:auto;
+  padding:12px;
+  box-sizing:border-box;
+  background:#020b11f2;
+}
+.encounter-report-modal{
+  width:min(720px,100%);
+  margin:0 auto;
+  padding:14px;
+  box-sizing:border-box;
+  border:1px solid #5f7d8d;
+  border-radius:14px;
+  background:#07141c;
+  color:#fff;
+}
+.encounter-report-modal>header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+}
+.encounter-report-modal>header h2{margin:3px 0 10px}.encounter-report-modal>header small{color:#d7e5ec}.encounter-report-modal>header button{
+  min-width:44px;
+  min-height:44px;
+  border:1px solid #6f8b9a;
+  border-radius:9px;
+  background:#10283a;
+  color:#fff;
+  font-size:24px;
+}
+.encounter-report-inputs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin:8px 0 12px;
+}
+.encounter-report-inputs label{font-size:11px;font-weight:800;color:#e8f2f7}.encounter-report-inputs input{
+  display:block;
+  width:100%;
+  min-height:44px;
+  margin-top:5px;
+  padding:0 10px;
+  box-sizing:border-box;
+  border:1px solid #7c9aa9;
+  border-radius:9px;
+  background:#06131b;
+  color:#fff;
+  font-size:16px;
+}
+.encounter-print{
+  margin-top:12px;
+  padding:14px;
+  border-radius:10px;
+  background:#fff;
+  color:#111;
+  overflow-x:auto;
+}
+.encounter-print>header{display:flex;justify-content:space-between;gap:12px}.encounter-print-meta{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin:12px 0;
+}
+.encounter-print-meta span{display:flex;flex-direction:column;gap:2px}.encounter-print table{width:100%;border-collapse:collapse;font-size:11px}.encounter-print th,.encounter-print td{padding:8px;border:1px solid #bbb;text-align:left;vertical-align:top}.encounter-print td small{display:block;margin-top:3px}.encounter-documentation{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:12px 0;font-size:11px}.encounter-report-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.encounter-report-actions button{
+  min-height:50px;
+  border:1px solid #9bcaff;
+  border-radius:10px;
+  background:#0b4f9f;
+  color:#fff;
+  font-weight:900;
+  font-size:13px;
+}
+@media(max-width:600px){
+  .encounter-report-backdrop{padding:6px}.encounter-report-modal{padding:10px}.encounter-report-inputs,.encounter-report-actions,.encounter-print-meta{grid-template-columns:1fr}.encounter-print{padding:8px}.encounter-print table{font-size:9px}.encounter-documentation{grid-template-columns:1fr}
+}
+@media print{
+  body *{visibility:hidden}
+  .encounter-print,.encounter-print *{visibility:visible}
+  .encounter-print{position:absolute;left:0;top:0;width:100%;margin:0;padding:10mm;box-sizing:border-box;border-radius:0;overflow:visible}
+}
