@@ -12,6 +12,7 @@ import "./fieldApp.css";
 import "./fieldSafety.css";
 import "./fieldContrastFix.css";
 import "./fieldReadabilityFix.css";
+import "./fieldSelectionContrastFix.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><Home /></React.StrictMode>);
 
