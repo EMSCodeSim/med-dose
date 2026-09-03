@@ -4,13 +4,27 @@ import {DEFAULT_FIELD_MEDICATION_IDS} from "./medicationReleaseConfig";
 
 const unique=(items:string[])=>Array.from(new Set(items));
 
+function elderlyHalfDosePath(path:GenericDosePath):GenericDosePath{
+  if(path.patient!=="adult"||path.formula.kind!=="fixed")return path;
+  const normal=path.formula.amount,half=normal/2;
+  return {
+    ...path,
+    minAge:12,
+    maxAge:130,
+    formula:{kind:"ageBands",unit:path.formula.unit,bands:[
+      {min:12,max:65,amount:normal,label:"Adult under 65"},
+      {min:65,max:130,amount:half,label:"Adult 65+ — half dose"},
+    ]},
+    special:[...(path.special||[]),`DMP 9045: elderly patients receive one-half the typical antipsychotic dose (${half} ${path.formula.unit} for this pathway).`],
+  };
+}
+
 function droperidolDefinition():GenericMedication|null{
   const antipsychotics=genericMedication("antipsychotics");
   const antiemetics=genericMedication("antiemetics");
-  const paths:GenericDosePath[]=[
-    ...(antipsychotics?.paths.filter(path=>path.agent.toLowerCase()==="droperidol")||[]),
-    ...(antiemetics?.paths.filter(path=>path.agent.toLowerCase()==="droperidol")||[]),
-  ];
+  const antipsychoticPaths=(antipsychotics?.paths.filter(path=>path.agent.toLowerCase()==="droperidol")||[]).map(elderlyHalfDosePath);
+  const antiemeticPaths=antiemetics?.paths.filter(path=>path.agent.toLowerCase()==="droperidol")||[];
+  const paths:GenericDosePath[]=[...antipsychoticPaths,...antiemeticPaths];
   if(!paths.length)return null;
   return {
     id:"droperidol",
