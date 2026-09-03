@@ -2,18 +2,18 @@ import {useState} from "react";
 import "./weightQuickSelect.css";
 
 type Kind="adult"|"pediatric";
-type Props={kind:Kind;valueKg:number;onSelect:(kg:number,source:string)=>void};
+type Props={kind:Kind;valueKg:number;onSelect:(kg:number,source:string,estimatedAgeYears?:number)=>void};
 
 const adultWeightsKg=[50,60,70,80,90,100,110,120,130];
 const adultWeightsLb=[100,120,140,160,180,200,220,240,260,280,300];
 const ageBands=[
-  {label:"6–11 months",kg:6.5},
-  {label:"1 year",kg:10},
-  {label:"2–3 years",kg:14},
-  {label:"4–5 years",kg:19},
-  {label:"6–8 years",kg:25},
-  {label:"9–10 years",kg:31},
-  {label:"11 years",kg:38},
+  {label:"6–11 months",kg:6.5,years:0.75},
+  {label:"1 year",kg:10,years:1},
+  {label:"2–3 years",kg:14,years:2.5},
+  {label:"4–5 years",kg:19,years:4.5},
+  {label:"6–8 years",kg:25,years:7},
+  {label:"9–10 years",kg:31,years:9.5},
+  {label:"11 years",kg:38,years:11},
 ];
 const lengthBands=[
   {label:"Grey",kg:4,color:"#7b8790",text:"#fff"},
@@ -30,12 +30,12 @@ const lengthBands=[
 export default function WeightQuickSelect({kind,valueKg,onSelect}:Props){
   const [method,setMethod]=useState<"quick"|"manual"|"age"|"length">(kind==="adult"?"quick":"age"),[manual,setManual]=useState(""),[unit,setUnit]=useState<"kg"|"lb">("lb");
   const manualKg=unit==="kg"?Number(manual):Number(manual)/2.20462;
-  const choose=(kg:number,source:string)=>{
+  const choose=(kg:number,source:string,estimatedAgeYears?:number)=>{
     try{
       const current=JSON.parse(sessionStorage.getItem("mmd-patient")||"{}");
-      sessionStorage.setItem("mmd-patient",JSON.stringify({...current,weightKg:String(kg)}));
+      sessionStorage.setItem("mmd-patient",JSON.stringify({...current,weightKg:String(kg),...(estimatedAgeYears!==undefined?{ageYears:String(estimatedAgeYears)}:{})}));
     }catch{}
-    onSelect(kg,source);
+    onSelect(kg,source,estimatedAgeYears);
   };
   return <section className="weight-quick-select">
     <div className="weight-unit-toggle weight-unit-primary"><button className={unit==="lb"?"selected":""} onClick={()=>{setUnit("lb");setManual("")}}>Pounds (lb)</button><button className={unit==="kg"?"selected":""} onClick={()=>{setUnit("kg");setManual("")}}>Kilograms (kg)</button></div>
@@ -45,7 +45,7 @@ export default function WeightQuickSelect({kind,valueKg,onSelect}:Props){
       <button className={method==="manual"?"weight-manual-toggle selected":"weight-manual-toggle"} onClick={()=>setMethod("manual")}>Enter a different weight</button>
     </>:<>
       <div className="weight-methods"><button className={method==="manual"?"selected":""} onClick={()=>setMethod("manual")}><b>Measured / estimated</b><span>Enter a known weight</span></button><button className={method==="age"?"selected":""} onClick={()=>setMethod("age")}><b>Age based</b><span>6 months–11 years</span></button><button className={method==="length"?"selected":""} onClick={()=>setMethod("length")}><b>Length based</b><span>Full tape color range</span></button></div>
-      {method==="age"&&<div className="age-weight-grid">{ageBands.map(band=><button key={band.label} className={Math.abs(valueKg-band.kg)<.01?"selected":""} onClick={()=>choose(band.kg,`DMP age-band estimate • ${band.label}`)}><b>{band.label}</b><span>{unit==="lb"?`${format(band.kg*2.20462)} lb`:`${band.kg} kg`}</span></button>)}</div>}
+      {method==="age"&&<div className="age-weight-grid">{ageBands.map(band=><button key={band.label} className={Math.abs(valueKg-band.kg)<.01?"selected":""} onClick={()=>choose(band.kg,`DMP age-band estimate • ${band.label}`,band.years)}><b>{band.label}</b><span>{unit==="lb"?`${format(band.kg*2.20462)} lb`:`${band.kg} kg`}</span></button>)}</div>}
       {method==="length"&&<><p className="weight-method-note">Select the color that physically matches the patient's length-based tape zone.</p><div className="infant-length-grid">{lengthBands.map(band=><button key={band.label} className={Math.abs(valueKg-band.kg)<.01?"selected":""} style={{background:band.color,color:band.text}} onClick={()=>choose(band.kg,`${band.label} length-based band`)}><b>{band.label}</b><span>{unit==="lb"?`${format(band.kg*2.20462)} lb`:`${band.kg} kg`}</span></button>)}</div></>}
     </>}
     {method==="manual"&&<div className="manual-weight-entry"><label><span>Patient weight</span><div><input autoFocus inputMode="decimal" value={manual} onChange={event=>setManual(event.target.value)} placeholder="0"/><b>{unit}</b></div></label><button className="use-manual-weight" disabled={!(manualKg>0)} onClick={()=>choose(manualKg,kind==="adult"?`entered adult estimate • ${manual} ${unit}`:`measured / estimated pediatric weight • ${manual} ${unit}`)}>Use {manualKg>0?`${manual} ${unit}`:"weight"}</button></div>}
