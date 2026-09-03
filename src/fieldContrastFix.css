@@ -118,3 +118,58 @@
   padding:3px;
   box-sizing:border-box;
 }
+
+/* Phone final-dose view: More Details must remain visible and tappable. */
+.field-mode-shell #active-medication-screen-top .final-all-details{
+  display:block!important;
+  position:relative!important;
+  width:100%!important;
+  max-width:100%!important;
+  margin:14px 0 24px!important;
+  overflow:visible!important;
+  background:#0d1b24!important;
+  border:1px solid #6f8b9a!important;
+  border-radius:12px!important;
+  box-sizing:border-box!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .final-all-details>summary{
+  display:block!important;
+  min-height:52px!important;
+  padding:16px!important;
+  box-sizing:border-box!important;
+  color:#ffffff!important;
+  background:#10283a!important;
+  border-radius:11px!important;
+  font-size:13px!important;
+  font-weight:900!important;
+  letter-spacing:.06em!important;
+  cursor:pointer!important;
+  list-style:none!important;
+}
+.field-mode-shell #active-medication-screen-top .final-all-details>summary::-webkit-details-marker{
+  display:none!important;
+}
+.field-mode-shell #active-medication-screen-top .final-all-details>summary:after{
+  content:"  +";
+  color:#9ecbff!important;
+}
+.field-mode-shell #active-medication-screen-top .final-all-details[open]>summary:after{
+  content:"  −";
+}
+.field-mode-shell #active-medication-screen-top .final-all-details-body{
+  padding:12px!important;
+  background:#0d1b24!important;
+  color:#ffffff!important;
+}
+@media(max-width:760px){
+  .field-mode-shell #active-medication-screen-top .builder-stage-form,
+  .field-mode-shell #active-medication-screen-top .generic-body{
+    padding-bottom:180px!important;
+    overflow:visible!important;
+  }
+  .field-mode-shell #active-medication-screen-top .final-all-details{
+    z-index:2!important;
+  }
+}
