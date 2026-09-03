@@ -1,0 +1,50 @@
+/* Final-screen selection cards: prevent white text on pale legacy cards. */
+.field-mode-shell #active-medication-screen-top .final-selection-review{
+  background:#0d1b24!important;
+  border-color:#5f7d8d!important;
+  color:#ffffff!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review>header{
+  background:#173249!important;
+  color:#ffffff!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review>header small,
+.field-mode-shell #active-medication-screen-top .final-selection-review>header b{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review button,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result.primary{
+  background:#10283a!important;
+  border-color:#6f8b9a!important;
+  color:#ffffff!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review button small,
+.field-mode-shell #active-medication-screen-top .final-selection-review button b,
+.field-mode-shell #active-medication-screen-top .final-selection-review button strong,
+.field-mode-shell #active-medication-screen-top .final-selection-review button span,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result small,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result b,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result strong,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result span{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review button span{
+  color:#9ecbff!important;
+  -webkit-text-fill-color:#9ecbff!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review button:disabled{
+  background:#10283a!important;
+  color:#ffffff!important;
+  opacity:1!important;
+}
+.field-mode-shell #active-medication-screen-top .final-selection-review button.selected,
+.field-mode-shell #active-medication-screen-top .final-selection-review .summary-result.primary{
+  background:#12372e!important;
+  border-color:#69b49c!important;
+}
