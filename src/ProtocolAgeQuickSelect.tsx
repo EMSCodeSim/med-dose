@@ -62,11 +62,34 @@ function choicesFor(medicationId:string,path:GenericDosePath):Choice[]{
   return out;
 }
 
+function persistAge(years:number|string){
+  const n=Number(years);
+  if(!(n>=0))return;
+  try{
+    const current=JSON.parse(sessionStorage.getItem("mmd-patient")||"{}");
+    sessionStorage.setItem("mmd-patient",JSON.stringify({...current,ageYears:String(n)}));
+  }catch{}
+}
+
 export default function ProtocolAgeQuickSelect({medicationId,path,value,onSelect,onExact}:Props){
   const choices=choicesFor(medicationId,path);
+  const choose=(choice:Choice)=>{
+    persistAge(choice.years);
+    onSelect(choice.years,choice.label);
+    // If age was the last missing patient item, MedicationEngine's Continue
+    // button becomes enabled on the next React render. Trigger it immediately.
+    window.setTimeout(()=>{
+      const button=document.querySelector("#active-medication-screen-top button.continue") as HTMLButtonElement|null;
+      if(button&&!button.disabled)button.click();
+    },0);
+  };
+  const exact=(next:string)=>{
+    persistAge(next);
+    onExact(next);
+  };
   return <section className="protocol-age-select">
     <div className="protocol-age-heading"><b>Select patient age group</b><span>Only age bands that can affect this protocol are shown.</span></div>
-    <div className="protocol-age-grid">{choices.map(choice=><button type="button" key={`${choice.label}-${choice.years}`} onClick={()=>onSelect(choice.years,choice.label)}><strong>{choice.label}</strong><span>{choice.detail}</span></button>)}</div>
-    <details className="protocol-exact-age"><summary>Enter exact age instead</summary><label><span>Age in years</span><input inputMode="decimal" value={value} onChange={e=>onExact(e.target.value)} placeholder="Exact age"/></label></details>
+    <div className="protocol-age-grid">{choices.map(choice=><button type="button" key={`${choice.label}-${choice.years}`} onClick={()=>choose(choice)}><strong>{choice.label}</strong><span>{choice.detail}</span></button>)}</div>
+    <details className="protocol-exact-age"><summary>Enter exact age instead</summary><label><span>Age in years</span><input inputMode="decimal" value={value} onChange={e=>exact(e.target.value)} placeholder="Exact age"/></label></details>
   </section>;
 }
