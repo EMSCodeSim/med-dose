@@ -24,6 +24,14 @@ const fastFieldWorkflow:Plugin={
       if(!code.includes(weightOld))throw new Error("MedicationEngine weight carry-forward signature changed");
       code=code.replace(weightOld,weightNew);
 
+      // If a pediatric age-based weight estimate is chosen, that tap supplies both
+      // a calculation weight and the age-band information needed for eligibility.
+      // Use those new values immediately instead of waiting for React state to rerender.
+      const weightHandlerOld='onSelect={(nextKg,source)=>{setWeightUnit("kg");setWeight(String(nextKg));setWeightSource(source);setContraChecks([]);setSpecialChecks([]);const nextEligibility=path?genericEligibilityReason(path,ageRequired?effectiveAgeYears:path.patient==="pediatric"?8:40,nextKg):"";if((!ageRequired||age!=="")&&!nextEligibility){';
+      const weightHandlerNew='onSelect={(nextKg,source,estimatedAge)=>{if(estimatedAge!==undefined&&age===""){setAgeUnit("years");setAge(String(estimatedAge))}setWeightUnit("kg");setWeight(String(nextKg));setWeightSource(source);setContraChecks([]);setSpecialChecks([]);const nextAge=estimatedAge??effectiveAgeYears;const nextEligibility=path?genericEligibilityReason(path,ageRequired?nextAge:path.patient==="pediatric"?8:40,nextKg):"";if((!ageRequired||age!==""||estimatedAge!==undefined)&&!nextEligibility){';
+      if(!code.includes(weightHandlerOld))throw new Error("MedicationEngine weight quick-select handler changed");
+      code=code.replace(weightHandlerOld,weightHandlerNew);
+
       const effectAnchor='  useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);';
       const fastEffects=`  // Experienced-user fast path: if the selected reason leaves only one
   // protocol-approved route, run the existing route button handler automatically.
