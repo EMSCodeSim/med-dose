@@ -1,6 +1,5 @@
 import {useEffect,useMemo,useState} from "react";
 import MedicationEngine from "./MedicationEngine";
-import ExistingApp from "./UnifiedApp";
 import {fieldMedicationDefinition} from "./expandedFieldMedicationDefinitions";
 import {DEFAULT_FIELD_MEDICATION_IDS,CURRENT_DMP_PROTOCOL_REVISION} from "./medicationReleaseConfig";
 import {medicationApprovalStatus} from "./medicationApprovalStatus";
@@ -23,62 +22,75 @@ const aliases:Record<string,string[]>={
   nitroglycerin:["nitro","chest pain","acs","pulmonary edema"], diphenhydramine:["benadryl","allergy"], methylprednisolone:["solumedrol","solu-medrol"],
 };
 const brandNames:Record<string,string>={adenosine:"Adenocard",albuterol:"Ventolin",amiodarone:"Cordarone",ondansetron:"Zofran",atropine:"Atropine Sulfate",midazolam:"Versed",ipratropium:"Atrovent",ketorolac:"Toradol",naloxone:"Narcan",diphenhydramine:"Benadryl",methylprednisolone:"Solu-Medrol"};
-const filterLabels=["Adult","Peds","Arrest","Airway","Cardiac","Pain/Sedation","Reviewed only"];
-
+const filterLabels=["Adult","Peds","Arrest","Airway","Cardiac","Pain/Sedation"];
+type View="meds"|"treatments"|"favorites"|"recent";
 type PatientState={weightKg:string;ageYears:string};
-const readPatient=():PatientState=>{try{return JSON.parse(sessionStorage.getItem("mmd-patient")||"")||{weightKg:"80",ageYears:"40"}}catch{return{weightKg:"80",ageYears:"40"}}};
+const EMPTY_PATIENT:PatientState={weightKg:"",ageYears:""};
+const readPatient=():PatientState=>{try{const parsed=JSON.parse(sessionStorage.getItem("mmd-patient")||"null");return parsed&&typeof parsed==="object"?{weightKg:String(parsed.weightKg||""),ageYears:String(parsed.ageYears||"")}:EMPTY_PATIENT}catch{return EMPTY_PATIENT}};
 const readList=(key:string)=>{try{return JSON.parse(localStorage.getItem(key)||"[]") as string[]}catch{return[]}};
 
 export default function FieldApp(){
-  if(window.location.pathname.startsWith("/admin"))return <ExistingApp/>;
   const [patient,setPatient]=useState<PatientState>(readPatient),[editingPatient,setEditingPatient]=useState(false),[unit,setUnit]=useState<"kg"|"lb">("kg"),
-    [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
+    [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[view,setView]=useState<View>("meds"),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
     [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent"));
   useEffect(()=>{sessionStorage.setItem("mmd-patient",JSON.stringify(patient))},[patient]);
   useEffect(()=>{const on=()=>setOnline(true),off=()=>setOnline(false);addEventListener("online",on);addEventListener("offline",off);return()=>{removeEventListener("online",on);removeEventListener("offline",off)}},[]);
   useEffect(()=>localStorage.setItem("mmd-favorites",JSON.stringify(favorites)),[favorites]);
   useEffect(()=>localStorage.setItem("mmd-recent",JSON.stringify(recent)),[recent]);
-  const kg=Math.max(0,Number(patient.weightKg)||0),age=Math.max(0,Number(patient.ageYears)||0),patientKind:EncounterPatient["patient"]=age<12?"pediatric":"adult";
-  const initialPatient:EncounterPatient={patient:patientKind,ageYears:age||undefined,weightKg:kg||undefined};
+
+  const hasWeight=patient.weightKg.trim()!==""&&Number(patient.weightKg)>0,hasAge=patient.ageYears.trim()!==""&&Number(patient.ageYears)>=0,
+    kg=hasWeight?Number(patient.weightKg):0,age=hasAge?Number(patient.ageYears):0,patientKind:EncounterPatient["patient"]=hasAge&&age<12?"pediatric":"adult";
+  const initialPatient:EncounterPatient={patient:patientKind,...(hasAge?{ageYears:age}:{}),...(hasWeight?{weightKg:kg}:{})};
+
   const meds=useMemo(()=>DEFAULT_FIELD_MEDICATION_IDS.map(id=>{const def=fieldMedicationDefinition(id);if(!def)return null;const status=medicationApprovalStatus(id);return{id,def,status}}).filter(Boolean) as {id:string;def:NonNullable<ReturnType<typeof fieldMedicationDefinition>>;status:ReturnType<typeof medicationApprovalStatus>}[],[]);
-  const visible=useMemo(()=>meds.filter(({id,def,status})=>{
-    if(status.state==="changes-pending")return false;
-    if(filter==="Reviewed only"&&status.state!=="approved")return false;
-    if(filter&&filter!=="Reviewed only"&&!categories[id]?.includes(filter))return false;
+  const approvedMeds=useMemo(()=>meds.filter(({status})=>status.state==="approved"),[meds]);
+  const approvedIds=useMemo(()=>new Set(approvedMeds.map(x=>x.id)),[approvedMeds]);
+  const visible=useMemo(()=>approvedMeds.filter(({id,def})=>{
+    if(view==="favorites"&&!favorites.includes(id))return false;
+    if(view==="recent"&&!recent.includes(id))return false;
+    if(filter&&!categories[id]?.includes(filter))return false;
     const q=query.trim().toLowerCase();if(!q)return true;
     const hay=[id,def.name,brandNames[id],def.protocolId,...(aliases[id]||[]),...def.paths.flatMap(p=>[p.label,p.protocol])].filter(Boolean).join(" ").toLowerCase();return hay.includes(q);
-  }),[meds,query,filter]);
-  const openMed=(id:string)=>{setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
+  }).sort((a,b)=>view==="recent"?recent.indexOf(a.id)-recent.indexOf(b.id):view==="favorites"?favorites.indexOf(a.id)-favorites.indexOf(b.id):a.def.name.localeCompare(b.def.name)),[approvedMeds,query,filter,view,favorites,recent]);
+
+  const openMed=(id:string)=>{if(!approvedIds.has(id))return;setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
   const toggleFav=(id:string)=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[id,...f]);
-  const selected=selectedId?fieldMedicationDefinition(selectedId):null;
+  const selected=selectedId&&approvedIds.has(selectedId)?fieldMedicationDefinition(selectedId):null;
   if(selected)return <div className="field-mode-shell field-engine-shell">
-    <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"ONLINE • Offline-ready":"OFFLINE — Using cached Denver Metro DMP data"} <span>{CURRENT_DMP_PROTOCOL_REVISION}</span></div>
-    <div className="engine-patient-strip"><b>{patientKind==="adult"?"Adult":"Pediatric"} • {kg?`${kg.toFixed(kg%1?1:0)} kg`:"Weight needed"}</b><span>DMP {CURRENT_DMP_PROTOCOL_REVISION}</span></div>
+    <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"✓ OFFLINE READY":"OFFLINE — Using cached Denver Metro DMP"} <span>{CURRENT_DMP_PROTOCOL_REVISION}</span></div>
+    <button className="engine-patient-strip" onClick={()=>{setSelectedId(null);setEditingPatient(true)}}>
+      <b>{hasAge?(patientKind==="adult"?`Adult ${age} yr`:`Peds ${age} yr`):"Age —"} • {hasWeight?`${kg.toFixed(kg%1?1:0)} kg`:"Weight —"}</b><span>Tap to change patient</span>
+    </button>
     <MedicationEngine medication={selected} close={()=>setSelectedId(null)} record={()=>undefined} openProtocol={()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
   </div>;
 
-  const displayWeight=unit==="kg"?kg:(kg*2.20462);
+  const displayWeight=unit==="kg"?kg:(kg*2.20462),viewTitle=view==="favorites"?"FAVORITES":view==="recent"?"RECENT":view==="treatments"?"TREATMENT MEDICATIONS":"FIELD MEDICATIONS";
+  const selectView=(next:View)=>{setView(next);setQuery("");if(next!=="treatments")setFilter("");window.scrollTo({top:0,behavior:"auto"})};
   return <div className="field-mode-shell">
     <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><span className={`connect-pill ${online?"online":"offline"}`}>{online?"Offline ready":"Offline"}</span></header>
     <main className="field-home">
-      <section className="patient-card"><div><small>PATIENT</small><strong>{displayWeight?`${displayWeight.toFixed(unit==="kg"?1:0)} ${unit}`:"Add weight"}</strong><span>{unit==="kg"&&kg?`${Math.round(kg*2.20462)} lb`:unit==="lb"&&kg?`${kg.toFixed(1)} kg`:""}</span></div><div><small>AGE</small><strong>{age?age<12?`${age} yr • Peds`:`${age} yr • Adult`:"Add age"}</strong><span>{age?age<12?"Under 12":"12+":""}</span></div><button onClick={()=>setEditingPatient(v=>!v)}>{editingPatient?"Done":"Change"}</button></section>
-      {editingPatient&&<section className="patient-editor"><label>Weight<div><input inputMode="decimal" value={unit==="kg"?patient.weightKg:String(Math.round(kg*2.20462))} onChange={e=>setPatient(p=>({...p,weightKg:unit==="kg"?e.target.value:String((Number(e.target.value||0)/2.20462).toFixed(1))}))}/><button onClick={()=>setUnit(u=>u==="kg"?"lb":"kg")}>{unit}</button></div></label><label>Age in years<input inputMode="decimal" value={patient.ageYears} onChange={e=>setPatient(p=>({...p,ageYears:e.target.value}))}/></label></section>}
+      <section className={`patient-card ${!hasAge||!hasWeight?"needs-input":""}`}><div><small>WEIGHT</small><strong>{hasWeight?`${displayWeight.toFixed(unit==="kg"&&kg%1?1:0)} ${unit}`:"—"}</strong><span>{hasWeight?(unit==="kg"?`${Math.round(kg*2.20462)} lb`:`${kg.toFixed(1)} kg`):"Enter if dose requires weight"}</span></div><div><small>AGE</small><strong>{hasAge?(age<12?`${age} yr • Peds`:`${age} yr • Adult`):"—"}</strong><span>{hasAge?(age<12?"Under 12":"12+"):"Enter when age changes eligibility"}</span></div><button onClick={()=>setEditingPatient(v=>!v)}>{editingPatient?"Done":"Change"}</button></section>
+      {editingPatient&&<section className="patient-editor"><label>Weight<div><input inputMode="decimal" placeholder="Optional until required" value={unit==="kg"?patient.weightKg:(hasWeight?String(Math.round(kg*2.20462)):"")} onChange={e=>setPatient(p=>({...p,weightKg:unit==="kg"?e.target.value:(e.target.value?String((Number(e.target.value)/2.20462).toFixed(1)):"")}))}/><button onClick={()=>setUnit(u=>u==="kg"?"lb":"kg")}>{unit}</button></div></label><label>Age in years<input inputMode="decimal" placeholder="Optional until required" value={patient.ageYears} onChange={e=>setPatient(p=>({...p,ageYears:e.target.value}))}/></label><button className="clear-patient" onClick={()=>setPatient(EMPTY_PATIENT)}>New patient / clear</button></section>}
       {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using cached Denver Metro DMP {CURRENT_DMP_PROTOCOL_REVISION} data.</div>}
-      {recent.length>0&&<section className="quick-row"><div className="section-head"><b>RECENT</b><button onClick={()=>setRecent([])}>Clear</button></div><div>{recent.map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
-      {favorites.length>0&&<section className="quick-row"><div className="section-head"><b>FAVORITES</b></div><div>{favorites.map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
-      <div className="med-search"><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search medication or indication"/><button onClick={()=>setQuery("")}>{query?"×":""}</button></div>
-      <div className="filter-row">{filterLabels.map(x=><button key={x} className={filter===x?"selected":""} onClick={()=>setFilter(f=>f===x?"":x)}>{x}</button>)}</div>
-      <div className="results-head"><b>{query?"SEARCH RESULTS":"FIELD MEDICATIONS"}</b><span>{visible.length} medications</span></div>
+
+      {view==="meds"&&recent.filter(id=>approvedIds.has(id)).length>0&&<section className="quick-row"><div className="section-head"><b>RECENT</b><button onClick={()=>selectView("recent")}>View all</button></div><div>{recent.filter(id=>approvedIds.has(id)).slice(0,5).map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
+      {view==="meds"&&favorites.filter(id=>approvedIds.has(id)).length>0&&<section className="quick-row"><div className="section-head"><b>FAVORITES</b><button onClick={()=>selectView("favorites")}>View all</button></div><div>{favorites.filter(id=>approvedIds.has(id)).map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
+
+      <div className="med-search"><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Drug, brand, indication or protocol"/><button onClick={()=>setQuery("")}>{query?"×":""}</button></div>
+      {(view==="meds"||view==="treatments")&&<div className="filter-row">{filterLabels.map(x=><button key={x} className={filter===x?"selected":""} onClick={()=>{setView("treatments");setFilter(f=>f===x?"":x)}}>{x}</button>)}</div>}
+      <div className="results-head"><b>{query?"SEARCH RESULTS":viewTitle}</b><span>{visible.length} medications</span></div>
+
+      {approvedMeds.length===0?<div className="empty-search release-empty"><b>No approved medications released to Field Mode.</b><span>Complete the current three-stage medication review in Admin before field use. Draft and in-review medications stay hidden from paramedics.</span></div>:
       <section className="field-med-list">{visible.map(({id,def,status})=>{
-        const indications=Array.from(new Set(def.paths.map(p=>p.label.replace(/\s*[—-]\s*(adult|pediatric|peds?).*$/i,"").trim())));const reviewed=status.state==="approved";
+        const indications=Array.from(new Set(def.paths.map(p=>p.label.replace(/\s*[—-]\s*(adult|pediatric|peds?).*$/i,"").trim())));
+        const verified=status.completedAt?new Date(status.completedAt).toLocaleDateString():CURRENT_DMP_PROTOCOL_REVISION;
         return <article className="field-med-card" key={id} onClick={()=>openMed(id)}>
           <div className="vial-art" aria-hidden="true"><span></span><b>{def.name.slice(0,3).toUpperCase()}</b></div>
-          <div className="med-card-copy"><div className="med-title"><strong>{def.name.toUpperCase()}</strong><button aria-label={`Favorite ${def.name}`} onClick={e=>{e.stopPropagation();toggleFav(id)}}>{favorites.includes(id)?"♥":"♡"}</button></div><small>{brandNames[id]||"Generic"}</small><p>{indications[0]||def.paths[0]?.protocol}</p>{indications.length>1&&<span className="more-indications">+{indications.length-1} other {indications.length===2?"use":"uses"}</span>}<div className="med-meta"><em className={reviewed?"reviewed":"in-review"}>{reviewed?"Reviewed":"In review"}</em><span>Metro DMP {def.protocolId} • {CURRENT_DMP_PROTOCOL_REVISION}</span></div></div>
-        </article>})}
-      </section>
-      {visible.length===0&&<div className="empty-search"><b>No medication found.</b><span>Try the generic name, brand name, indication, or protocol.</span></div>}
+          <div className="med-card-copy"><div className="med-title"><strong>{def.name.toUpperCase()}</strong><button aria-label={`Favorite ${def.name}`} onClick={e=>{e.stopPropagation();toggleFav(id)}}>{favorites.includes(id)?"♥":"♡"}</button></div><small>{brandNames[id]||"Generic"}</small><p>{indications[0]||def.paths[0]?.protocol}</p>{indications.length>1&&<span className="more-indications">+{indications.length-1} other {indications.length===2?"use":"uses"}</span>}<div className="med-meta"><em className="reviewed">Reviewed</em><span>Metro DMP {def.protocolId} • Verified {verified}</span></div></div>
+        </article>})}</section>}
+      {approvedMeds.length>0&&visible.length===0&&<div className="empty-search"><b>No approved medication found.</b><span>Try the generic name, brand name, indication, or protocol.</span></div>}
       <footer className="field-disclaimer">Clinical decision-support tool. Follow your agency's current protocols and medical direction. Verify medication, concentration, dose and route before administration.</footer>
     </main>
-    <nav className="field-bottom-nav"><button className="active">⌂<span>Home</span></button><button onClick={()=>setFilter("Cardiac")}>☷<span>Protocols</span></button><button onClick={()=>setFilter("Reviewed only")}>☆<span>Reviewed</span></button><button onClick={()=>setQuery("recent")}>◷<span>Recent</span></button><button onClick={()=>window.location.assign("/admin")}>•••<span>More</span></button></nav>
+    <nav className="field-bottom-nav four"><button className={view==="meds"?"active":""} onClick={()=>selectView("meds")}>⌂<span>Meds</span></button><button className={view==="treatments"?"active":""} onClick={()=>selectView("treatments")}>☷<span>Treatments</span></button><button className={view==="favorites"?"active":""} onClick={()=>selectView("favorites")}>☆<span>Favorites</span></button><button className={view==="recent"?"active":""} onClick={()=>selectView("recent")}>◷<span>Recent</span></button></nav>
   </div>;
 }
