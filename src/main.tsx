@@ -10,6 +10,7 @@ import "./approvalStatus.css";
 import "./quickSelectScrollFix.css";
 import "./fieldApp.css";
 import "./fieldSafety.css";
+import "./fieldContrastFix.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><Home /></React.StrictMode>);
 
