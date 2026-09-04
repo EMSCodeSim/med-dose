@@ -1,5 +1,5 @@
-const CACHE = "metro-med-dose-v34-mobile-layout";
-const CORE = ["/", "/offline.html", "/manifest.webmanifest", "/medications/adenosine-vial.webp", "/icons/metro-med-dose-192.png", "/icons/metro-med-dose-512.png", "/icons/apple-touch-icon.png", "/icons/favicon-32.png"];
+const CACHE = "metro-med-dose-v35-txa-protocol";
+const CORE = ["/", "/offline.html", "/manifest.webmanifest", "/protocols/txa-500-63.html", "/medications/adenosine-vial.webp", "/icons/metro-med-dose-192.png", "/icons/metro-med-dose-512.png", "/icons/apple-touch-icon.png", "/icons/favicon-32.png"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting())));
 self.addEventListener("activate", event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", event => {
@@ -10,7 +10,7 @@ self.addEventListener("fetch", event => {
     event.respondWith(networkWithTimeout(request, 3000).catch(async () => (await caches.match(request)) || (await caches.match("/")) || caches.match("/offline.html")));
     return;
   }
-  if (url.origin === self.location.origin && (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icons/") || url.pathname.startsWith("/medications/"))) {
+  if (url.origin === self.location.origin && (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icons/") || url.pathname.startsWith("/medications/") || url.pathname.startsWith("/protocols/"))) {
     event.respondWith(cacheFirst(request));
     return;
   }
