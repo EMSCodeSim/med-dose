@@ -14,16 +14,16 @@ const categories:Record<string,string[]>={
   diphenhydramine:["Adult","Peds"], epinephrine:["Adult","Peds","Arrest","Airway","Cardiac"], ipratropium:["Adult","Peds","Airway"],
   magnesium:["Adult","Peds","Airway","Cardiac"], methylprednisolone:["Adult","Peds","Airway"], naloxone:["Adult","Peds"],
   nitroglycerin:["Adult","Cardiac"], ketorolac:["Adult","Peds","Pain/Sedation"], fentanyl:["Adult","Peds","Pain/Sedation"], ketamine:["Adult","Pain/Sedation"],
-  "oral-glucose":["Adult","Peds"], "racemic-epinephrine":["Adult","Peds","Airway"], "sodium-bicarbonate":["Adult","Peds","Arrest","Cardiac"],
+  txa:["Adult","Trauma"], "oral-glucose":["Adult","Peds"], "racemic-epinephrine":["Adult","Peds","Airway"], "sodium-bicarbonate":["Adult","Peds","Arrest","Cardiac"],
 };
 const aliases:Record<string,string[]>={
   adenosine:["adeno","adenocard","svt","avnrt"], amiodarone:["amio","cordarone","vt","vf"], ondansetron:["zofran","nausea","vomiting"],
-  midazolam:["versed","seizure","sedation"], fentanyl:["pain","opioid"], ketamine:["ketamine","ketalar","pain","analgesia"], epinephrine:["epi","anaphylaxis","allergy","arrest"],
+  midazolam:["versed","seizure","sedation"], fentanyl:["pain","opioid"], ketamine:["ketamine","ketalar","pain","analgesia"], txa:["txa","tranexamic","tranexamic acid","trauma","hemorrhage","hemorrhagic shock"], epinephrine:["epi","anaphylaxis","allergy","arrest"],
   albuterol:["ventolin","bronchospasm","wheezing"], ipratropium:["atrovent"], ketorolac:["toradol","pain"], naloxone:["narcan","overdose"],
   nitroglycerin:["nitro","chest pain","acs","pulmonary edema"], diphenhydramine:["benadryl","allergy"], methylprednisolone:["solumedrol","solu-medrol"],
 };
-const brandNames:Record<string,string>={adenosine:"Adenocard",albuterol:"Ventolin",amiodarone:"Cordarone",ondansetron:"Zofran",atropine:"Atropine Sulfate",midazolam:"Versed",ipratropium:"Atrovent",ketorolac:"Toradol",naloxone:"Narcan",diphenhydramine:"Benadryl",methylprednisolone:"Solu-Medrol"};
-const treatmentFilters=["Arrest","Airway","Cardiac","Pain/Sedation"];
+const brandNames:Record<string,string>={adenosine:"Adenocard",albuterol:"Ventolin",amiodarone:"Cordarone",ondansetron:"Zofran",atropine:"Atropine Sulfate",midazolam:"Versed",ipratropium:"Atrovent",ketorolac:"Toradol",naloxone:"Narcan",diphenhydramine:"Benadryl",methylprednisolone:"Solu-Medrol",txa:"TXA"};
+const treatmentFilters=["Arrest","Airway","Cardiac","Pain/Sedation","Trauma"];
 type View="meds"|"treatments"|"favorites";
 type PatientState={weightKg:string;ageYears:string};
 const EMPTY_PATIENT:PatientState={weightKg:"",ageYears:""};
@@ -57,13 +57,13 @@ export default function FieldApp(){
   const toggleFav=(id:string)=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[id,...f]);
   const selected=selectedId&&approvedIds.has(selectedId)?fieldMedicationDefinition(selectedId):null;
   if(selected)return <div className="field-mode-shell field-engine-shell">
-    <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"✓ OFFLINE READY":"OFFLINE — Using cached Denver Metro DMP"} <span>{CURRENT_DMP_PROTOCOL_REVISION}</span></div>
+    <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"✓ OFFLINE READY":"OFFLINE — Using cached protocol data"} <span>{selected.id==="txa"?"Dept 500:63":CURRENT_DMP_PROTOCOL_REVISION}</span></div>
     <div className="field-report-bar"><button type="button" disabled={!administrations.length} onClick={()=>setReportOpen(true)}>Report{administrations.length?` (${administrations.length})`:""}</button></div>
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
-    <MedicationEngine medication={selected} close={()=>setSelectedId(null)} record={entry=>setAdministrations(items=>[...items,entry])} openProtocol={()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
+    <MedicationEngine medication={selected} close={()=>setSelectedId(null)} record={entry=>setAdministrations(items=>[...items,entry])} openProtocol={()=>window.open(selected.id==="txa"?"/protocols/txa-500-63.html":"/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
   </div>;
 
-  const displayWeight=unit==="kg"?kg:(kg*2.20462),viewTitle=view==="favorites"?"FAVORITES":view==="treatments"?"TREATMENT MEDICATIONS":"FIELD MEDICATIONS";
+  const viewTitle=view==="favorites"?"FAVORITES":view==="treatments"?"TREATMENT MEDICATIONS":"FIELD MEDICATIONS";
   const selectView=(next:View)=>{setView(next);setQuery("");if(next!=="treatments")setFilter("");window.scrollTo({top:0,behavior:"auto"})};
   const openCurrentProtocol=()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer");
   return <div className="field-mode-shell">
@@ -71,7 +71,7 @@ export default function FieldApp(){
     {administrations.length>0&&<button className="field-home-report" onClick={()=>setReportOpen(true)}>Report • {administrations.length} administration{administrations.length===1?"":"s"}</button>}
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
     <main className="field-home">
-      {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using cached Denver Metro DMP {CURRENT_DMP_PROTOCOL_REVISION} data.</div>}
+      {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using cached protocol data.</div>}
 
       {view==="meds"&&favorites.filter(id=>approvedIds.has(id)).length>0&&<section className="quick-row"><div className="section-head"><b>FAVORITES</b><button onClick={()=>selectView("favorites")}>View all</button></div><div>{favorites.filter(id=>approvedIds.has(id)).map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
 
@@ -79,15 +79,16 @@ export default function FieldApp(){
       {view==="treatments"&&<section className="treatment-sort"><div className="section-head"><b>SORT BY TREATMENT</b></div><div className="filter-row">{treatmentFilters.map(x=><button key={x} className={filter===x?"selected":""} onClick={()=>setFilter(f=>f===x?"":x)}>{x}</button>)}</div></section>}
       <div className="results-head"><b>{query?"SEARCH RESULTS":viewTitle}</b><span>{visible.length} medications</span></div>
 
-      {approvedMeds.length===0?<div className="empty-search release-empty"><b>No approved medications released to Field Mode.</b><span>Complete the current three-stage medication review in Admin before field use. Draft and in-review medications stay hidden from paramedics.</span></div>:
+      {approvedMeds.length===0?<div className="empty-search release-empty"><b>No medications released to Field Mode.</b><span>Complete the current medication review before operational use.</span></div>:
       <section className="field-med-list">{visible.map(({id,def,status})=>{
         const indications=Array.from(new Set(def.paths.map(p=>p.label.replace(/\s*[—-]\s*(adult|pediatric|peds?).*$/i,"").trim())));
         const verified=status.completedAt?new Date(status.completedAt).toLocaleDateString():CURRENT_DMP_PROTOCOL_REVISION;
+        const protocolLabel=id==="txa"?`Department ${def.protocolId}`:`Metro DMP ${def.protocolId}`;
         return <article className="field-med-card" key={id} onClick={()=>openMed(id)}>
           <div className={`vial-art ${id==="adenosine"?"has-photo":""}`} aria-hidden="true">{id==="adenosine"?<img src="/medications/adenosine-vial.webp" alt=""/>:<><span></span><b>{def.name.slice(0,3).toUpperCase()}</b></>}</div>
-          <div className="med-card-copy"><div className="med-title"><strong>{def.name.toUpperCase()}</strong><button aria-label={`Favorite ${def.name}`} onClick={e=>{e.stopPropagation();toggleFav(id)}}>{favorites.includes(id)?"♥":"♡"}</button></div><small>{brandNames[id]||"Generic"}</small><p>{indications[0]||def.paths[0]?.protocol}</p>{indications.length>1&&<span className="more-indications">+{indications.length-1} other {indications.length===2?"use":"uses"}</span>}<div className="med-meta"><em className={status.state==="approved"?"reviewed":"in-review"}>{status.state==="approved"?"Reviewed":"In review"}</em><span>Metro DMP {def.protocolId} • {status.state==="approved"?`Verified ${verified}`:"Review pending"}</span></div></div>
+          <div className="med-card-copy"><div className="med-title"><strong>{def.name.toUpperCase()}</strong><button aria-label={`Favorite ${def.name}`} onClick={e=>{e.stopPropagation();toggleFav(id)}}>{favorites.includes(id)?"♥":"♡"}</button></div><small>{brandNames[id]||"Generic"}</small><p>{indications[0]||def.paths[0]?.protocol}</p>{indications.length>1&&<span className="more-indications">+{indications.length-1} other {indications.length===2?"use":"uses"}</span>}<div className="med-meta"><em className={status.state==="approved"?"reviewed":"in-review"}>{status.state==="approved"?"Reviewed":"In review"}</em><span>{protocolLabel} • {status.state==="approved"?`Verified ${verified}`:"Review pending"}</span></div></div>
         </article>})}</section>}
-      {approvedMeds.length>0&&visible.length===0&&<div className="empty-search"><b>No approved medication found.</b><span>Try the generic name, brand name, indication, or protocol.</span></div>}
+      {approvedMeds.length>0&&visible.length===0&&<div className="empty-search"><b>No medication found.</b><span>Try the generic name, brand name, indication, or protocol.</span></div>}
       <footer className="field-disclaimer">Clinical decision-support tool. Follow your agency's current protocols and medical direction. Verify medication, concentration, dose and route before administration.</footer>
     </main>
     <nav className="field-bottom-nav four"><button className={view==="meds"?"active":""} onClick={()=>selectView("meds")}>⌂<span>Meds</span></button><button className={view==="treatments"?"active":""} onClick={()=>selectView("treatments")}>☷<span>Treatments</span></button><button className={view==="favorites"?"active":""} onClick={()=>selectView("favorites")}>☆<span>Favorites</span></button><button onClick={openCurrentProtocol}>▤<span>Protocol</span></button></nav>
