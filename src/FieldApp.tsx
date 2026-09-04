@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import MedicationEngine from "./MedicationEngine";
+import EncounterReport from "./EncounterReport";
 import {fieldMedicationDefinition} from "./expandedFieldMedicationDefinitions";
 import {DEFAULT_FIELD_MEDICATION_IDS,CURRENT_DMP_PROTOCOL_REVISION} from "./medicationReleaseConfig";
 import {medicationApprovalStatus} from "./medicationApprovalStatus";
@@ -12,12 +13,12 @@ const categories:Record<string,string[]>={
   midazolam:["Adult","Peds","Pain/Sedation"], calcium:["Adult","Peds","Arrest","Cardiac"], dextrose:["Adult","Peds"],
   diphenhydramine:["Adult","Peds"], epinephrine:["Adult","Peds","Arrest","Airway","Cardiac"], ipratropium:["Adult","Peds","Airway"],
   magnesium:["Adult","Peds","Airway","Cardiac"], methylprednisolone:["Adult","Peds","Airway"], naloxone:["Adult","Peds"],
-  nitroglycerin:["Adult","Cardiac"], ketorolac:["Adult","Peds","Pain/Sedation"], fentanyl:["Adult","Peds","Pain/Sedation"],
+  nitroglycerin:["Adult","Cardiac"], ketorolac:["Adult","Peds","Pain/Sedation"], fentanyl:["Adult","Peds","Pain/Sedation"], ketamine:["Adult","Pain/Sedation"],
   "oral-glucose":["Adult","Peds"], "racemic-epinephrine":["Adult","Peds","Airway"], "sodium-bicarbonate":["Adult","Peds","Arrest","Cardiac"],
 };
 const aliases:Record<string,string[]>={
   adenosine:["adeno","adenocard","svt","avnrt"], amiodarone:["amio","cordarone","vt","vf"], ondansetron:["zofran","nausea","vomiting"],
-  midazolam:["versed","seizure","sedation"], fentanyl:["pain","opioid"], epinephrine:["epi","anaphylaxis","allergy","arrest"],
+  midazolam:["versed","seizure","sedation"], fentanyl:["pain","opioid"], ketamine:["ketamine","ketalar","pain","analgesia"], epinephrine:["epi","anaphylaxis","allergy","arrest"],
   albuterol:["ventolin","bronchospasm","wheezing"], ipratropium:["atrovent"], ketorolac:["toradol","pain"], naloxone:["narcan","overdose"],
   nitroglycerin:["nitro","chest pain","acs","pulmonary edema"], diphenhydramine:["benadryl","allergy"], methylprednisolone:["solumedrol","solu-medrol"],
 };
@@ -32,7 +33,7 @@ const readList=(key:string)=>{try{return JSON.parse(localStorage.getItem(key)||"
 export default function FieldApp(){
   const [patient,setPatient]=useState<PatientState>(readPatient),[editingPatient,setEditingPatient]=useState(false),[unit,setUnit]=useState<"kg"|"lb">("kg"),
     [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[view,setView]=useState<View>("meds"),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
-    [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent"));
+    [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent")),[reportOpen,setReportOpen]=useState(false),[administrations,setAdministrations]=useState<any[]>([]);
   useEffect(()=>{sessionStorage.setItem("mmd-patient",JSON.stringify(patient))},[patient]);
   useEffect(()=>{const on=()=>setOnline(true),off=()=>setOnline(false);addEventListener("online",on);addEventListener("offline",off);return()=>{removeEventListener("online",on);removeEventListener("offline",off)}},[]);
   useEffect(()=>localStorage.setItem("mmd-favorites",JSON.stringify(favorites)),[favorites]);
@@ -52,15 +53,14 @@ export default function FieldApp(){
     const hay=[id,def.name,brandNames[id],def.protocolId,...(aliases[id]||[]),...def.paths.flatMap(p=>[p.label,p.protocol])].filter(Boolean).join(" ").toLowerCase();return hay.includes(q);
   }).sort((a,b)=>view==="favorites"?favorites.indexOf(a.id)-favorites.indexOf(b.id):a.def.name.localeCompare(b.def.name)),[approvedMeds,query,filter,view,favorites]);
 
-  const openMed=(id:string)=>{if(!approvedIds.has(id))return;setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
+  const openMed=(id:string)=>{if(!approvedIds.has(id))return;setPatient(readPatient());setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
   const toggleFav=(id:string)=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[id,...f]);
   const selected=selectedId&&approvedIds.has(selectedId)?fieldMedicationDefinition(selectedId):null;
   if(selected)return <div className="field-mode-shell field-engine-shell">
     <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"✓ OFFLINE READY":"OFFLINE — Using cached Denver Metro DMP"} <span>{CURRENT_DMP_PROTOCOL_REVISION}</span></div>
-    <button className="engine-patient-strip" onClick={()=>{setSelectedId(null);setEditingPatient(true)}}>
-      <b>{hasAge?(patientKind==="adult"?`Adult ${age} yr`:`Peds ${age} yr`):"Age —"} • {hasWeight?`${kg.toFixed(kg%1?1:0)} kg`:"Weight —"}</b><span>Tap to change patient</span>
-    </button>
-    <MedicationEngine medication={selected} close={()=>setSelectedId(null)} record={()=>undefined} openProtocol={()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
+    <div className="field-report-bar"><button type="button" disabled={!administrations.length} onClick={()=>setReportOpen(true)}>Report{administrations.length?` (${administrations.length})`:""}</button></div>
+    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
+    <MedicationEngine medication={selected} close={()=>setSelectedId(null)} record={entry=>setAdministrations(items=>[...items,entry])} openProtocol={()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
   </div>;
 
   const displayWeight=unit==="kg"?kg:(kg*2.20462),viewTitle=view==="favorites"?"FAVORITES":view==="treatments"?"TREATMENT MEDICATIONS":"FIELD MEDICATIONS";
@@ -68,9 +68,9 @@ export default function FieldApp(){
   const openCurrentProtocol=()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer");
   return <div className="field-mode-shell">
     <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><span className={`connect-pill ${online?"online":"offline"}`}>{online?"Offline ready":"Offline"}</span></header>
+    {administrations.length>0&&<button className="field-home-report" onClick={()=>setReportOpen(true)}>Report • {administrations.length} administration{administrations.length===1?"":"s"}</button>}
+    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
     <main className="field-home">
-      <section className={`patient-card ${!hasAge||!hasWeight?"needs-input":""}`}><div><small>WEIGHT</small><strong>{hasWeight?`${displayWeight.toFixed(unit==="kg"&&kg%1?1:0)} ${unit}`:"—"}</strong><span>{hasWeight?(unit==="kg"?`${Math.round(kg*2.20462)} lb`:`${kg.toFixed(1)} kg`):"Enter if dose requires weight"}</span></div><div><small>AGE</small><strong>{hasAge?(age<12?`${age} yr • Peds`:`${age} yr • Adult`):"—"}</strong><span>{hasAge?(age<12?"Under 12":"12+"):"Enter when age changes eligibility"}</span></div><button onClick={()=>setEditingPatient(v=>!v)}>{editingPatient?"Done":"Change"}</button></section>
-      {editingPatient&&<section className="patient-editor"><label>Weight<div><input inputMode="decimal" placeholder="Optional until required" value={unit==="kg"?patient.weightKg:(hasWeight?String(Math.round(kg*2.20462)):"")} onChange={e=>setPatient(p=>({...p,weightKg:unit==="kg"?e.target.value:(e.target.value?String((Number(e.target.value)/2.20462).toFixed(1)):"")}))}/><button onClick={()=>setUnit(u=>u==="kg"?"lb":"kg")}>{unit}</button></div></label><label>Age in years<input inputMode="decimal" placeholder="Optional until required" value={patient.ageYears} onChange={e=>setPatient(p=>({...p,ageYears:e.target.value}))}/></label><button className="clear-patient" onClick={()=>setPatient(EMPTY_PATIENT)}>New patient / clear</button></section>}
       {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using cached Denver Metro DMP {CURRENT_DMP_PROTOCOL_REVISION} data.</div>}
 
       {view==="meds"&&favorites.filter(id=>approvedIds.has(id)).length>0&&<section className="quick-row"><div className="section-head"><b>FAVORITES</b><button onClick={()=>selectView("favorites")}>View all</button></div><div>{favorites.filter(id=>approvedIds.has(id)).map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
@@ -84,8 +84,8 @@ export default function FieldApp(){
         const indications=Array.from(new Set(def.paths.map(p=>p.label.replace(/\s*[—-]\s*(adult|pediatric|peds?).*$/i,"").trim())));
         const verified=status.completedAt?new Date(status.completedAt).toLocaleDateString():CURRENT_DMP_PROTOCOL_REVISION;
         return <article className="field-med-card" key={id} onClick={()=>openMed(id)}>
-          <div className="vial-art" aria-hidden="true"><span></span><b>{def.name.slice(0,3).toUpperCase()}</b></div>
-          <div className="med-card-copy"><div className="med-title"><strong>{def.name.toUpperCase()}</strong><button aria-label={`Favorite ${def.name}`} onClick={e=>{e.stopPropagation();toggleFav(id)}}>{favorites.includes(id)?"♥":"♡"}</button></div><small>{brandNames[id]||"Generic"}</small><p>{indications[0]||def.paths[0]?.protocol}</p>{indications.length>1&&<span className="more-indications">+{indications.length-1} other {indications.length===2?"use":"uses"}</span>}<div className="med-meta"><em className="reviewed">Reviewed</em><span>Metro DMP {def.protocolId} • Verified {verified}</span></div></div>
+          <div className={`vial-art ${id==="adenosine"?"has-photo":""}`} aria-hidden="true">{id==="adenosine"?<img src="/medications/adenosine-vial.webp" alt=""/>:<><span></span><b>{def.name.slice(0,3).toUpperCase()}</b></>}</div>
+          <div className="med-card-copy"><div className="med-title"><strong>{def.name.toUpperCase()}</strong><button aria-label={`Favorite ${def.name}`} onClick={e=>{e.stopPropagation();toggleFav(id)}}>{favorites.includes(id)?"♥":"♡"}</button></div><small>{brandNames[id]||"Generic"}</small><p>{indications[0]||def.paths[0]?.protocol}</p>{indications.length>1&&<span className="more-indications">+{indications.length-1} other {indications.length===2?"use":"uses"}</span>}<div className="med-meta"><em className={status.state==="approved"?"reviewed":"in-review"}>{status.state==="approved"?"Reviewed":"In review"}</em><span>Metro DMP {def.protocolId} • {status.state==="approved"?`Verified ${verified}`:"Review pending"}</span></div></div>
         </article>})}</section>}
       {approvedMeds.length>0&&visible.length===0&&<div className="empty-search"><b>No approved medication found.</b><span>Try the generic name, brand name, indication, or protocol.</span></div>}
       <footer className="field-disclaimer">Clinical decision-support tool. Follow your agency's current protocols and medical direction. Verify medication, concentration, dose and route before administration.</footer>
