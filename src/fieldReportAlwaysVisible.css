@@ -1,0 +1,32 @@
+/* Keep encounter reporting reachable on every active medication flow, including long pediatric screens. */
+@media(max-width:760px){
+  .field-mode-shell .field-report-bar{
+    position:fixed!important;
+    top:calc(env(safe-area-inset-top,0px) + 112px)!important;
+    right:10px!important;
+    left:auto!important;
+    width:auto!important;
+    z-index:220!important;
+    padding:0!important;
+    background:transparent!important;
+    border:0!important;
+    pointer-events:none;
+  }
+  .field-mode-shell .field-report-bar button{
+    pointer-events:auto;
+    min-height:48px!important;
+    padding:0 16px!important;
+    border:2px solid #9bcaff!important;
+    border-radius:12px!important;
+    box-shadow:0 4px 14px #0008!important;
+    font-size:13px!important;
+  }
+  .field-mode-shell .field-report-bar button:disabled{
+    display:block!important;
+    visibility:visible!important;
+    opacity:.78!important;
+  }
+  .field-mode-shell #active-medication-screen-top{
+    padding-top:54px!important;
+  }
+}
