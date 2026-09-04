@@ -18,6 +18,7 @@ export const DEFAULT_FIELD_MEDICATION_IDS:string[] = [
   "ketorolac",
   "fentanyl",
   "ketamine",
+  "txa",
   "oral-glucose",
   "racemic-epinephrine",
   "sodium-bicarbonate",
