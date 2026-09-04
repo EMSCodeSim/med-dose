@@ -48,6 +48,15 @@ const temporaryFieldRelease:Plugin={
       const ageQuick='{ageRequired&&<ProtocolAgeQuickSelect medicationId={medication.id} path={path} value={age} onSelect={(years,_label,doseMode)=>{setAgeUnit("years");setAge(String(years));if(medication.id==="fentanyl"){setWeight("");setWeightSource("")}if(doseMode==="half"&&medication.id==="midazolam"){const halfPath=agentPaths.find(candidate=>candidate.id===`${path.id}-half`);if(halfPath)setPath(halfPath)}else if(doseMode==="fentanyl-low"&&medication.id==="fentanyl"&&path.formula.kind==="perKg"&&path.formula.amount>1){const lowPath=agentPaths.find(candidate=>candidate.id===`${path.id}-low`);if(lowPath)setPath(lowPath)}setContraChecks([]);setSpecialChecks([])}} onExact={(value)=>{setAgeUnit("years");setAge(value);if(medication.id==="fentanyl"){setWeight("");setWeightSource("")}setContraChecks([]);setSpecialChecks([])}}/>}';
       if(!code.includes(ageUi))throw new Error("MedicationEngine age-entry signature changed");
       code=code.replace(ageUi,ageQuick);
+
+      // When a pathway needs both age and weight, age must be resolved first.
+      // This is safety-critical for adult Fentanyl because the >65 decision can
+      // change the recommended dose before a weight-based calculation is shown.
+      const weightUi='}{needsWeight&&<WeightQuickSelect';
+      const orderedWeightUi='}{needsWeight&&(!ageRequired||age!=="")&&<WeightQuickSelect';
+      if(!code.includes(weightUi))throw new Error("MedicationEngine weight display signature changed");
+      code=code.replace(weightUi,orderedWeightUi);
+
       return {code,map:null};
     }
 
