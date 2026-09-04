@@ -32,6 +32,14 @@ const fastFieldWorkflow:Plugin={
       if(!code.includes(weightHandlerOld))throw new Error("MedicationEngine weight quick-select handler changed");
       code=code.replace(weightHandlerOld,weightHandlerNew);
 
+      // Linked follow-up doses (for example Amiodarone 150 mg after the initial
+      // 300 mg arrest dose) must display the actual next linked amount rather than
+      // the generic remaining-dose ceiling.
+      const linkedDisplayOld='nextDose:repeatRemaining>0&&doseMaximum>0?`Up to ${fmt(doseMaximum)} ${result.unit}`:undefined';
+      const linkedDisplayNew='nextDose:showingLinkedDose?`${fmt(linkedAmount)} ${linkedDose?.unit}`:repeatRemaining>0&&doseMaximum>0?`Up to ${fmt(doseMaximum)} ${result.unit}`:undefined';
+      if(!code.includes(linkedDisplayOld))throw new Error("MedicationEngine next-dose display signature changed");
+      code=code.replace(linkedDisplayOld,linkedDisplayNew);
+
       const effectAnchor='  useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);';
       const fastEffects=`  // Experienced-user fast path: if the selected reason leaves only one
   // protocol-approved route, run the existing route button handler automatically.
