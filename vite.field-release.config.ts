@@ -31,8 +31,21 @@ const temporaryFieldRelease:Plugin={
       if(!code.includes(importAnchor))throw new Error("MedicationEngine weight quick-select import signature changed");
       code=code.replace(importAnchor,ageImport);
 
+      // Fentanyl does not have a mandatory elderly half-dose, but age >65 is a
+      // protocol-relevant decision because crews should strongly consider the
+      // lower end of the allowed 1–2 mcg/kg range. Force an adult age checkpoint.
+      const ageChangesOld='ageChangesDose=!!path&&(path.formula.kind==="ageBands"||path.minAge!==undefined||path.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id))';
+      const ageChangesNew='ageChangesDose=!!path&&(path.formula.kind==="ageBands"||path.minAge!==undefined||path.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id)||(medication.id==="fentanyl"&&path.patient==="adult"))';
+      if(code.includes(ageChangesOld))code=code.replace(ageChangesOld,ageChangesNew);
+      else if(!code.includes(ageChangesNew))throw new Error("MedicationEngine age-sensitive medication signature changed");
+
+      const activeAgeOld='const activeAgeRequired=activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined;';
+      const activeAgeNew='const activeAgeRequired=activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined||(medication.id==="fentanyl"&&activePath.patient==="adult");';
+      if(code.includes(activeAgeOld))code=code.replace(activeAgeOld,activeAgeNew);
+      else if(!code.includes(activeAgeNew))throw new Error("MedicationEngine route age-check signature changed");
+
       const ageUi='{ageRequired&&<><label className="giant-input"><span>Patient age</span><input autoFocus inputMode="decimal" value={age} onChange={e=>setAge(e.target.value)} placeholder="0"/></label><div className="age-unit-toggle">{(["years","months","days"] as AgeUnit[]).map(x=><button key={x} className={ageUnit===x?"selected":""} onClick={()=>setAgeUnit(x)}>{x}</button>)}</div></>}';
-      const ageQuick='{ageRequired&&<ProtocolAgeQuickSelect medicationId={medication.id} path={path} value={age} onSelect={(years)=>{setAgeUnit("years");setAge(String(years));setContraChecks([]);setSpecialChecks([])}} onExact={(value)=>{setAgeUnit("years");setAge(value);setContraChecks([]);setSpecialChecks([])}}/>}';
+      const ageQuick='{ageRequired&&<ProtocolAgeQuickSelect medicationId={medication.id} path={path} value={age} onSelect={(years,_label,doseMode)=>{setAgeUnit("years");setAge(String(years));if(doseMode==="half"&&medication.id==="midazolam"){const halfPath=agentPaths.find(candidate=>candidate.id===`${path.id}-half`);if(halfPath)setPath(halfPath)}else if(doseMode==="fentanyl-low"&&medication.id==="fentanyl"&&path.formula.kind==="perKg"&&path.formula.amount>1){const lowPath=agentPaths.find(candidate=>candidate.id===`${path.id}-low`);if(lowPath)setPath(lowPath)}setContraChecks([]);setSpecialChecks([])}} onExact={(value)=>{setAgeUnit("years");setAge(value);setContraChecks([]);setSpecialChecks([])}}/>}';
       if(!code.includes(ageUi))throw new Error("MedicationEngine age-entry signature changed");
       code=code.replace(ageUi,ageQuick);
       return {code,map:null};
