@@ -98,6 +98,20 @@ function txaDefinition():GenericMedication{
   };
 }
 
+function fentanylProtocolRange(base:GenericMedication):GenericMedication{
+  const paths=base.paths.map(path=>{
+    if(path.id==="ped-ivio")return {...path,label:"Moderate to severe pain — pediatric 1–12 years IV/IO — 2 mcg/kg option",formula:{kind:"perKg" as const,amount:2,unit:"mcg" as const},minAge:1,maxAge:12,special:[...(path.special||[]),"DMP 9230 (July 2026): pediatric 1–12 years IV/IO/IM dose range is 1–2 mcg/kg."]};
+    if(path.id==="ped-im")return {...path,label:"Moderate to severe pain — pediatric 1–12 years IM — 2 mcg/kg option",formula:{kind:"perKg" as const,amount:2,unit:"mcg" as const},minAge:1,maxAge:12,special:[...(path.special||[]),"DMP 9230 (July 2026): pediatric 1–12 years IV/IO/IM dose range is 1–2 mcg/kg."]};
+    if(path.id==="ped-in")return {...path,label:"Moderate to severe pain — pediatric 1–12 years IN — 2 mcg/kg",formula:{kind:"perKg" as const,amount:2,unit:"mcg" as const},minAge:1,maxAge:12};
+    return path;
+  });
+  const ivio=paths.find(path=>path.id==="ped-ivio");
+  const im=paths.find(path=>path.id==="ped-im");
+  if(ivio)paths.push({...ivio,id:"ped-ivio-low",label:"Moderate to severe pain — pediatric 1–12 years IV/IO — 1 mcg/kg option",formula:{kind:"perKg" as const,amount:1,unit:"mcg" as const}});
+  if(im)paths.push({...im,id:"ped-im-low",label:"Moderate to severe pain — pediatric 1–12 years IM — 1 mcg/kg option",formula:{kind:"perKg" as const,amount:1,unit:"mcg" as const}});
+  return {...base,paths};
+}
+
 function midazolamAgeChecked(base:GenericMedication):GenericMedication{
   const paths=base.paths.map(path=>{
     // DMEMSMD 0015: adult is >=12 and pediatric is <12 unless a medication pathway says otherwise.
@@ -127,8 +141,8 @@ export function fieldMedicationDefinition(id:string):GenericMedication|null{
   if(id==="txa")return txaDefinition();
   const base=clinicalFieldMedicationDefinition(id);
   if(!base)return null;
-  const ageChecked=id==="midazolam"?midazolamAgeChecked(base):base;
-  return displayNames[id]?{...ageChecked,name:displayNames[id]}:ageChecked;
+  const clinicalChecked=id==="fentanyl"?fentanylProtocolRange(base):id==="midazolam"?midazolamAgeChecked(base):base;
+  return displayNames[id]?{...clinicalChecked,name:displayNames[id]}:clinicalChecked;
 }
 
 export function assertReleasedMedicationDefinitions(){
