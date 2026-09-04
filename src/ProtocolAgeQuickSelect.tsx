@@ -100,6 +100,8 @@ export default function ProtocolAgeQuickSelect({medicationId,path,value,onSelect
     persistAge(choice.years);
     onSelect(choice.years,choice.label,doseMode);
     setPendingOlderAdult(null);
+    const requiresWeight=path.formula.kind==="perKg"||!!path.requiresWeight;
+    if(requiresWeight)return;
     window.setTimeout(()=>{
       const button=document.querySelector("#active-medication-screen-top button.continue") as HTMLButtonElement|null;
       if(button&&!button.disabled)button.click();
