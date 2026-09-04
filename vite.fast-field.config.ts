@@ -39,8 +39,8 @@ const fastFieldWorkflow:Plugin={
       // adult pathways. For age-sensitive adult medications, route selection must
       // explicitly ask the provider to choose the adult age band before calculating.
       // Clear any carried age so the current medication's 12-65 / >65 selection is deliberate.
-      const activeAgeOld='const activeAgeRequired=(activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined)&&activePath.patient!=="adult";';
-      const activeAgeNew='const activeAgeRequired=(activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined);if(activeAgeRequired&&activePath.patient==="adult"){setAge("");setAgeUnit("years")}';
+      const activeAgeOld='const activeAgeRequired=activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined||(medication.id==="fentanyl"&&activePath.patient==="adult");';
+      const activeAgeNew='const activeAgeRequired=activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined||(medication.id==="fentanyl"&&activePath.patient==="adult");if(activeAgeRequired&&activePath.patient==="adult"){setAge("");setAgeUnit("years")}';
       if(code.includes(activeAgeOld))code=code.replace(activeAgeOld,activeAgeNew);
       else if(!code.includes(activeAgeNew))throw new Error("MedicationEngine route adult-age signature changed");
 

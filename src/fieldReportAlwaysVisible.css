@@ -1,16 +1,39 @@
 /* Keep encounter reporting reachable on every active medication flow, including long pediatric screens. */
 @media(max-width:760px){
+  /*
+     Field Mode already supplies the Offline Ready banner, Report row and
+     medication header in that order.  The legacy iOS final-dose rules turn the
+     medication shell into an inset:0 fixed layer, which puts its header under
+     the banner and makes the independently-fixed Report control collide with
+     it.  Keep the completed calculation in normal document flow so all three
+     pieces of top-screen information remain visible for every medication.
+  */
+  .field-mode-shell #active-medication-screen-top.calculation-complete-flow{
+    position:relative!important;
+    inset:auto!important;
+    z-index:1!important;
+    height:auto!important;
+    min-height:100dvh!important;
+    max-height:none!important;
+    margin:0 auto!important;
+    padding-top:0!important;
+    overflow:visible!important;
+  }
+  body:has(.field-mode-shell #active-medication-screen-top.calculation-complete-flow){
+    overflow-y:auto!important;
+  }
   .field-mode-shell .field-report-bar{
-    position:fixed!important;
-    top:calc(env(safe-area-inset-top,0px) + 112px)!important;
-    right:10px!important;
+    position:sticky!important;
+    top:33px!important;
+    right:auto!important;
     left:auto!important;
-    width:auto!important;
+    width:100%!important;
     z-index:220!important;
-    padding:0!important;
-    background:transparent!important;
-    border:0!important;
-    pointer-events:none;
+    box-sizing:border-box!important;
+    padding:7px 10px!important;
+    background:#06131bf2!important;
+    border-bottom:1px solid #29495b!important;
+    pointer-events:auto;
   }
   .field-mode-shell .field-report-bar button{
     pointer-events:auto;
@@ -27,6 +50,12 @@
     opacity:.78!important;
   }
   .field-mode-shell #active-medication-screen-top{
-    padding-top:54px!important;
+    padding-top:0!important;
+  }
+  .field-mode-shell #active-medication-screen-top.calculation-complete-flow .streamlined-medication-top{
+    position:sticky!important;
+    top:96px!important;
+    z-index:210!important;
+    margin-top:0!important;
   }
 }
