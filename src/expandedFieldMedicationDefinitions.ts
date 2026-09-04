@@ -57,6 +57,47 @@ function ketorolacDefinition():GenericMedication|null{
   };
 }
 
+function txaDefinition():GenericMedication{
+  return {
+    id:"txa",
+    name:"Tranexamic Acid (TXA)",
+    protocolId:"500:63",
+    page:0,
+    contraindications:[
+      "Patient under 18 years of age",
+      "More than 3 hours since injury",
+      "Known hypersensitivity to tranexamic acid or a product ingredient",
+      "Pregnancy",
+    ],
+    paths:[{
+      id:"adult-trauma-shock",
+      label:"Adult traumatic hemorrhagic shock",
+      agent:"Tranexamic Acid (TXA)",
+      patient:"adult",
+      minAge:18,
+      route:"IV infusion",
+      formula:{kind:"fixed",amount:2,unit:"g"},
+      repeat:"Single prehospital dose; no routine repeat dose listed in department protocol 500:63.",
+      administration:"Give 2 g IV over 10 minutes. Use the current department-approved TXA preparation/premix and verify the final concentration before administration. The uploaded 500:63 sheet contained an older 1 g dose; the current department dose is 2 g.",
+      protocol:"Department TXA 500:63 — Traumatic Hemorrhagic Shock",
+      volumeRequired:true,
+      suggestedConcentration:.1,
+      concentrationUnit:"g/mL",
+      monitoring:[
+        "Monitor blood pressure and perfusion during infusion.",
+        "Reassess for hypotension or other adverse effects during administration.",
+        "Transport to a Level I or II Trauma Center unless unable to oxygenate/ventilate per department trauma triage guidance.",
+      ],
+      special:[
+        "Confirm acute trauma occurred less than 3 hours ago.",
+        "Confirm suspected hemorrhagic shock due to trauma.",
+        "Confirm signs of poor perfusion are present.",
+        "Do not administer TXA as a rapid undiluted IV push.",
+      ],
+    }],
+  };
+}
+
 function midazolamAgeChecked(base:GenericMedication):GenericMedication{
   const paths=base.paths.map(path=>{
     // DMEMSMD 0015: adult is >=12 and pediatric is <12 unless a medication pathway says otherwise.
@@ -83,6 +124,7 @@ const displayNames:Record<string,string>={
 export function fieldMedicationDefinition(id:string):GenericMedication|null{
   if(id==="droperidol")return droperidolDefinition();
   if(id==="ketorolac")return ketorolacDefinition();
+  if(id==="txa")return txaDefinition();
   const base=clinicalFieldMedicationDefinition(id);
   if(!base)return null;
   const ageChecked=id==="midazolam"?midazolamAgeChecked(base):base;
