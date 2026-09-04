@@ -25,6 +25,7 @@ function representative(min:number,maxExclusive:number){
   return min;
 }
 function labelFor(min:number,maxExclusive:number,patient:GenericDosePath["patient"]){
+  if(min>65&&min<66&&patient==="adult")return "Adult >65";
   if(min===0&&maxExclusive<=1)return "Under 1 year";
   if(min===0&&maxExclusive===12)return "Pediatric <12";
   if(min===12&&!Number.isFinite(maxExclusive))return "Adult 12+";
