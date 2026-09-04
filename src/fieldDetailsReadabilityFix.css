@@ -1,0 +1,67 @@
+/* Final field override: calculation / More Details values must remain readable on iPhone.
+   This is intentionally loaded last so older generic/contrast rules cannot wash out values. */
+.field-mode-shell #active-medication-screen-top .calculation-details,
+.field-mode-shell #active-medication-screen-top .generic-calculation {
+  color: #10283a !important;
+}
+
+.field-mode-shell #active-medication-screen-top .generic-calculation {
+  background: #ffffff !important;
+  border-color: #b8c8d3 !important;
+  opacity: 1 !important;
+}
+
+.field-mode-shell #active-medication-screen-top .generic-calculation p {
+  background: #ffffff !important;
+  color: #10283a !important;
+  opacity: 1 !important;
+}
+
+.field-mode-shell #active-medication-screen-top .generic-calculation span {
+  color: #5a7184 !important;
+  opacity: 1 !important;
+}
+
+.field-mode-shell #active-medication-screen-top .generic-calculation b,
+.field-mode-shell #active-medication-screen-top .generic-calculation strong {
+  color: #10283a !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+  position: relative;
+  z-index: 1;
+}
+
+.field-mode-shell #active-medication-screen-top .generic-calculation p::before,
+.field-mode-shell #active-medication-screen-top .generic-calculation p::after {
+  pointer-events: none;
+}
+
+/* Prevent accidental long-press selection handles from obscuring this read-only cross-check card. */
+.field-mode-shell #active-medication-screen-top .generic-calculation {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@media (max-width: 780px) {
+  .field-mode-shell #active-medication-screen-top .generic-calculation p {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 13px 14px !important;
+    font-size: 14px !important;
+  }
+
+  .field-mode-shell #active-medication-screen-top .generic-calculation span {
+    flex: 0 0 45%;
+    font-size: 14px !important;
+    line-height: 1.3;
+  }
+
+  .field-mode-shell #active-medication-screen-top .generic-calculation b,
+  .field-mode-shell #active-medication-screen-top .generic-calculation strong {
+    flex: 1 1 auto;
+    font-size: 15px !important;
+    line-height: 1.3;
+    text-align: right !important;
+    overflow-wrap: anywhere;
+  }
+}
