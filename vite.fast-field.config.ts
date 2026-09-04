@@ -25,6 +25,14 @@ const fastFieldWorkflow:Plugin={
       if(!code.includes(weightOld))throw new Error("MedicationEngine weight carry-forward signature changed");
       code=code.replace(weightOld,weightNew);
 
+      // Age is safety-critical whenever it changes dose or pathway eligibility.
+      // Adult pathways must not skip an elderly/restricted age band (for example
+      // Diphenhydramine >65), and a carried pediatric age must never reach an adult result.
+      const ageRequiredOld='ageRequired=ageChangesDose&&path?.patient!=="adult"';
+      const ageRequiredNew='ageRequired=ageChangesDose';
+      if(!code.includes(ageRequiredOld))throw new Error("MedicationEngine age-required signature changed");
+      code=code.replace(ageRequiredOld,ageRequiredNew);
+
       // If a pediatric age-based weight estimate is chosen, that tap supplies both
       // a calculation weight and the age-band information needed for eligibility.
       // Use those new values immediately instead of waiting for React state to rerender.
