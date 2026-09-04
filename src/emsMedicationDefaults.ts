@@ -45,6 +45,7 @@ const common:Record<string,Concentration[]>={
   ],
   fentanyl:[{label:"100 mcg / 2 mL",amount:100,amountUnit:"mcg",volume:2,volumeUnit:"mL",concentration:50,concentrationUnit:"mcg/mL"}],
   ketamine:[{label:"200 mg / 20 mL",amount:200,amountUnit:"mg",volume:20,volumeUnit:"mL",concentration:10,concentrationUnit:"mg/mL"}],
+  txa:[{label:"1 g / 10 mL vial",amount:1,amountUnit:"g",volume:10,volumeUnit:"mL",concentration:0.1,concentrationUnit:"g/mL"}],
   morphine:[{label:"10 mg / 1 mL",amount:10,amountUnit:"mg",volume:1,volumeUnit:"mL",concentration:10,concentrationUnit:"mg/mL"}],
   hydromorphone:[{label:"1 mg / 1 mL",amount:1,amountUnit:"mg",volume:1,volumeUnit:"mL",concentration:1,concentrationUnit:"mg/mL"}],
   "racemic-epinephrine":[{label:"2.25% solution",amount:22.5,amountUnit:"mg",volume:1,volumeUnit:"mL",concentration:22.5,concentrationUnit:"mg/mL"}],
