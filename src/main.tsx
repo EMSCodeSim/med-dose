@@ -16,6 +16,7 @@ import "./fieldReadabilityFix.css";
 import "./fieldSelectionContrastFix.css";
 import "./fieldSpeed.css";
 import "./fieldReportAlwaysVisible.css";
+import "./fieldDetailsReadabilityFix.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><Home /></React.StrictMode>);
 
