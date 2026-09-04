@@ -6,11 +6,12 @@ const fastFieldWorkflow:Plugin={
   enforce:"pre",
   transform(code,id){
     if(id.endsWith("/src/FieldApp.tsx")){
-      const openOld='const openMed=(id:string)=>{if(!approvedIds.has(id))return;setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};';
-      const openNew='const openMed=(id:string)=>{if(!approvedIds.has(id))return;setPatient(readPatient());setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};';
-      if(!code.includes(openOld))throw new Error("FieldApp open-med signature changed before fast workflow");
-      code=code.replace(openOld,openNew);
-      return {code,map:null};
+      // Patient carry-forward is now implemented directly in FieldApp.tsx.
+      // Keep a guard so future source changes are noticed, but do not try to
+      // rewrite the old openMed implementation at build time.
+      const openCurrent='const openMed=(id:string)=>{if(!approvedIds.has(id))return;setPatient(readPatient());setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};';
+      if(!code.includes(openCurrent))throw new Error("FieldApp open-med signature changed before fast workflow");
+      return null;
     }
 
     if(id.endsWith("/src/MedicationEngine.tsx")){
