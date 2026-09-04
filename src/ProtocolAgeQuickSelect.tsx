@@ -25,12 +25,11 @@ function representative(min:number,maxExclusive:number){
   return min;
 }
 function labelFor(min:number,maxExclusive:number,patient:GenericDosePath["patient"]){
-  if(min>65&&min<66&&patient==="adult")return "Adult >65";
+  if((min>65&&min<66||min===66)&&patient==="adult")return "Adult >65";
   if(min===0&&maxExclusive<=1)return "Under 1 year";
   if(min===0&&maxExclusive===12)return "Pediatric <12";
   if(min===12&&!Number.isFinite(maxExclusive))return "Adult 12+";
   if(min===65&&!Number.isFinite(maxExclusive))return "Adult 65+";
-  if(min===66&&!Number.isFinite(maxExclusive))return "Adult 66+";
   if(maxExclusive<=1)return `${Math.round(min*12)}–<${Math.round(maxExclusive*12)} months`;
   if(min<1)return `${Math.round(min*12)} months–<${Math.round(maxExclusive)} years`;
   if(Number.isFinite(maxExclusive))return `${patient==="adult"?"Adult ":patient==="pediatric"?"Pediatric ":""}${Math.round(min)}–${Math.max(Math.round(min),Math.ceil(maxExclusive)-1)}`;
@@ -53,6 +52,17 @@ function choicesFor(medicationId:string,path:GenericDosePath):Choice[]{
   }
   const baseMin=path.minAge??(path.patient==="adult"?12:0);
   const baseMax=path.maxAge??(path.patient==="pediatric"?12:Infinity);
+
+  // Some adult rules use age >65 as a dose change or a contraindication. If the
+  // pathway itself stops at 65 (Ketorolac), still expose an explicit >65 choice so
+  // the engine can show the protocol hard stop instead of silently hiding that case.
+  if(path.patient==="adult"&&elderlyOver65.has(medicationId)&&baseMax>65&&baseMax<=66){
+    return orderAgeChoices([
+      {label:"Adult 12–65",detail:"Protocol age band • 12 years through age 65",years:40},
+      {label:"Adult >65",detail:"Protocol age band • over 65 years",years:66},
+    ]);
+  }
+
   const cuts=[baseMin,baseMax];
   if(elderlyAt65.has(medicationId)&&baseMin<65&&baseMax>65)cuts.push(65);
   if(elderlyOver65.has(medicationId)&&baseMin<66&&baseMax>66)cuts.push(66);
