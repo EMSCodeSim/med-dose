@@ -35,6 +35,15 @@ const fastFieldWorkflow:Plugin={
       if(code.includes(ageRequiredOld))code=code.replace(ageRequiredOld,ageRequiredNew);
       else if(!code.includes(ageRequiredNew))throw new Error("MedicationEngine age-required signature changed");
 
+      // The base workflow historically suppressed the route -> patient age step on
+      // adult pathways. For age-sensitive adult medications, route selection must
+      // explicitly ask the provider to choose the adult age band before calculating.
+      // Clear any carried age so the current medication's 12-65 / >65 selection is deliberate.
+      const activeAgeOld='const activeAgeRequired=(activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined)&&activePath.patient!=="adult";';
+      const activeAgeNew='const activeAgeRequired=(activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined);if(activeAgeRequired&&activePath.patient==="adult"){setAge("");setAgeUnit("years")}';
+      if(code.includes(activeAgeOld))code=code.replace(activeAgeOld,activeAgeNew);
+      else if(!code.includes(activeAgeNew))throw new Error("MedicationEngine route adult-age signature changed");
+
       // If a pediatric age-based weight estimate is chosen, that tap supplies both
       // a calculation weight and the age-band information needed for eligibility.
       // Use those new values immediately instead of waiting for React state to rerender.
