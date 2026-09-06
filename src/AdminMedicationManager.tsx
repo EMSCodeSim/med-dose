@@ -24,10 +24,11 @@ import {
   type CatalogMedication,
 } from "./medicationCatalogStore";
 import {CURRENT_DMP_PROTOCOL_REVISION,DEFAULT_FIELD_MEDICATION_IDS} from "./medicationReleaseConfig";
+import type {AdminWorkspacePayload} from "./neonAdmin";
 import "./adminMedicationManager.css";
 
 type Reviews=Record<string,ReviewSignatures>;
-type Props={medications:CatalogMedication[];reviews:Reviews;setReviews:(reviews:Reviews)=>void;openLegacyReview:(id:string)=>void;close:()=>void};
+type Props={medications:CatalogMedication[];reviews:Reviews;setReviews:(reviews:Reviews)=>void;onWorkspaceChange?:(workspace:AdminWorkspacePayload)=>void;openLegacyReview:(id:string)=>void;close:()=>void};
 type JsonObject=Record<string,any>;
 type Concentration={label?:string;amount?:number;amountUnit?:string;volume?:number;volumeUnit?:string;concentration?:number;concentrationUnit?:string};
 type DoseFormula={kind:string;amount?:number;min?:number;max?:number;unit?:string;text?:string;bands?:Array<{min:number;max:number;amount:number;label:string}>};
@@ -79,7 +80,7 @@ const diffSummary=(before:any,after:any)=>{
 };
 const slugify=(text:string)=>text.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 
-export default function AdminMedicationManager({medications,reviews,setReviews,openLegacyReview,close}:Props){
+export default function AdminMedicationManager({medications,reviews,setReviews,onWorkspaceChange,openLegacyReview,close}:Props){
   const [state,setState]=useState<MedicationAdminState>(()=>loadMedicationAdminState());
   const [catalog,setCatalog]=useState<CatalogMedication[]>(()=>medications);
   const [selectedId,setSelectedId]=useState<string|null>(null);
@@ -216,6 +217,10 @@ export default function AdminMedicationManager({medications,reviews,setReviews,o
     const next={...state,[selectedId]:nextRecord};setState(next);saveMedicationAdminState(next);setSavedMessage("Review complete. Approved medication data is now published.");
   },[reviews,selectedId]);
 
+  useEffect(()=>{
+    onWorkspaceChange?.({medicationState:state,reviews,catalog:loadMedicationCatalogState(),clinicalOverrides:loadClinicalOverrides()});
+  },[state,reviews,catalog,onWorkspaceChange]);
+
   const desiredVisible=selected?(typeof selected.visible==="boolean"?selected.visible:DEFAULT_VISIBLE_IDS.includes(selected.id)):false;
   return <div className="modal-backdrop admin-med-backdrop" onClick={closeAdmin}>
     <section className="admin-med-modal" role="dialog" aria-modal="true" aria-label="Medication administration" onClick={event=>event.stopPropagation()}>
@@ -236,7 +241,7 @@ export default function AdminMedicationManager({medications,reviews,setReviews,o
         <section className="admin-med-signatures"><h3>Current review signatures</h3>{(["owner","lineSafety","medicalDirector"] as const).map((stage,index)=>{const approval=reviews[selected.id]?.[stage];const labels=["Owner / Admin","Line Safety","Medical Director"];return <article key={stage} className={approval?"complete":"pending"}><i>{approval?"✓":index+1}</i><span><b>{labels[index]}</b>{approval?<small>{approval.reviewer} • {new Date(approval.approvedAt).toLocaleString()}</small>:<small>Pending</small>}</span></article>})}</section>
         <section className="admin-med-history"><h3>Review history</h3>{record.history.length?record.history.map(item=><details key={item.id}><summary><b>{new Date(item.completedAt).toLocaleDateString()}</b><span>{item.result==="no-change"?"No clinical changes":"Clinical changes approved"} • Revision {item.clinicalRevision}</span></summary><p>Protocol revision: {item.protocolRevision}</p><p>Next review: {new Date(item.nextReviewAt).toLocaleDateString()}</p>{item.changeSummary?.length?<ul>{item.changeSummary.map(change=><li key={change}>{change}</li>)}</ul>:null}</details>):<p>No completed six-month reviews recorded yet.</p>}</section>
       </div>}
-      <footer className="admin-med-footer"><span>Changes and review records are stored on this device. Close Admin after catalog changes to refresh the field medication list.</span><button onClick={closeAdmin}>Done</button></footer>
+      <footer className="admin-med-footer"><span>Changes and review records sync to the secure Neon workspace. Close Admin after catalog changes to refresh the field medication list.</span><button onClick={closeAdmin}>Done</button></footer>
     </section>
   </div>;
 }

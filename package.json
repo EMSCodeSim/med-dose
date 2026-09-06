@@ -8,11 +8,14 @@
     "test": "npm run test:clinical",
     "test:clinical": "node scripts/validate-released-medications.mjs",
     "release:check": "npm run test:clinical && tsc -b && vite build --config vite.fast-field.config.ts",
+    "db:generate": "drizzle-kit generate",
     "build": "npm run test:clinical && tsc -b && vite build --config vite.fast-field.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@neondatabase/neon-js": "^0.7.0-beta",
     "@zxing/browser": "^0.2.1",
+    "drizzle-orm": "^0.45.2",
     "pdfjs-dist": "^5.4.149",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
@@ -21,6 +24,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.1.1",
+    "drizzle-kit": "^0.31.10",
     "typescript": "~5.9.3",
     "vite": "^7.2.4"
   }
