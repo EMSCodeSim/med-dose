@@ -8,6 +8,14 @@ import type {ReleasePayload} from "./medicationRelease";
 import "./neonAdmin.css";
 
 const REVIEW_KEY="metro-med-dose-medication-reviews-v1";
+const ADMIN_LOAD_TIMEOUT_MS=12000;
+
+function withTimeout<T>(request:PromiseLike<T>,milliseconds=ADMIN_LOAD_TIMEOUT_MS):Promise<T>{
+  return new Promise((resolve,reject)=>{
+    const timer=window.setTimeout(()=>reject(new Error("The secure medication workspace did not respond. Check your connection and try again.")),milliseconds);
+    Promise.resolve(request).then(value=>{window.clearTimeout(timer);resolve(value)},error=>{window.clearTimeout(timer);reject(error)});
+  });
+}
 
 function baseCatalog():CatalogMedication[]{
   return releasedFieldMedicationDefinitions.map(def=>({id:def.id,name:def.name,brand:"",sub:def.paths[0]?.protocol||`DMP ${def.protocolId}`,protocol:{id:def.protocolId,name:def.name,page:def.page},visible:true}));
@@ -67,6 +75,7 @@ export default function AdminRoute(){
   const [localRevision,setLocalRevision]=useState(0);
   const [liveVersion,setLiveVersion]=useState(0);
   const [publishing,setPublishing]=useState(false);
+  const [loadAttempt,setLoadAttempt]=useState(0);
   const versionRef=useRef(0);
   const savedPayloadRef=useRef("");
   const saveTimerRef=useRef<number|undefined>(undefined);
@@ -78,25 +87,30 @@ export default function AdminRoute(){
     let active=true;
     (async()=>{
       setLoadState("loading");setMessage("");
-      const {data,error}=await neonAdminClient.from("admin_workspace").select("*").eq("id","primary").single();
-      if(!active)return;
-      if(error){
-        const text=errorMessage(error);setMessage(text);
+      try{
+        const {data,error}=await withTimeout(neonAdminClient.from("admin_workspace").select("*").eq("id","primary").single());
+        if(!active)return;
+        if(error)throw error;
+        const row=data as AdminWorkspaceRow;
+        const remotePayload=workspaceToPayload(row);
+        const localPayload=readLocalWorkspace();
+        const payload=!hasWorkspaceData(remotePayload)&&hasWorkspaceData(localPayload)?localPayload:remotePayload;
+        try{writeLocalWorkspace(payload)}catch{}
+        versionRef.current=row.version;savedPayloadRef.current=JSON.stringify(remotePayload);
+        setWorkspace({...row,reviews:payload.reviews});setLocalRevision(value=>value+1);setLoadState("ready");
+        try{
+          const latest=await withTimeout(neonAdminClient.from("medication_releases").select("release_version").order("release_version",{ascending:false}).limit(1).maybeSingle());
+          if(active&&latest.data)setLiveVersion(Number((latest.data as {release_version:number}).release_version));
+        }catch{}
+      }catch(error){
+        if(!active)return;
+        const text=errorMessage(error,"The secure workspace could not be loaded.");
+        setMessage(text);
         setLoadState(/permission|policy|row|jwt|authorized/i.test(text)?"denied":"error");
-        return;
       }
-      const row=data as AdminWorkspaceRow;
-      const remotePayload=workspaceToPayload(row);
-      const localPayload=readLocalWorkspace();
-      const payload=!hasWorkspaceData(remotePayload)&&hasWorkspaceData(localPayload)?localPayload:remotePayload;
-      try{writeLocalWorkspace(payload)}catch{}
-      versionRef.current=row.version;savedPayloadRef.current=JSON.stringify(remotePayload);
-      setWorkspace({...row,reviews:payload.reviews});setLocalRevision(value=>value+1);setLoadState("ready");
-      const latest=await neonAdminClient.from("medication_releases").select("release_version").order("release_version",{ascending:false}).limit(1).maybeSingle();
-      if(latest.data)setLiveVersion(Number((latest.data as {release_version:number}).release_version));
     })();
     return()=>{active=false};
-  },[session.isPending,user?.id]);
+  },[session.isPending,user?.id,loadAttempt]);
 
   useEffect(()=>()=>window.clearTimeout(saveTimerRef.current),[]);
 
@@ -130,7 +144,7 @@ export default function AdminRoute(){
 
   if(session.isPending)return <main className="neon-admin-gate"><section className="neon-admin-card"><p>Checking secure admin session…</p></section></main>;
   if(!user)return <AuthPanel/>;
-  if(loadState!=="ready")return <main className="neon-admin-gate"><section className="neon-admin-card"><small>MYMEDDOSE • SECURE ADMIN</small><h1>{loadState==="loading"?"Loading dashboard":loadState==="denied"?"Access not approved":"Dashboard unavailable"}</h1><p>{loadState==="loading"?"Retrieving the current medication workspace from Neon…":message||"The secure workspace could not be loaded."}</p>{loadState!=="loading"&&<><button className="primary" onClick={()=>window.location.reload()}>Try again</button><button className="neon-admin-mode" onClick={async()=>{await neonAdminClient.auth.signOut();window.location.reload()}}>Sign out</button></>}</section></main>;
+  if(loadState!=="ready")return <main className="neon-admin-gate"><section className="neon-admin-card"><small>MYMEDDOSE • SECURE ADMIN</small><h1>{loadState==="loading"?"Loading dashboard":loadState==="denied"?"Access not approved":"Dashboard unavailable"}</h1><p>{loadState==="loading"?"Retrieving the current medication workspace from Neon…":message||"The secure workspace could not be loaded."}</p>{loadState!=="loading"&&<><button className="primary" onClick={()=>setLoadAttempt(value=>value+1)}>Try again</button><button className="neon-admin-mode" onClick={async()=>{await neonAdminClient.auth.signOut();window.location.reload()}}>Sign out and reconnect</button></>}</section></main>;
 
   return <div className="admin-route-shell">
     <div className={`neon-admin-session ${syncState}`}><span><b>{syncState==="saving"?"Saving to Neon…":syncState==="failed"?"Sync failed":"✓ Synced to Neon"}</b>{message&&<small>{message}</small>}</span><span>{user.email}<button onClick={async()=>{await neonAdminClient.auth.signOut();window.location.assign("/")}}>Sign out</button></span></div>
