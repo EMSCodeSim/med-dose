@@ -153,3 +153,29 @@
   .field-medication-nav button{padding-inline:6px;font-size:10px}
   .field-medication-nav strong{font-size:14px}
 }
+
+/* iOS may scroll the completed calculator inside its own viewport. Keep the
+   one shared medication header attached to the phone viewport and reserve its
+   exact height in the shell, so result content can never replace or cover it. */
+@media(max-width:760px){
+  .field-engine-shell{
+    padding-top:153px;
+  }
+  .field-engine-shell .field-active-header{
+    position:fixed!important;
+    inset:0 0 auto 0;
+    height:153px!important;
+    overflow:visible!important;
+  }
+  .field-engine-shell .field-offline-banner{
+    height:32px!important;
+  }
+  .field-engine-shell .field-report-bar{
+    height:63px!important;
+    flex:0 0 63px!important;
+  }
+  .field-engine-shell .field-medication-nav{
+    height:58px!important;
+    min-height:58px!important;
+  }
+}
