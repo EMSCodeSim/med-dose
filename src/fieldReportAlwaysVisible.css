@@ -64,10 +64,16 @@
    the layered per-medication sticky elements that could disappear on long
    weight-based result screens. */
 .field-engine-shell .field-active-header{
+  display:block!important;
   position:sticky;
   top:0;
   z-index:240;
   width:100%;
+  height:auto!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  box-sizing:border-box;
   background:#06131b;
   box-shadow:0 5px 16px #0007;
 }
@@ -75,6 +81,9 @@
 .field-engine-shell .field-active-header .field-report-bar{
   position:static!important;
   top:auto!important;
+  width:100%!important;
+  margin:0!important;
+  box-sizing:border-box!important;
 }
 .field-engine-shell .field-active-header .field-report-bar{
   display:flex;
@@ -103,10 +112,15 @@
 }
 .field-medication-nav{
   display:grid;
+  position:static!important;
+  top:auto!important;
+  z-index:auto!important;
   grid-template-columns:minmax(106px,auto) 1fr minmax(88px,auto);
   align-items:center;
   gap:8px;
+  width:100%;
   min-height:58px;
+  margin:0!important;
   padding:6px 12px;
   box-sizing:border-box;
   background:#03111a;
