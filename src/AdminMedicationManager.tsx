@@ -25,10 +25,15 @@ import {
 } from "./medicationCatalogStore";
 import {CURRENT_DMP_PROTOCOL_REVISION,DEFAULT_FIELD_MEDICATION_IDS} from "./medicationReleaseConfig";
 import type {AdminWorkspacePayload} from "./neonAdmin";
+import {medicationApprovalStatus} from "./medicationApprovalStatus";
+import type {ReleasePayload} from "./medicationRelease";
 import "./adminMedicationManager.css";
+import "./adminApproval.css";
+import "./adminPublish.css";
 
 type Reviews=Record<string,ReviewSignatures>;
-type Props={medications:CatalogMedication[];reviews:Reviews;setReviews:(reviews:Reviews)=>void;onWorkspaceChange?:(workspace:AdminWorkspacePayload)=>void;openLegacyReview:(id:string)=>void;close:()=>void};
+type ReviewStage="owner"|"lineSafety"|"medicalDirector";
+type Props={medications:CatalogMedication[];reviews:Reviews;setReviews:(reviews:Reviews)=>void;onWorkspaceChange?:(workspace:AdminWorkspacePayload)=>void;onPublish?:(payload:ReleasePayload,medicationCount:number)=>Promise<void>;liveVersion?:number;publishing?:boolean;reviewerIdentity?:string;close:()=>void};
 type JsonObject=Record<string,any>;
 type Concentration={label?:string;amount?:number;amountUnit?:string;volume?:number;volumeUnit?:string;concentration?:number;concentrationUnit?:string};
 type DoseFormula={kind:string;amount?:number;min?:number;max?:number;unit?:string;text?:string;bands?:Array<{min:number;max:number;amount:number;label:string}>};
@@ -80,7 +85,7 @@ const diffSummary=(before:any,after:any)=>{
 };
 const slugify=(text:string)=>text.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 
-export default function AdminMedicationManager({medications,reviews,setReviews,onWorkspaceChange,openLegacyReview,close}:Props){
+export default function AdminMedicationManager({medications,reviews,setReviews,onWorkspaceChange,onPublish,liveVersion=0,publishing=false,reviewerIdentity="",close}:Props){
   const [state,setState]=useState<MedicationAdminState>(()=>loadMedicationAdminState());
   const [catalog,setCatalog]=useState<CatalogMedication[]>(()=>medications);
   const [selectedId,setSelectedId]=useState<string|null>(null);
@@ -94,12 +99,17 @@ export default function AdminMedicationManager({medications,reviews,setReviews,o
   const [adding,setAdding]=useState(false);
   const [newMed,setNewMed]=useState({name:"",brand:"",category:"",protocolId:"",protocolName:"",page:""});
   const [catalogDirty,setCatalogDirty]=useState(false);
+  const [reviewerName,setReviewerName]=useState(reviewerIdentity);
   const overrides=useMemo(()=>loadClinicalOverrides(),[state]);
   const selected=selectedId?catalog.find(m=>m.id===selectedId)||null:null;
   const record=selectedId?getRecord(state,selectedId):null;
   const publishedData=selected?((overrides[selected.id] as JsonObject|undefined)||baseData(selected)):null;
   const currentData=record?.draft?(record.draft as JsonObject):publishedData;
   const filtered=catalog.filter(m=>`${m.name} ${m.brand} ${m.protocol.id}`.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>Number(Boolean(a.retired))-Number(Boolean(b.retired))||a.name.localeCompare(b.name));
+  const reviewTargets=catalog.filter(m=>!m.retired);
+  const releaseBlockers=reviewTargets.filter(m=>!(["approved","due-soon"] as string[]).includes(medicationApprovalStatus(m.id,state).state));
+  const releaseMedicationIds=catalog.filter(m=>!m.retired&&!m.pending&&(typeof m.visible==="boolean"?m.visible:DEFAULT_VISIBLE_IDS.includes(m.id))).map(m=>m.id);
+  const releaseMedicationCount=releaseMedicationIds.length;
 
   const closeAdmin=()=>{if(catalogDirty){window.location.reload();return}close()};
   const persist=(next:MedicationAdminState)=>{setState(next);saveMedicationAdminState(next)};
@@ -107,6 +117,18 @@ export default function AdminMedicationManager({medications,reviews,setReviews,o
   const resetSignatures=(id:string)=>setReviews({...reviews,[id]:{}});
   const saveCatalogLocal=(item:CatalogMedication)=>{saveCatalogMedication(item);setCatalog(items=>items.some(x=>x.id===item.id)?items.map(x=>x.id===item.id?item:x):[...items,item]);setCatalogDirty(true)};
   const beginReview=(id:string)=>{const signatures=reviews[id]||{};updateRecord(id,r=>({...r,reviewStartedAt:Date.now()}));if(signatureCount(signatures)>0)resetSignatures(id)};
+  const approveStage=(stage:ReviewStage)=>{
+    if(!selected||!record?.reviewStartedAt)return;
+    const stages:ReviewStage[]=["owner","lineSafety","medicalDirector"];
+    const stageIndex=stages.indexOf(stage),signatures=reviews[selected.id]||{};
+    if(stageIndex>0&&!signatures[stages[stageIndex-1]]){setError("The previous reviewer must approve this medication first.");return}
+    const reviewer=reviewerName.trim();
+    if(!reviewer){setError("Enter the reviewer name before approving.");return}
+    const labels:Record<ReviewStage,string>={owner:"Owner / Admin",lineSafety:"Line Safety",medicalDirector:"Medical Director"};
+    if(!window.confirm(`Approve ${selected.name} as ${labels[stage]}? This records your name, date and time.`))return;
+    setReviews({...reviews,[selected.id]:{...signatures,[stage]:{reviewer,approvedAt:Date.now(),revision:record.protocolRevision}}});
+    setError("");setSavedMessage(`${labels[stage]} approval recorded.`);setReviewerName("");
+  };
   const beginEdit=()=>{if(!selected||!currentData)return;setEditorData(clone(currentData));setEditorCatalog({...selected,protocol:{...selected.protocol}});setProtocolRevision(record?.protocolRevision||CURRENT_DMP_PROTOCOL_REVISION);setError("");setSavedMessage("");setEditing(true)};
 
   const normalizeClinical=(data:JsonObject)=>{
@@ -200,6 +222,11 @@ export default function AdminMedicationManager({medications,reviews,setReviews,o
     saveCatalogLocal(item);
     const next={...state,[id]:{...initialAdminRecord(id),clinicalRevision:0,reviewStartedAt:Date.now(),draft:clinical,draftCreatedAt:Date.now()}};persist(next);setReviews({...reviews,[id]:{}});setAdding(false);setNewMed({name:"",brand:"",category:"",protocolId:"",protocolName:"",page:""});setSelectedId(id);setEditorCatalog(item);setEditorData(clinical);setProtocolRevision(CURRENT_DMP_PROTOCOL_REVISION);setEditing(true);setError("");
   };
+  const makeLive=async()=>{
+    if(!onPublish||releaseBlockers.length)return;
+    if(!window.confirm(`Make release ${liveVersion+1} live with ${releaseMedicationCount} field medications? User devices will download this approved medication library.`))return;
+    await onPublish({schemaVersion:1,protocolRevision:CURRENT_DMP_PROTOCOL_REVISION,medicationIds:releaseMedicationIds,medicationState:state,reviews,catalog:loadMedicationCatalogState(),clinicalOverrides:loadClinicalOverrides()},releaseMedicationCount);
+  };
 
   useEffect(()=>{
     if(!selectedId)return;
@@ -227,6 +254,7 @@ export default function AdminMedicationManager({medications,reviews,setReviews,o
       <header className="admin-med-header"><div><small>ADMIN • CLINICAL GOVERNANCE</small><h2>{selected?selected.name:"Medication management"}</h2><span>{selected?`DMP ${selected.protocol.id} • ${record?.protocolRevision||CURRENT_DMP_PROTOCOL_REVISION}`:"Edit individual fields, add medications, retire medications and run six-month reviews"}</span></div><button onClick={selected?()=>{setSelectedId(null);setEditing(false);setError("")}:closeAdmin}>{selected?"‹ Medications":"×"}</button></header>
       {!selected&&<>
         <div className="admin-med-summary"><div><b>{catalog.filter(m=>!m.retired).length} active medications</b><span>{catalog.filter(m=>m.retired).length} retired • three sequential signatures retained</span></div><button className="admin-add-med" onClick={()=>setAdding(true)}>+ Add medication</button></div>
+        <section className={`admin-publish-panel ${releaseBlockers.length?"blocked":"ready"}`}><div><small>FIELD RELEASE</small><h3>{releaseBlockers.length?`${releaseBlockers.length} medication${releaseBlockers.length===1?"":"s"} still need approval`:"All required reviews are complete"}</h3><p>{releaseBlockers.length?`Complete all three checks for ${releaseBlockers.slice(0,3).map(m=>m.name).join(", ")}${releaseBlockers.length>3?` and ${releaseBlockers.length-3} more`:""}.`:"Make the approved library live when you are ready. User phones will download it and retain it for offline use."}</p><span>Current live release: {liveVersion||"None"}</span></div><button className="admin-make-live" disabled={!!releaseBlockers.length||publishing||!onPublish} onClick={()=>void makeLive()}>{publishing?"Publishing…":`Make release ${liveVersion+1} live`}</button></section>
         {adding&&<section className="admin-new-med"><h3>Add DMP medication</h3><p>Create the medication record here, then enter its indications, routes, concentrations and dose paths. New medications remain unavailable to field users until the review is completed.</p><div className="admin-form-grid"><Field label="Medication name"><input value={newMed.name} onChange={e=>setNewMed(v=>({...v,name:e.target.value}))}/></Field><Field label="Brand / common name"><input value={newMed.brand} onChange={e=>setNewMed(v=>({...v,brand:e.target.value}))}/></Field><Field label="Category"><input value={newMed.category} onChange={e=>setNewMed(v=>({...v,category:e.target.value}))}/></Field><Field label="DMP medication ID"><input value={newMed.protocolId} onChange={e=>setNewMed(v=>({...v,protocolId:e.target.value}))}/></Field><Field label="Protocol name"><input value={newMed.protocolName} onChange={e=>setNewMed(v=>({...v,protocolName:e.target.value}))}/></Field><Field label="Protocol page"><input type="number" value={newMed.page} onChange={e=>setNewMed(v=>({...v,page:e.target.value}))}/></Field></div>{error&&<div className="admin-med-error">{error}</div>}<div className="admin-inline-actions"><button onClick={()=>{setAdding(false);setError("")}}>Cancel</button><button className="primary" onClick={createMedication}>Create medication draft</button></div></section>}
         <label className="admin-med-search"><span>Search medications</span><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Medication or protocol"/></label>
         <div className="admin-med-list">{filtered.map(m=>{const r=getRecord(state,m.id),s=reviews[m.id]||{},timing=reviewTiming(r),visible=typeof m.visible==="boolean"?m.visible:DEFAULT_VISIBLE_IDS.includes(m.id);return <article key={m.id} className={`admin-med-row ${timing} ${m.retired?"retired":""}`}><button className="admin-med-open" onClick={()=>{setSelectedId(m.id);setEditing(false);setError("")}}><span><strong>{m.name}</strong><small>{m.brand} • DMP {m.protocol.id}</small><em>{m.retired?"RETIRED":m.pending?"NEW • AWAITING REVIEW":statusLabel(r,s)}</em></span><span className="admin-med-review-dates"><b>{signatureCount(s)}/3</b><small>{visible&&!m.retired&&!m.pending?"Field visible":"Field hidden"}</small><small>Next: {r.nextReviewAt?formatReviewDate(r.nextReviewAt):"Not scheduled"}</small></span><i>›</i></button></article>})}</div>
@@ -236,9 +264,9 @@ export default function AdminMedicationManager({medications,reviews,setReviews,o
         <section className="admin-field-control"><div><small>FIELD AVAILABILITY</small><b>{selected.retired?"RETIRED":selected.pending?"WAITING FOR INITIAL REVIEW":desiredVisible?"VISIBLE TO USERS":"HIDDEN FROM USERS"}</b><span>Visibility does not delete the medication or its history.</span></div><button disabled={selected.retired||selected.pending} onClick={toggleVisibility}>{desiredVisible?"Hide from users":"Show to users"}</button>{selected.retired?<button onClick={reactivateMedication}>Reactivate medication</button>:<button className="danger" onClick={retireMedication}>Retire / remove from field use</button>}</section>
         {!!record.draft&&<div className="admin-med-draft-warning"><b>Clinical changes are pending review.</b><span>Published field data stays active until all three signatures are complete. A newly added medication stays hidden until its first approval.</span></div>}
         {savedMessage&&<div className="admin-med-success">{savedMessage}</div>}
-        <div className="admin-med-actions">{!editing&&<button onClick={beginEdit}>Edit medication fields</button>}<button onClick={()=>beginReview(selected.id)}>{record.reviewStartedAt?"Restart review":"Start 6-month review"}</button><button className="primary" disabled={!record.reviewStartedAt} onClick={()=>openLegacyReview(selected.id)}>Open 3-signature review</button>{!!record.draft&&!editing&&<button className="danger" onClick={discardDraft}>Discard draft</button>}</div>
+        <div className="admin-med-actions">{!editing&&<button onClick={beginEdit}>Edit medication fields</button>}{!record.reviewStartedAt&&<button className="primary" onClick={()=>beginReview(selected.id)}>Start 6-month review</button>}{record.reviewStartedAt&&<button disabled>Review in progress</button>}{!!record.draft&&!editing&&<button className="danger" onClick={discardDraft}>Discard draft</button>}</div>
         {editing&&editorData&&editorCatalog?<StructuredMedicationEditor data={editorData} setData={setEditorData} catalog={editorCatalog} setCatalog={setEditorCatalog} protocolRevision={protocolRevision} setProtocolRevision={setProtocolRevision} saveSection={()=>saveDraft(true)} error={error} cancel={()=>{setEditing(false);setError("")}} save={()=>saveDraft(false)}/>:<ClinicalRecord data={currentData}/>} 
-        <section className="admin-med-signatures"><h3>Current review signatures</h3>{(["owner","lineSafety","medicalDirector"] as const).map((stage,index)=>{const approval=reviews[selected.id]?.[stage];const labels=["Owner / Admin","Line Safety","Medical Director"];return <article key={stage} className={approval?"complete":"pending"}><i>{approval?"✓":index+1}</i><span><b>{labels[index]}</b>{approval?<small>{approval.reviewer} • {new Date(approval.approvedAt).toLocaleString()}</small>:<small>Pending</small>}</span></article>})}</section>
+        <section className="admin-med-signatures admin-approval-panel"><header><div><small>MEDICATION APPROVAL</small><h3>{signatureCount(reviews[selected.id]||{})===3?"Medication fully approved":record.reviewStartedAt?"Mark this drug as approved":"Start a review to approve this drug"}</h3><p>Approval proceeds in order. Each reviewer confirms the complete medication record and records their name, date and time.</p></div><b>{signatureCount(reviews[selected.id]||{})}/3 APPROVED</b></header>{(["owner","lineSafety","medicalDirector"] as ReviewStage[]).map((stage,index)=>{const approval=reviews[selected.id]?.[stage];const stages:ReviewStage[]=["owner","lineSafety","medicalDirector"],labels=["Owner / Admin","Line Safety","Medical Director"];const previousComplete=index===0||!!reviews[selected.id]?.[stages[index-1]];const ready=!!record.reviewStartedAt&&!approval&&previousComplete;return <article key={stage} className={approval?"complete":ready?"ready":"pending"}><i>{approval?"✓":index+1}</i><span><b>{labels[index]}</b>{approval?<small>Approved by {approval.reviewer} • {new Date(approval.approvedAt).toLocaleString()}</small>:ready?<small>Ready for this reviewer’s approval</small>:<small>{record.reviewStartedAt?"Waiting for previous approval":"Review not started"}</small>}</span>{ready&&<div className="admin-approve-action"><label>Reviewer name<input value={reviewerName} onChange={event=>setReviewerName(event.target.value)} placeholder={`Enter ${labels[index]} name`}/></label><button className="admin-approve-button" onClick={()=>approveStage(stage)}>✓ Approve {selected.name}</button></div>}</article>})}{error&&<div className="admin-med-error">{error}</div>}{signatureCount(reviews[selected.id]||{})===3&&<div className="admin-all-approved"><b>✓ Medication fully approved</b><span>All three required approvals are complete and retained in the medication review history.</span></div>}</section>
         <section className="admin-med-history"><h3>Review history</h3>{record.history.length?record.history.map(item=><details key={item.id}><summary><b>{new Date(item.completedAt).toLocaleDateString()}</b><span>{item.result==="no-change"?"No clinical changes":"Clinical changes approved"} • Revision {item.clinicalRevision}</span></summary><p>Protocol revision: {item.protocolRevision}</p><p>Next review: {new Date(item.nextReviewAt).toLocaleDateString()}</p>{item.changeSummary?.length?<ul>{item.changeSummary.map(change=><li key={change}>{change}</li>)}</ul>:null}</details>):<p>No completed six-month reviews recorded yet.</p>}</section>
       </div>}
       <footer className="admin-med-footer"><span>Changes and review records sync to the secure Neon workspace. Close Admin after catalog changes to refresh the field medication list.</span><button onClick={closeAdmin}>Done</button></footer>

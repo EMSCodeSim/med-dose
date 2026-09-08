@@ -1,0 +1,57 @@
+import {createClient} from "@neondatabase/neon-js";
+import {ADMIN_MEDICATION_STATE_KEY,CLINICAL_OVERRIDE_KEY,type ClinicalOverrideState,type MedicationAdminState,type ReviewSignatures} from "./adminMedicationStore";
+import {MEDICATION_CATALOG_KEY,type MedicationCatalogState} from "./medicationCatalogStore";
+
+const AUTH_URL=import.meta.env.VITE_NEON_AUTH_URL||"https://ep-falling-sound-ar6yoxcb.neonauth.c-4.us-west-2.aws.neon.tech/mymeddose/auth";
+const DATA_API_URL=import.meta.env.VITE_NEON_DATA_API_URL||"https://ep-falling-sound-ar6yoxcb.apirest.c-4.us-west-2.aws.neon.tech/mymeddose/rest/v1";
+const REVIEW_KEY="metro-med-dose-medication-reviews-v1";
+export const RELEASE_META_KEY="metro-med-dose-live-release-v1";
+
+export const neonPublicClient=createClient({auth:{url:AUTH_URL,allowAnonymous:true},dataApi:{url:DATA_API_URL}});
+
+export type ReleasePayload={
+  schemaVersion:1;
+  protocolRevision:string;
+  medicationIds:string[];
+  medicationState:MedicationAdminState;
+  reviews:Record<string,ReviewSignatures>;
+  catalog:MedicationCatalogState;
+  clinicalOverrides:ClinicalOverrideState;
+};
+export type ReleaseMeta={version:number;publishedAt:string;protocolRevision:string;medicationCount:number;medicationIds:string[]};
+export type MedicationReleaseRow={release_version:number;protocol_revision:string;payload:ReleasePayload;medication_count:number;published_at:string};
+
+const objectRecord=(value:unknown)=>!!value&&typeof value==="object"&&!Array.isArray(value);
+export function validateReleasePayload(value:unknown):value is ReleasePayload{
+  if(!objectRecord(value))return false;
+  const item=value as Partial<ReleasePayload>;
+  if(item.schemaVersion!==1||typeof item.protocolRevision!=="string")return false;
+  if(!Array.isArray(item.medicationIds)||!item.medicationIds.length||item.medicationIds.some(id=>typeof id!=="string"||!id))return false;
+  if(!objectRecord(item.medicationState)||!objectRecord(item.reviews)||!objectRecord(item.catalog)||!objectRecord(item.clinicalOverrides))return false;
+  return Object.values(item.clinicalOverrides||{}).every(override=>!override||(objectRecord(override)&&Array.isArray((override as {paths?:unknown}).paths)));
+}
+
+export function readReleaseMeta():ReleaseMeta|null{
+  try{const parsed=JSON.parse(localStorage.getItem(RELEASE_META_KEY)||"null");return objectRecord(parsed)?parsed as ReleaseMeta:null}catch{return null}
+}
+
+export function installMedicationRelease(row:MedicationReleaseRow){
+  if(!validateReleasePayload(row.payload))throw new Error("The downloaded medication release failed validation.");
+  if(row.payload.medicationIds.length!==Number(row.medication_count))throw new Error("The downloaded medication count failed validation.");
+  localStorage.setItem(ADMIN_MEDICATION_STATE_KEY,JSON.stringify(row.payload.medicationState));
+  localStorage.setItem(REVIEW_KEY,JSON.stringify(row.payload.reviews));
+  localStorage.setItem(MEDICATION_CATALOG_KEY,JSON.stringify(row.payload.catalog));
+  localStorage.setItem(CLINICAL_OVERRIDE_KEY,JSON.stringify(row.payload.clinicalOverrides));
+  const meta:ReleaseMeta={version:Number(row.release_version),publishedAt:row.published_at,protocolRevision:row.protocol_revision,medicationCount:Number(row.medication_count),medicationIds:row.payload.medicationIds};
+  localStorage.setItem(RELEASE_META_KEY,JSON.stringify(meta));
+  return meta;
+}
+
+export async function downloadLatestMedicationRelease(){
+  const {data,error}=await neonPublicClient.from("medication_releases").select("release_version,protocol_revision,payload,medication_count,published_at").order("release_version",{ascending:false}).limit(1).maybeSingle();
+  if(error)throw error;
+  if(!data)return {updated:false,meta:readReleaseMeta()};
+  const row=data as MedicationReleaseRow,current=readReleaseMeta();
+  if(current&&current.version>=Number(row.release_version))return {updated:false,meta:current};
+  return {updated:true,meta:installMedicationRelease(row)};
+}

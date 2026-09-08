@@ -4,6 +4,7 @@ import {releasedFieldMedicationDefinitions} from "./expandedFieldMedicationDefin
 import {mergeMedicationCatalog,type CatalogMedication,MEDICATION_CATALOG_KEY} from "./medicationCatalogStore";
 import {ADMIN_MEDICATION_STATE_KEY,CLINICAL_OVERRIDE_KEY} from "./adminMedicationStore";
 import {errorMessage,neonAdminClient,type AdminWorkspacePayload,type AdminWorkspaceRow,workspaceToPayload} from "./neonAdmin";
+import type {ReleasePayload} from "./medicationRelease";
 import "./neonAdmin.css";
 
 const REVIEW_KEY="metro-med-dose-medication-reviews-v1";
@@ -64,6 +65,8 @@ export default function AdminRoute(){
   const [syncState,setSyncState]=useState<"synced"|"saving"|"failed">("synced");
   const [message,setMessage]=useState("");
   const [localRevision,setLocalRevision]=useState(0);
+  const [liveVersion,setLiveVersion]=useState(0);
+  const [publishing,setPublishing]=useState(false);
   const versionRef=useRef(0);
   const savedPayloadRef=useRef("");
   const saveTimerRef=useRef<number|undefined>(undefined);
@@ -89,6 +92,8 @@ export default function AdminRoute(){
       try{writeLocalWorkspace(payload)}catch{}
       versionRef.current=row.version;savedPayloadRef.current=JSON.stringify(remotePayload);
       setWorkspace({...row,reviews:payload.reviews});setLocalRevision(value=>value+1);setLoadState("ready");
+      const latest=await neonAdminClient.from("medication_releases").select("release_version").order("release_version",{ascending:false}).limit(1).maybeSingle();
+      if(latest.data)setLiveVersion(Number((latest.data as {release_version:number}).release_version));
     })();
     return()=>{active=false};
   },[session.isPending,user?.id]);
@@ -111,6 +116,17 @@ export default function AdminRoute(){
   const catalog=useMemo(()=>mergeMedicationCatalog(baseCatalog()),[localRevision]);
   const reviews=useMemo(()=>workspace?.reviews||{},[workspace,localRevision]);
   const setReviews=(next:typeof reviews)=>{try{localStorage.setItem(REVIEW_KEY,JSON.stringify(next))}catch{};setWorkspace(value=>value?{...value,reviews:next}:value)};
+  const publish=async(payload:ReleasePayload,medicationCount:number)=>{
+    setPublishing(true);setMessage("");
+    try{
+      const nextVersion=liveVersion+1;
+      const {error}=await neonAdminClient.from("medication_releases").insert({release_version:nextVersion,protocol_revision:payload.protocolRevision,payload,medication_count:medicationCount,published_by:user?.id||null});
+      if(error)throw error;
+      setLiveVersion(nextVersion);setMessage(`Release ${nextVersion} is live. User devices can download it now.`);
+      await neonAdminClient.from("admin_audit_log").insert({action:"medication_release.published",details:{releaseVersion:nextVersion,medicationCount}});
+    }catch(err){setMessage(errorMessage(err,"Unable to publish the medication release"))}
+    finally{setPublishing(false)}
+  };
 
   if(session.isPending)return <main className="neon-admin-gate"><section className="neon-admin-card"><p>Checking secure admin session…</p></section></main>;
   if(!user)return <AuthPanel/>;
@@ -118,6 +134,6 @@ export default function AdminRoute(){
 
   return <div className="admin-route-shell">
     <div className={`neon-admin-session ${syncState}`}><span><b>{syncState==="saving"?"Saving to Neon…":syncState==="failed"?"Sync failed":"✓ Synced to Neon"}</b>{message&&<small>{message}</small>}</span><span>{user.email}<button onClick={async()=>{await neonAdminClient.auth.signOut();window.location.assign("/")}}>Sign out</button></span></div>
-    <AdminMedicationManager medications={catalog} reviews={reviews} setReviews={setReviews} onWorkspaceChange={saveWorkspace} openLegacyReview={()=>window.location.assign("/")} close={()=>window.location.assign("/")}/>
+    <AdminMedicationManager medications={catalog} reviews={reviews} setReviews={setReviews} onWorkspaceChange={saveWorkspace} onPublish={publish} liveVersion={liveVersion} publishing={publishing} reviewerIdentity={user.email} close={()=>window.location.assign("/")}/>
   </div>;
 }

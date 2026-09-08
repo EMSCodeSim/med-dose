@@ -1,0 +1,15 @@
+.admin-approval-panel{border:2px solid #9bb7c4}
+.admin-approval-panel>header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-bottom:12px;border-bottom:1px solid #dce6ea}
+.admin-approval-panel>header small{font-weight:900;letter-spacing:.08em;color:#397063}
+.admin-approval-panel>header h3{margin:3px 0 4px;font-size:1.2rem}
+.admin-approval-panel>header p{margin:0;color:#5d707b;font-size:.85rem}
+.admin-approval-panel>header>b{white-space:nowrap;padding:8px 10px;border-radius:8px;background:#e7f0f3;color:#284c5d}
+.admin-med-signatures article.ready{margin:8px -5px;padding:13px 8px;border:1px solid #76b491;border-radius:10px;background:#eff9f3}
+.admin-med-signatures article.ready i{background:#d7eee0;color:#1f6b3e}
+.admin-approve-action{display:flex;align-items:flex-end;gap:8px;margin-left:auto}
+.admin-approve-action label{display:grid;gap:4px;font-size:.72rem;font-weight:900;color:#526875}
+.admin-approve-action input{min-width:220px;padding:9px;border:1px solid #9db3bd;border-radius:8px;font:inherit}
+.admin-approve-button{min-height:42px;padding:9px 16px;border:1px solid #277447;border-radius:9px;background:#237342;color:#fff;font-weight:900;cursor:pointer}
+.admin-all-approved{display:flex;flex-direction:column;margin-top:10px;padding:12px;border:1px solid #7eb58e;border-radius:10px;background:#e5f5e9;color:#1e5f34}
+.admin-all-approved span{font-size:.82rem}
+@media(max-width:760px){.admin-approval-panel>header,.admin-med-signatures article.ready,.admin-approve-action{align-items:stretch;flex-direction:column}.admin-approve-action{width:100%;margin-left:0}.admin-approve-action input{box-sizing:border-box;width:100%;min-width:0}.admin-approve-button{width:100%}}

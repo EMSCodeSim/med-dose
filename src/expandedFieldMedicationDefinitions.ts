@@ -1,6 +1,7 @@
 import {fieldMedicationDefinition as clinicalFieldMedicationDefinition} from "./clinicalFieldMedicationDefinitions";
 import {genericMedication,type GenericMedication,type GenericDosePath} from "./dmpMedicationData";
 import {DEFAULT_FIELD_MEDICATION_IDS} from "./medicationReleaseConfig";
+import {loadClinicalOverrides} from "./adminMedicationStore";
 
 const unique=(items:string[])=>Array.from(new Set(items));
 
@@ -136,6 +137,8 @@ const displayNames:Record<string,string>={
 };
 
 export function fieldMedicationDefinition(id:string):GenericMedication|null{
+  const override=loadClinicalOverrides()[id];
+  if(override&&typeof override==="object"&&!Array.isArray(override)&&Array.isArray((override as GenericMedication).paths))return override as GenericMedication;
   if(id==="droperidol")return droperidolDefinition();
   if(id==="ketorolac")return ketorolacDefinition();
   if(id==="txa")return txaDefinition();

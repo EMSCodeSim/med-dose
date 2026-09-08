@@ -43,6 +43,6 @@ export default function UnifiedApp(){
     {active&&<FieldToolbar ageYears={null} ageLabel="Current patient" weightKg={null} currentDrug={active.name} currentIndication={treatment?.indication} currentRoute={treatment?.route} currentDose={treatment?.dose} currentVolume={treatment?.volume} genericTreatment={treatment} approvedMedicationIds={visibleIds} onSelectMedication={openMedication} onSelectSuggestedMedication={openMedication} reportReady={administrations.length>0} onOpenReport={()=>setReportOpen(true)}/>} 
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
     {protocol&&<ProtocolViewer target={protocol} close={()=>setProtocol(null)}/>} 
-    {adminOpen&&<AdminMedicationManager medications={catalog} reviews={reviews} setReviews={setReviews} openLegacyReview={(id)=>{setAdminOpen(false);openMedication(id)}} close={()=>{setAdminOpen(false);setCatalogRevision(v=>v+1)}}/>}
+    {adminOpen&&<AdminMedicationManager medications={catalog} reviews={reviews} setReviews={setReviews} close={()=>{setAdminOpen(false);setCatalogRevision(v=>v+1)}}/>}
   </main>;
 }

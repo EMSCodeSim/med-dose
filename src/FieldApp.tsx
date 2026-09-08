@@ -1,9 +1,11 @@
-import {useEffect,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useState} from "react";
 import MedicationEngine from "./MedicationEngine";
 import EncounterReport from "./EncounterReport";
 import {fieldMedicationDefinition} from "./expandedFieldMedicationDefinitions";
 import {DEFAULT_FIELD_MEDICATION_IDS,CURRENT_DMP_PROTOCOL_REVISION} from "./medicationReleaseConfig";
 import {medicationApprovalStatus} from "./medicationApprovalStatus";
+import {loadMedicationCatalogState} from "./medicationCatalogStore";
+import {downloadLatestMedicationRelease,readReleaseMeta,type ReleaseMeta} from "./medicationRelease";
 import type {EncounterPatient} from "./encounterTypes";
 import "./fieldApp.css";
 
@@ -33,17 +35,25 @@ const readList=(key:string)=>{try{return JSON.parse(localStorage.getItem(key)||"
 export default function FieldApp(){
   const [patient,setPatient]=useState<PatientState>(readPatient),[editingPatient,setEditingPatient]=useState(false),[unit,setUnit]=useState<"kg"|"lb">("kg"),
     [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[view,setView]=useState<View>("meds"),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
-    [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent")),[reportOpen,setReportOpen]=useState(false),[administrations,setAdministrations]=useState<any[]>([]);
+    [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent")),[reportOpen,setReportOpen]=useState(false),[administrations,setAdministrations]=useState<any[]>([]),
+    [releaseMeta,setReleaseMeta]=useState<ReleaseMeta|null>(readReleaseMeta),[releaseRevision,setReleaseRevision]=useState(0),[syncState,setSyncState]=useState<"idle"|"checking"|"updated"|"failed">("idle");
   useEffect(()=>{sessionStorage.setItem("mmd-patient",JSON.stringify(patient))},[patient]);
   useEffect(()=>{const on=()=>setOnline(true),off=()=>setOnline(false);addEventListener("online",on);addEventListener("offline",off);return()=>{removeEventListener("online",on);removeEventListener("offline",off)}},[]);
   useEffect(()=>localStorage.setItem("mmd-favorites",JSON.stringify(favorites)),[favorites]);
   useEffect(()=>localStorage.setItem("mmd-recent",JSON.stringify(recent)),[recent]);
+  const syncRelease=useCallback(async()=>{
+    if(!navigator.onLine){setSyncState("idle");return}
+    setSyncState("checking");
+    try{const result=await downloadLatestMedicationRelease();setReleaseMeta(result.meta);setSyncState(result.updated?"updated":"idle");if(result.updated)setReleaseRevision(value=>value+1)}catch{setSyncState("failed")}
+  },[]);
+  useEffect(()=>{void syncRelease()},[syncRelease]);
+  useEffect(()=>{if(online)void syncRelease()},[online,syncRelease]);
 
   const hasWeight=patient.weightKg.trim()!==""&&Number(patient.weightKg)>0,hasAge=patient.ageYears.trim()!==""&&Number(patient.ageYears)>=0,
     kg=hasWeight?Number(patient.weightKg):0,age=hasAge?Number(patient.ageYears):0,patientKind:EncounterPatient["patient"]=hasAge&&age<12?"pediatric":"adult";
   const initialPatient:EncounterPatient={patient:patientKind,...(hasAge?{ageYears:age}:{}),...(hasWeight?{weightKg:kg}:{})};
 
-  const meds=useMemo(()=>DEFAULT_FIELD_MEDICATION_IDS.map(id=>{const def=fieldMedicationDefinition(id);if(!def)return null;const status=medicationApprovalStatus(id);return{id,def,status}}).filter(Boolean) as {id:string;def:NonNullable<ReturnType<typeof fieldMedicationDefinition>>;status:ReturnType<typeof medicationApprovalStatus>}[],[]);
+  const meds=useMemo(()=>{const catalog=loadMedicationCatalogState();const candidateIds=releaseMeta?.medicationIds?.length?releaseMeta.medicationIds:[...DEFAULT_FIELD_MEDICATION_IDS,...Object.keys(catalog)];const ids=Array.from(new Set(candidateIds)).filter(id=>{const item=catalog[id];return !item?.retired&&!item?.pending&&item?.visible!==false});return ids.map(id=>{const def=fieldMedicationDefinition(id);if(!def)return null;const status=medicationApprovalStatus(id);return{id,def,status}}).filter(Boolean) as {id:string;def:NonNullable<ReturnType<typeof fieldMedicationDefinition>>;status:ReturnType<typeof medicationApprovalStatus>}[]},[releaseRevision,releaseMeta?.version]);
   const approvedMeds=useMemo(()=>meds.filter(({status})=>status.state==="approved"),[meds]);
   const approvedIds=useMemo(()=>new Set(approvedMeds.map(x=>x.id)),[approvedMeds]);
   const visible=useMemo(()=>approvedMeds.filter(({id,def})=>{
@@ -67,11 +77,13 @@ export default function FieldApp(){
   const selectView=(next:View)=>{setView(next);setQuery("");if(next!=="treatments")setFilter("");window.scrollTo({top:0,behavior:"auto"})};
   const openCurrentProtocol=()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer");
   return <div className="field-mode-shell">
-    <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><span className={`connect-pill ${online?"online":"offline"}`}>{online?"Offline ready":"Offline"}</span></header>
+    <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><button className={`connect-pill release-sync ${online?"online":"offline"}`} disabled={!online||syncState==="checking"} onClick={()=>void syncRelease()}>{syncState==="checking"?"Checking…":syncState==="updated"?"✓ Updated":syncState==="failed"?"Retry update":online?"Check updates":"Offline"}</button></header>
     {administrations.length>0&&<button className="field-home-report" onClick={()=>setReportOpen(true)}>Report • {administrations.length} administration{administrations.length===1?"":"s"}</button>}
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
     <main className="field-home">
-      {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using cached protocol data.</div>}
+      {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using downloaded release {releaseMeta?`v${releaseMeta.version}`:"stored on this device"}.</div>}
+      {releaseMeta&&<div className="field-release-status"><b>LIVE MEDICATION LIBRARY • RELEASE {releaseMeta.version}</b><span>{releaseMeta.medicationCount} medications • Published {new Date(releaseMeta.publishedAt).toLocaleString()}</span></div>}
+      {syncState==="failed"&&<div className="field-release-error"><b>Update check failed.</b><span>The downloaded medication library remains available. Tap “Retry update” when connected.</span></div>}
 
       {view==="meds"&&favorites.filter(id=>approvedIds.has(id)).length>0&&<section className="quick-row"><div className="section-head"><b>FAVORITES</b><button onClick={()=>selectView("favorites")}>View all</button></div><div>{favorites.filter(id=>approvedIds.has(id)).map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
 
