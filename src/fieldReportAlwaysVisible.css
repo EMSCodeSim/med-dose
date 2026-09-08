@@ -71,6 +71,21 @@
   white-space:nowrap;
   font-size:16px;
 }
+.field-medication-review{
+  display:grid;
+  min-width:0;
+  gap:1px;
+  text-align:center;
+}
+.field-medication-review small{
+  overflow:hidden;
+  color:#9ce3ae;
+  font-size:9px;
+  font-weight:800;
+  line-height:1.1;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 .field-medication-nav button{
   min-height:42px;
   padding:0 10px;
@@ -112,6 +127,7 @@
   .field-medication-nav{grid-template-columns:100px 1fr 78px;padding-inline:7px;gap:5px}
   .field-medication-nav button{padding-inline:6px;font-size:10px}
   .field-medication-nav strong{font-size:14px}
+  .field-medication-review small{font-size:8px}
 }
 
 @media(max-width:760px){

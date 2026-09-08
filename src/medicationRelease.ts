@@ -6,6 +6,7 @@ const AUTH_URL=import.meta.env.VITE_NEON_AUTH_URL||"https://ep-falling-sound-ar6
 const DATA_API_URL=import.meta.env.VITE_NEON_DATA_API_URL||"https://ep-falling-sound-ar6yoxcb.apirest.c-4.us-west-2.aws.neon.tech/mymeddose/rest/v1";
 const REVIEW_KEY="metro-med-dose-medication-reviews-v1";
 export const RELEASE_META_KEY="metro-med-dose-live-release-v1";
+export const FIELD_VISIBILITY_KEY="metro-med-dose-field-visibility-v1";
 
 export const neonPublicClient=createClient({auth:{url:AUTH_URL,allowAnonymous:true},dataApi:{url:DATA_API_URL}});
 
@@ -20,6 +21,7 @@ export type ReleasePayload={
 };
 export type ReleaseMeta={version:number;publishedAt:string;protocolRevision:string;medicationCount:number;medicationIds:string[]};
 export type MedicationReleaseRow={release_version:number;protocol_revision:string;payload:ReleasePayload;medication_count:number;published_at:string};
+export type FieldVisibilityState=Record<string,boolean>;
 
 const objectRecord=(value:unknown)=>!!value&&typeof value==="object"&&!Array.isArray(value);
 export function validateReleasePayload(value:unknown):value is ReleasePayload{
@@ -35,6 +37,22 @@ export function readReleaseMeta():ReleaseMeta|null{
   try{const parsed=JSON.parse(localStorage.getItem(RELEASE_META_KEY)||"null");return objectRecord(parsed)?parsed as ReleaseMeta:null}catch{return null}
 }
 
+export function readFieldVisibility():FieldVisibilityState{
+  try{
+    const parsed=JSON.parse(localStorage.getItem(FIELD_VISIBILITY_KEY)||"{}");
+    return objectRecord(parsed)?parsed as FieldVisibilityState:{};
+  }catch{return {}}
+}
+
+async function downloadFieldVisibility(){
+  const {data,error}=await neonPublicClient.from("field_medication_visibility").select("medication_id,hidden").order("medication_id",{ascending:true});
+  if(error)throw error;
+  const next=Object.fromEntries((data||[]).map(row=>[String((row as {medication_id:string}).medication_id),Boolean((row as {hidden:boolean}).hidden)]));
+  const before=JSON.stringify(readFieldVisibility()),after=JSON.stringify(next);
+  if(before!==after)localStorage.setItem(FIELD_VISIBILITY_KEY,after);
+  return before!==after;
+}
+
 export function installMedicationRelease(row:MedicationReleaseRow){
   if(!validateReleasePayload(row.payload))throw new Error("The downloaded medication release failed validation.");
   if(row.payload.medicationIds.length!==Number(row.medication_count))throw new Error("The downloaded medication count failed validation.");
@@ -48,10 +66,11 @@ export function installMedicationRelease(row:MedicationReleaseRow){
 }
 
 export async function downloadLatestMedicationRelease(){
+  const visibilityUpdated=await downloadFieldVisibility();
   const {data,error}=await neonPublicClient.from("medication_releases").select("release_version,protocol_revision,payload,medication_count,published_at").order("release_version",{ascending:false}).limit(1).maybeSingle();
   if(error)throw error;
-  if(!data)return {updated:false,meta:readReleaseMeta()};
+  if(!data)return {updated:visibilityUpdated,meta:readReleaseMeta()};
   const row=data as MedicationReleaseRow,current=readReleaseMeta();
-  if(current&&current.version>=Number(row.release_version))return {updated:false,meta:current};
+  if(current&&current.version>=Number(row.release_version))return {updated:visibilityUpdated,meta:current};
   return {updated:true,meta:installMedicationRelease(row)};
 }

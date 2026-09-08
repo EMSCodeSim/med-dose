@@ -49,6 +49,7 @@ type Props = {
     payload: ReleasePayload,
     medicationCount: number,
   ) => Promise<void>;
+  onVisibilityChange?: (medicationId:string,visible:boolean)=>Promise<void>;
   liveVersion?: number;
   publishing?: boolean;
   reviewerIdentity?: string;
@@ -442,6 +443,7 @@ export default function AdminMedicationManager({
   setReviews,
   onWorkspaceChange,
   onPublish,
+  onVisibilityChange,
   liveVersion = 0,
   publishing = false,
   reviewerIdentity = "",
@@ -899,15 +901,21 @@ export default function AdminMedicationManager({
     setEditing(false);
     setEditorData(null);
   };
-  const toggleVisibility = () => {
+  const toggleVisibility = async () => {
     if (!selected) return;
     const effective =
       typeof selected.visible === "boolean"
         ? selected.visible
         : DEFAULT_VISIBLE_IDS.includes(selected.id);
-    saveCatalogLocal({ ...selected, visible: !effective });
+    const nextVisible=!effective;
+    setError("");
+    try{
+      await onVisibilityChange?.(selected.id,nextVisible);
+      saveCatalogLocal({ ...selected, visible: nextVisible });
+      setSavedMessage(nextVisible?"Medication will be shown when it is part of the active release.":"Medication hidden. User devices will remove it on their next update check.");
+    }catch(error){setError(error instanceof Error?error.message:"Unable to update field visibility.")}
   };
-  const retireMedication = () => {
+  const retireMedication = async () => {
     if (
       !selected ||
       !window.confirm(
@@ -916,8 +924,13 @@ export default function AdminMedicationManager({
     )
       return;
     const updated = { ...selected, visible: false, retired: true };
-    saveCatalogLocal(updated);
-    setSelectedId(updated.id);
+    setError("");
+    try{
+      await onVisibilityChange?.(selected.id,false);
+      saveCatalogLocal(updated);
+      setSelectedId(updated.id);
+      setSavedMessage("Medication retired and hidden. User devices will remove it on their next update check.");
+    }catch(error){setError(error instanceof Error?error.message:"Unable to retire this medication.")}
   };
   const reactivateMedication = () => {
     if (!selected) return;

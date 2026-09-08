@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import AdminMedicationManager from "./AdminMedicationManager";
+import AdminCalculationLog from "./AdminCalculationLog";
 import {releasedFieldMedicationDefinitions} from "./expandedFieldMedicationDefinitions";
 import {mergeMedicationCatalog,type CatalogMedication,MEDICATION_CATALOG_KEY} from "./medicationCatalogStore";
 import {ADMIN_MEDICATION_STATE_KEY,CLINICAL_OVERRIDE_KEY,REVIEWER_TITLES} from "./adminMedicationStore";
@@ -79,6 +80,7 @@ export default function AdminRoute(){
   const [publishing,setPublishing]=useState(false);
   const [loadAttempt,setLoadAttempt]=useState(0);
   const [accountOpen,setAccountOpen]=useState(false);
+  const [calculationLogOpen,setCalculationLogOpen]=useState(false);
   const [admins,setAdmins]=useState<AdminAllowlistRow[]>([]);
   const [inviteEmail,setInviteEmail]=useState("");
   const [inviteTitle,setInviteTitle]=useState("Administrator");
@@ -104,7 +106,15 @@ export default function AdminRoute(){
         const row=data as AdminWorkspaceRow;
         const remotePayload=workspaceToPayload(row);
         const localPayload=readLocalWorkspace();
-        const payload=!hasWorkspaceData(remotePayload)&&hasWorkspaceData(localPayload)?localPayload:remotePayload;
+        const selectedPayload=!hasWorkspaceData(remotePayload)&&hasWorkspaceData(localPayload)?localPayload:remotePayload;
+        const payload={...selectedPayload,catalog:{...selectedPayload.catalog}};
+        try{
+          const visibility=await withTimeout(neonAdminClient.from("field_medication_visibility").select("medication_id,hidden"));
+          if(!visibility.error)for(const item of visibility.data||[]){
+            const row=item as {medication_id:string;hidden:boolean},medication=payload.catalog[row.medication_id];
+            if(medication)payload.catalog[row.medication_id]={...medication,visible:!row.hidden};
+          }
+        }catch{}
         try{writeLocalWorkspace(payload)}catch{}
         versionRef.current=row.version;savedPayloadRef.current=JSON.stringify(remotePayload);
         setWorkspace({...row,reviews:payload.reviews});setLocalRevision(value=>value+1);setLoadState("ready");
@@ -155,6 +165,11 @@ export default function AdminRoute(){
     }catch(err){setMessage(errorMessage(err,"Unable to publish the medication release"))}
     finally{setPublishing(false)}
   };
+  const updateFieldVisibility=async(medicationId:string,visible:boolean)=>{
+    const {error}=await neonAdminClient.from("field_medication_visibility").upsert({medication_id:medicationId,hidden:!visible,updated_at:new Date().toISOString(),updated_by:user?.id||null},{onConflict:"medication_id"});
+    if(error)throw new Error(errorMessage(error,"Unable to update field visibility."));
+    await neonAdminClient.from("admin_audit_log").insert({action:visible?"medication.shown":"medication.hidden",details:{medicationId}});
+  };
   const changePassword=async(event:FormEvent)=>{
     event.preventDefault();setMessage("");
     if(newPassword.length<8){setMessage("The new password must be at least 8 characters.");return}
@@ -188,8 +203,8 @@ export default function AdminRoute(){
   if(loadState!=="ready")return <main className="neon-admin-gate"><section className="neon-admin-card"><small>MYMEDDOSE • SECURE ADMIN</small><h1>{loadState==="loading"?"Loading dashboard":loadState==="denied"?"Access not approved":"Dashboard unavailable"}</h1><p>{loadState==="loading"?"Retrieving the current medication workspace from Neon…":message||"The secure workspace could not be loaded."}</p>{loadState!=="loading"&&<><button className="primary" onClick={()=>setLoadAttempt(value=>value+1)}>Try again</button><button className="neon-admin-mode" onClick={async()=>{await neonAdminClient.auth.signOut();window.location.reload()}}>Sign out and reconnect</button></>}</section></main>;
 
   return <div className="admin-route-shell">
-    <div className={`neon-admin-session ${syncState}`}><span><b>{syncState==="saving"?"Saving to Neon…":syncState==="failed"?"Sync failed":"✓ Synced to Neon"}</b>{message&&<small>{message}</small>}</span><span>{user.email}<button onClick={()=>setAccountOpen(true)}>Account</button><button onClick={async()=>{await neonAdminClient.auth.signOut();window.location.assign("/")}}>Sign out</button></span></div>
-    <AdminMedicationManager medications={catalog} reviews={reviews} setReviews={setReviews} onWorkspaceChange={saveWorkspace} onPublish={publish} liveVersion={liveVersion} publishing={publishing} reviewerIdentity={user.email} close={()=>window.location.assign("/")}/>
+    <div className={`neon-admin-session ${syncState}`}><span><b>{syncState==="saving"?"Saving to Neon…":syncState==="failed"?"Sync failed":"✓ Synced to Neon"}</b>{message&&<small>{message}</small>}</span><span>{user.email}<button className="calculation-log-button" onClick={()=>setCalculationLogOpen(true)}>Calculation log</button><button onClick={()=>setAccountOpen(true)}>Account</button><button onClick={async()=>{await neonAdminClient.auth.signOut();window.location.assign("/")}}>Sign out</button></span></div>
+    <AdminMedicationManager medications={catalog} reviews={reviews} setReviews={setReviews} onWorkspaceChange={saveWorkspace} onPublish={publish} onVisibilityChange={updateFieldVisibility} liveVersion={liveVersion} publishing={publishing} reviewerIdentity={user.email} close={()=>window.location.assign("/")}/>
     {accountOpen&&<div className="admin-account-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setAccountOpen(false)}}><section className="admin-account-panel" role="dialog" aria-modal="true" aria-labelledby="account-heading">
       <header><div><small>ADMIN ACCOUNT</small><h2 id="account-heading">Security & reviewers</h2></div><button aria-label="Close" onClick={()=>setAccountOpen(false)}>×</button></header>
       {message&&<div className="neon-admin-notice" role="status">{message}</div>}
@@ -205,5 +220,6 @@ export default function AdminRoute(){
         {admins.filter(item=>item.active).length<3?<form onSubmit={inviteAdmin}><h3>Invite another administrator</h3><label>Email<input type="email" autoComplete="email" required value={inviteEmail} onChange={event=>setInviteEmail(event.target.value)} placeholder="reviewer@example.com"/></label><label>Title<select value={inviteTitle} onChange={event=>setInviteTitle(event.target.value)}>{REVIEWER_TITLES.filter(title=>title!=="Other").map(title=><option key={title}>{title}</option>)}</select></label><button className="primary" disabled={accountBusy}>Authorize reviewer</button><small>After authorization, send the reviewer the admin link. They can use “Create administrator account” with this email.</small></form>:<div className="neon-admin-notice">Three reviewer accounts are active.</div>}
       </section>
     </section></div>}
+    {calculationLogOpen&&<AdminCalculationLog reviewer={user.email} close={()=>setCalculationLogOpen(false)}/>}
   </div>;
 }

@@ -6,13 +6,12 @@ import MedicationBuilderShell from "./MedicationBuilderShell";
 import FentanylDoseDashboard from "./FentanylDoseDashboard";
 import DoseSyringe from "./DoseSyringe";
 import GravityDripCalculator from "./GravityDripCalculator";
-import type {EncounterPatient} from "./encounterTypes";
+import type {EncounterPatient,RecordedAdministration} from "./encounterTypes";
 import WeightQuickSelect from "./WeightQuickSelect";
 import {commonEmsConcentrationsFor} from "./emsMedicationDefaults";
 import {loadClinicalOverrides} from "./adminMedicationStore";
 import "./genericMedication.css";
 
-type RecordedAdministration={drug:string;reason:string;route:string;dose:number;unit:string;volume:number;volumeUnit?:string;time:number;concentration:string;patient?:string;baseAuthorization?:{physician:string;time:number;reason:string}};
 type LocalAdministration={dose:number;volume:number;time:number};
 export type GenericTreatmentContext={medication:string;indication:string;route:string;dose:string;volume:string;administration:string;repeat:string;monitoring:string[];protocolId:string;protocolName:string;protocolPage:number};
 type Props={medication:GenericMedication;activeHeader?:ReactNode;close:()=>void;record:(entry:RecordedAdministration)=>void;openProtocol:()=>void;onContextChange?:(context:GenericTreatmentContext|null)=>void;initialPatient?:EncounterPatient|null};

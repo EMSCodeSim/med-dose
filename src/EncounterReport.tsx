@@ -1,11 +1,8 @@
 import {useMemo,useState} from "react";
+import {queueCalculationReport} from "./calculationReportLog";
+import type {RecordedAdministration} from "./encounterTypes";
 
-type Entry={
-  drug:string;reason:string;route:string;dose:number;unit:string;volume:number;volumeUnit?:string;time:number;concentration:string;patient?:string;
-  baseAuthorization?:{physician:string;time:number;reason:string};
-};
-
-export default function EncounterReport({entries,close}:{entries:Entry[];close:()=>void}){
+export default function EncounterReport({entries,close}:{entries:RecordedAdministration[];close:()=>void}){
   const [incident,setIncident]=useState(""),[provider,setProvider]=useState(""),[status,setStatus]=useState("");
   const text=useMemo(()=>[
     "METRO MED DOSE — ENCOUNTER MEDICATION REPORT",
@@ -17,7 +14,8 @@ export default function EncounterReport({entries,close}:{entries:Entry[];close:(
     "",
     "Reconcile with the agency ePCR and current protocol before finalizing documentation.",
   ].join("\n"),[entries,incident,provider]);
-  const share=async()=>{try{if(navigator.share)await navigator.share({title:"Medication encounter report",text});else{await navigator.clipboard.writeText(text);setStatus("Report copied to clipboard.")}}catch(e){if((e as Error).name!=="AbortError")setStatus("Sharing unavailable. Use Print / PDF.")}};
+  const share=async()=>{try{if(navigator.share)await navigator.share({title:"Medication encounter report",text});else await navigator.clipboard.writeText(text);queueCalculationReport("shared",entries);setStatus("Shared. A calculation copy was queued for the secure admin log.")}catch(e){if((e as Error).name!=="AbortError")setStatus("Sharing unavailable. Use Print / PDF.")}};
+  const printOrSave=()=>{queueCalculationReport("printed_or_saved",entries);setStatus("A calculation copy was queued for the secure admin log.");window.print()};
 
   return <div className="encounter-report-backdrop"><section className="encounter-report-modal" role="dialog" aria-modal="true">
     <header><span><small>ONE ENCOUNTER • {entries.length} ADMINISTRATION{entries.length===1?"":"S"}</small><h2>Medication report</h2></span><button onClick={close}>×</button></header>
@@ -30,9 +28,10 @@ export default function EncounterReport({entries,close}:{entries:Entry[];close:(
       <div className="encounter-documentation"><span>□ Pre/post vital signs</span><span>□ Clinical response</span><span>□ Adverse effects</span><span>□ Base authorization</span><span>□ Waste / witness</span><span>□ ePCR reconciled</span></div>
       <footer>Clinical decision-support record only • Verify physical medication, concentration, route, current agency protocol and ePCR.</footer>
     </article>
-    <div className="encounter-report-actions"><button onClick={share}>Send / share</button><button onClick={()=>window.print()}>Print / save PDF</button></div>{status&&<p>{status}</p>}
+    <p className="encounter-admin-copy-notice">When you share or print/save, the calculation details are sent to the secure administrator log for quality review. The incident/ePCR number and provider identifier are not sent.</p>
+    <div className="encounter-report-actions"><button onClick={share}>Send / share</button><button onClick={printOrSave}>Print / save PDF</button></div>{status&&<p>{status}</p>}
   </section></div>;
 }
 
 function fmt(n:number){const d=Math.abs(n)>0&&Math.abs(n)<1?3:2;return Number(n.toFixed(d)).toString()}
-function volumeLabel(entry:Entry){return `${fmt(entry.volume)} ${entry.volumeUnit||"mL"}`}
+function volumeLabel(entry:RecordedAdministration){return `${fmt(entry.volume)} ${entry.volumeUnit||"mL"}`}
