@@ -85,6 +85,29 @@
   display:none!important;
 }
 
+/* The shared medication workspace is part of the page, never a fixed modal or
+   nested scroll surface. This applies to every drug and every workflow step. */
+.field-engine-shell #active-medication-screen-top .streamlined-medication-layout,
+.field-engine-shell #active-medication-screen-top .streamlined-choice-workspace,
+.field-engine-shell #active-medication-screen-top .streamlined-choice-workspace>.builder-stage-form{
+  position:relative!important;
+  inset:auto!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  transform:none!important;
+  overflow:visible!important;
+}
+.field-engine-shell #active-medication-screen-top .streamlined-choice-workspace .builder-options,
+.field-engine-shell #active-medication-screen-top .indication-age-groups,
+.field-engine-shell #active-medication-screen-top .indication-age-group{
+  max-height:none!important;
+  overflow:visible!important;
+}
+
 @media(max-width:390px){
   .field-medication-nav{grid-template-columns:100px 1fr 78px;padding-inline:7px;gap:5px}
   .field-medication-nav button{padding-inline:6px;font-size:10px}
@@ -103,6 +126,19 @@
     min-height:100dvh!important;
     max-height:none!important;
     overflow:visible!important;
+  }
+  .field-engine-shell #active-medication-screen-top .streamlined-medication-layout{
+    display:block!important;
+    padding:0!important;
+  }
+  .field-engine-shell #active-medication-screen-top .streamlined-choice-workspace{
+    display:block!important;
+    margin:0!important;
+    padding:0 8px 24px!important;
+  }
+  .field-engine-shell #active-medication-screen-top .streamlined-choice-workspace>.builder-stage-form{
+    display:block!important;
+    padding:10px 0 calc(110px + env(safe-area-inset-bottom))!important;
   }
   .field-engine-shell .field-active-header{
     position:sticky!important;

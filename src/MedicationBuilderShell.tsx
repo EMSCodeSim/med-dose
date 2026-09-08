@@ -32,7 +32,7 @@ export default function MedicationBuilderShell({medication,activeHeader,boxes,cl
     <div className="versed-builder-top streamlined-medication-top"><button className="drug-back-button" onClick={close}>‹ Medications</button><strong>{medication.name}</strong><button onClick={reset||close}>Start over</button></div>
     <div className={`versed-layout streamlined-medication-layout${calculationComplete?" calculation-complete":""}`}>
       <aside className="versed-left-column unified-left-column streamlined-progress-column" aria-label="Calculation controls"><CalculationBoard boxes={boxes} className="versed-status-board"/>{leftTools&&<div className="versed-left-tools">{leftTools}</div>}</aside>
-      <section className="builder-workspace versed-inline-workspace unified-medication-workspace streamlined-choice-workspace" aria-label={`${medication.name} selection workspace`}>{children}</section>
+      <section className="builder-workspace unified-medication-workspace streamlined-choice-workspace" aria-label={`${medication.name} selection workspace`}>{children}</section>
     </div>
   </main>;
 }
