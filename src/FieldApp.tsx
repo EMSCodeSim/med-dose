@@ -7,6 +7,7 @@ import {medicationApprovalStatus} from "./medicationApprovalStatus";
 import {loadMedicationCatalogState} from "./medicationCatalogStore";
 import {downloadLatestMedicationRelease,readReleaseMeta,type ReleaseMeta} from "./medicationRelease";
 import type {EncounterPatient} from "./encounterTypes";
+import InstallAppGuide from "./InstallAppGuide";
 import "./fieldApp.css";
 
 const categories:Record<string,string[]>={
@@ -81,10 +82,11 @@ export default function FieldApp(){
   const selectView=(next:View)=>{setView(next);setQuery("");if(next!=="treatments")setFilter("");window.scrollTo({top:0,behavior:"auto"})};
   const openCurrentProtocol=()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer");
   return <div className="field-mode-shell">
-    <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><button className={`connect-pill release-sync ${online?"online":"offline"}`} disabled={!online||syncState==="checking"} onClick={()=>void syncRelease()}>{syncState==="checking"?"Checking…":syncState==="updated"?"✓ Updated":syncState==="failed"?"Retry update":online?"Check updates":"Offline"}</button></header>
+    <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><div className="field-header-actions"><InstallAppGuide/><button className={`connect-pill release-sync ${online?"online":"offline"}`} disabled={!online||syncState==="checking"} onClick={()=>void syncRelease()}>{syncState==="checking"?"Checking…":syncState==="updated"?"✓ Updated":syncState==="failed"?"Retry update":online?"Check updates":"Offline"}</button></div></header>
     {administrations.length>0&&<button className="field-home-report" onClick={()=>setReportOpen(true)}>Report • {administrations.length} administration{administrations.length===1?"":"s"}</button>}
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
     <main className="field-home">
+      <InstallAppGuide variant="card"/>
       {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using downloaded release {releaseMeta?`v${releaseMeta.version}`:"stored on this device"}.</div>}
       {releaseMeta&&<div className="field-release-status"><b>LIVE MEDICATION LIBRARY • RELEASE {releaseMeta.version}</b><span>{releaseMeta.medicationCount} medications • Published {new Date(releaseMeta.publishedAt).toLocaleString()}</span></div>}
       {syncState==="failed"&&<div className="field-release-error"><b>Update check failed.</b><span>The downloaded medication library remains available. Tap “Retry update” when connected.</span></div>}
