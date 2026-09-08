@@ -1,7 +1,7 @@
 import {
   loadMedicationAdminState,
   reviewTiming,
-  signatureCount,
+  hasRequiredSignatures,
   type MedicationAdminState,
   type ReviewHistoryEntry,
 } from "./adminMedicationStore";
@@ -47,7 +47,7 @@ export function medicationApprovalStatus(
   const completedForCurrentRevision=!!completed&&
     completed.protocolRevision===CURRENT_DMP_PROTOCOL_REVISION&&
     completed.clinicalRevision===(record?.clinicalRevision||1)&&
-    signatureCount(completed.signatures)===3;
+    hasRequiredSignatures(completed.signatures);
   if(!completedForCurrentRevision)return {...base,state:"not-reviewed",label:"NOT REVIEWED"};
   const timing=reviewTiming(record,now);
   if(timing==="overdue")return {...base,state:"overdue",label:"REVIEW OVERDUE"};

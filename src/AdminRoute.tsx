@@ -2,13 +2,15 @@ import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent} from "reac
 import AdminMedicationManager from "./AdminMedicationManager";
 import {releasedFieldMedicationDefinitions} from "./expandedFieldMedicationDefinitions";
 import {mergeMedicationCatalog,type CatalogMedication,MEDICATION_CATALOG_KEY} from "./medicationCatalogStore";
-import {ADMIN_MEDICATION_STATE_KEY,CLINICAL_OVERRIDE_KEY} from "./adminMedicationStore";
+import {ADMIN_MEDICATION_STATE_KEY,CLINICAL_OVERRIDE_KEY,REVIEWER_TITLES} from "./adminMedicationStore";
 import {errorMessage,neonAdminClient,type AdminWorkspacePayload,type AdminWorkspaceRow,workspaceToPayload} from "./neonAdmin";
 import type {ReleasePayload} from "./medicationRelease";
 import "./neonAdmin.css";
+import "./adminAccount.css";
 
 const REVIEW_KEY="metro-med-dose-medication-reviews-v1";
 const ADMIN_LOAD_TIMEOUT_MS=12000;
+type AdminAllowlistRow={email:string;role:"admin"|"reviewer";title:string;active:boolean;created_at:string};
 
 function withTimeout<T>(request:PromiseLike<T>,milliseconds=ADMIN_LOAD_TIMEOUT_MS):Promise<T>{
   return new Promise((resolve,reject)=>{
@@ -76,6 +78,14 @@ export default function AdminRoute(){
   const [liveVersion,setLiveVersion]=useState(0);
   const [publishing,setPublishing]=useState(false);
   const [loadAttempt,setLoadAttempt]=useState(0);
+  const [accountOpen,setAccountOpen]=useState(false);
+  const [admins,setAdmins]=useState<AdminAllowlistRow[]>([]);
+  const [inviteEmail,setInviteEmail]=useState("");
+  const [inviteTitle,setInviteTitle]=useState("Administrator");
+  const [accountBusy,setAccountBusy]=useState(false);
+  const [currentPassword,setCurrentPassword]=useState("");
+  const [newPassword,setNewPassword]=useState("");
+  const [confirmPassword,setConfirmPassword]=useState("");
   const versionRef=useRef(0);
   const savedPayloadRef=useRef("");
   const saveTimerRef=useRef<number|undefined>(undefined);
@@ -101,6 +111,10 @@ export default function AdminRoute(){
         try{
           const latest=await withTimeout(neonAdminClient.from("medication_releases").select("release_version").order("release_version",{ascending:false}).limit(1).maybeSingle());
           if(active&&latest.data)setLiveVersion(Number((latest.data as {release_version:number}).release_version));
+        }catch{}
+        try{
+          const members=await withTimeout(neonAdminClient.from("admin_allowlist").select("email,role,title,active,created_at").order("created_at",{ascending:true}));
+          if(active&&!members.error)setAdmins((members.data||[]) as AdminAllowlistRow[]);
         }catch{}
       }catch(error){
         if(!active)return;
@@ -141,13 +155,55 @@ export default function AdminRoute(){
     }catch(err){setMessage(errorMessage(err,"Unable to publish the medication release"))}
     finally{setPublishing(false)}
   };
+  const changePassword=async(event:FormEvent)=>{
+    event.preventDefault();setMessage("");
+    if(newPassword.length<8){setMessage("The new password must be at least 8 characters.");return}
+    if(newPassword!==confirmPassword){setMessage("The new passwords do not match.");return}
+    setAccountBusy(true);
+    try{
+      const result=await neonAdminClient.auth.changePassword({currentPassword,newPassword,revokeOtherSessions:true});
+      if(result&&typeof result==="object"&&"error" in result&&(result as {error?:unknown}).error)throw (result as {error:unknown}).error;
+      setCurrentPassword("");setNewPassword("");setConfirmPassword("");setMessage("Password changed successfully. Other sessions were signed out.");
+      await neonAdminClient.from("admin_audit_log").insert({action:"account.password_changed",details:{}});
+    }catch(err){setMessage(errorMessage(err,"Unable to change the password"))}
+    finally{setAccountBusy(false)}
+  };
+  const inviteAdmin=async(event:FormEvent)=>{
+    event.preventDefault();setMessage("");
+    const email=inviteEmail.trim().toLowerCase();
+    if(admins.filter(item=>item.active).length>=3){setMessage("This workspace already has three active reviewers.");return}
+    setAccountBusy(true);
+    try{
+      const {data,error}=await neonAdminClient.from("admin_allowlist").upsert({email,role:"admin",title:inviteTitle,active:true,invited_by:user?.id||null},{onConflict:"email"}).select("email,role,title,active,created_at").single();
+      if(error)throw error;
+      setAdmins(items=>[...items.filter(item=>item.email!==email),data as AdminAllowlistRow]);
+      setInviteEmail("");setMessage(`${email} is authorized. Send them the admin link so they can create an account and review.`);
+      await neonAdminClient.from("admin_audit_log").insert({action:"admin.invited",details:{email,title:inviteTitle}});
+    }catch(err){setMessage(errorMessage(err,"Unable to invite that reviewer"))}
+    finally{setAccountBusy(false)}
+  };
 
   if(session.isPending)return <main className="neon-admin-gate"><section className="neon-admin-card"><p>Checking secure admin session…</p></section></main>;
   if(!user)return <AuthPanel/>;
   if(loadState!=="ready")return <main className="neon-admin-gate"><section className="neon-admin-card"><small>MYMEDDOSE • SECURE ADMIN</small><h1>{loadState==="loading"?"Loading dashboard":loadState==="denied"?"Access not approved":"Dashboard unavailable"}</h1><p>{loadState==="loading"?"Retrieving the current medication workspace from Neon…":message||"The secure workspace could not be loaded."}</p>{loadState!=="loading"&&<><button className="primary" onClick={()=>setLoadAttempt(value=>value+1)}>Try again</button><button className="neon-admin-mode" onClick={async()=>{await neonAdminClient.auth.signOut();window.location.reload()}}>Sign out and reconnect</button></>}</section></main>;
 
   return <div className="admin-route-shell">
-    <div className={`neon-admin-session ${syncState}`}><span><b>{syncState==="saving"?"Saving to Neon…":syncState==="failed"?"Sync failed":"✓ Synced to Neon"}</b>{message&&<small>{message}</small>}</span><span>{user.email}<button onClick={async()=>{await neonAdminClient.auth.signOut();window.location.assign("/")}}>Sign out</button></span></div>
+    <div className={`neon-admin-session ${syncState}`}><span><b>{syncState==="saving"?"Saving to Neon…":syncState==="failed"?"Sync failed":"✓ Synced to Neon"}</b>{message&&<small>{message}</small>}</span><span>{user.email}<button onClick={()=>setAccountOpen(true)}>Account</button><button onClick={async()=>{await neonAdminClient.auth.signOut();window.location.assign("/")}}>Sign out</button></span></div>
     <AdminMedicationManager medications={catalog} reviews={reviews} setReviews={setReviews} onWorkspaceChange={saveWorkspace} onPublish={publish} liveVersion={liveVersion} publishing={publishing} reviewerIdentity={user.email} close={()=>window.location.assign("/")}/>
+    {accountOpen&&<div className="admin-account-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setAccountOpen(false)}}><section className="admin-account-panel" role="dialog" aria-modal="true" aria-labelledby="account-heading">
+      <header><div><small>ADMIN ACCOUNT</small><h2 id="account-heading">Security & reviewers</h2></div><button aria-label="Close" onClick={()=>setAccountOpen(false)}>×</button></header>
+      {message&&<div className="neon-admin-notice" role="status">{message}</div>}
+      <form onSubmit={changePassword}>
+        <h3>Change password</h3><p>Enter your current password, then choose a new password with at least 8 characters.</p>
+        <label>Current password<input type="password" autoComplete="current-password" required value={currentPassword} onChange={event=>setCurrentPassword(event.target.value)}/></label>
+        <label>New password<input type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={event=>setNewPassword(event.target.value)}/></label>
+        <label>Confirm new password<input type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)}/></label>
+        <button className="primary" disabled={accountBusy}>Change password</button>
+      </form>
+      <section className="admin-reviewer-access"><h3>Authorized reviewers</h3><p>Up to three administrators can access the dashboard. Only two signatures are required to approve each medication.</p>
+        <div className="admin-reviewer-list">{admins.map(admin=><article key={admin.email}><span><b>{admin.email}</b><small>{admin.title||"Administrator"}</small></span><i>{admin.active?"Active":"Inactive"}</i></article>)}</div>
+        {admins.filter(item=>item.active).length<3?<form onSubmit={inviteAdmin}><h3>Invite another administrator</h3><label>Email<input type="email" autoComplete="email" required value={inviteEmail} onChange={event=>setInviteEmail(event.target.value)} placeholder="reviewer@example.com"/></label><label>Title<select value={inviteTitle} onChange={event=>setInviteTitle(event.target.value)}>{REVIEWER_TITLES.filter(title=>title!=="Other").map(title=><option key={title}>{title}</option>)}</select></label><button className="primary" disabled={accountBusy}>Authorize reviewer</button><small>After authorization, send the reviewer the admin link. They can use “Create administrator account” with this email.</small></form>:<div className="neon-admin-notice">Three reviewer accounts are active.</div>}
+      </section>
+    </section></div>}
   </div>;
 }

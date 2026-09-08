@@ -5,10 +5,13 @@ import {
   addMonths,
   deepClone,
   formatReviewDate,
+  hasRequiredSignatures,
   initialAdminRecord,
   loadClinicalOverrides,
   loadMedicationAdminState,
   REVIEW_INTERVAL_MONTHS,
+  REQUIRED_REVIEW_SIGNATURES,
+  REVIEWER_TITLES,
   reviewTiming,
   saveClinicalOverrides,
   saveMedicationAdminState,
@@ -36,6 +39,7 @@ import "./adminPublish.css";
 
 type Reviews = Record<string, ReviewSignatures>;
 type ReviewStage = "owner" | "lineSafety" | "medicalDirector";
+const ACTIVE_REVIEW_STAGES: ReviewStage[] = ["owner", "lineSafety"];
 type Props = {
   medications: CatalogMedication[];
   reviews: Reviews;
@@ -406,12 +410,12 @@ const statusLabel = (
   const count = signatureCount(signatures),
     timing = reviewTiming(record);
   if (record.draft)
-    return count ? `CHANGES PENDING • ${count}/3` : "CHANGES PENDING";
-  if (record.reviewStartedAt) return `REVIEW IN PROGRESS • ${count}/3`;
+    return count ? `CHANGES PENDING • ${count}/${REQUIRED_REVIEW_SIGNATURES}` : "CHANGES PENDING";
+  if (record.reviewStartedAt) return `REVIEW IN PROGRESS • ${count}/${REQUIRED_REVIEW_SIGNATURES}`;
   if (timing === "overdue") return "REVIEW OVERDUE";
   if (timing === "due-soon") return "REVIEW DUE SOON";
   if (record.lastCompletedAt) return "CURRENT";
-  return count === 3 ? "REVIEW COMPLETE" : "NOT REVIEWED";
+  return hasRequiredSignatures(signatures) ? "REVIEW COMPLETE" : "NOT REVIEWED";
 };
 const diffSummary = (before: any, after: any) => {
   if (JSON.stringify(before) === JSON.stringify(after)) return [];
@@ -470,6 +474,8 @@ export default function AdminMedicationManager({
   });
   const [catalogDirty, setCatalogDirty] = useState(false);
   const [reviewerName, setReviewerName] = useState(reviewerIdentity);
+  const [reviewerTitle, setReviewerTitle] = useState<string>("Administrator");
+  const [customReviewerTitle, setCustomReviewerTitle] = useState("");
   const [medicationFilter, setMedicationFilter] =
     useState<MedicationFilter>("all");
   const overrides = useMemo(() => loadClinicalOverrides(), [state]);
@@ -569,7 +575,7 @@ export default function AdminMedicationManager({
   };
   const approveStage = (stage: ReviewStage) => {
     if (!selected || !record?.reviewStartedAt) return;
-    const stages: ReviewStage[] = ["owner", "lineSafety", "medicalDirector"];
+    const stages = ACTIVE_REVIEW_STAGES;
     const stageIndex = stages.indexOf(stage),
       signatures = reviews[selected.id] || {};
     if (stageIndex > 0 && !signatures[stages[stageIndex - 1]]) {
@@ -581,14 +587,19 @@ export default function AdminMedicationManager({
       setError("Enter the reviewer name before approving.");
       return;
     }
-    const labels: Record<ReviewStage, string> = {
-      owner: "Owner / Admin",
-      lineSafety: "Line Safety",
-      medicalDirector: "Medical Director",
-    };
+    if (Object.values(signatures).some(item=>item?.reviewer.trim().toLowerCase()===reviewer.toLowerCase())) {
+      setError("A different authorized reviewer must provide the second signature.");
+      return;
+    }
+    const title = reviewerTitle === "Other" ? customReviewerTitle.trim() : reviewerTitle;
+    if (!title) {
+      setError("Select or enter the reviewer's title before approving.");
+      return;
+    }
+    const labels: Record<ReviewStage, string> = {owner:"Approval 1",lineSafety:"Approval 2",medicalDirector:"Optional approval"};
     if (
       !window.confirm(
-        `Approve ${selected.name} as ${labels[stage]}? This records your name, date and time.`,
+        `Approve ${selected.name} as ${title}? This records your name, title, date and time.`,
       )
     )
       return;
@@ -598,6 +609,7 @@ export default function AdminMedicationManager({
         ...signatures,
         [stage]: {
           reviewer,
+          title,
           approvedAt: Date.now(),
           revision: record.protocolRevision,
         },
@@ -605,7 +617,7 @@ export default function AdminMedicationManager({
     });
     setError("");
     setSavedMessage(`${labels[stage]} approval recorded.`);
-    setReviewerName("");
+    setReviewerName(reviewerIdentity);
   };
   const beginEdit = () => {
     if (!selected || !currentData) return;
@@ -1002,7 +1014,7 @@ export default function AdminMedicationManager({
     if (!selectedId) return;
     const r = getRecord(state, selectedId),
       signatures = reviews[selectedId] || {};
-    if (!r.reviewStartedAt || signatureCount(signatures) !== 3) return;
+    if (!r.reviewStartedAt || !hasRequiredSignatures(signatures)) return;
     const med = catalog.find((m) => m.id === selectedId);
     if (!med) return;
     const completedAt = Math.max(
@@ -1105,8 +1117,8 @@ export default function AdminMedicationManager({
                   {catalog.filter((m) => !m.retired).length} active medications
                 </b>
                 <span>
-                  {catalog.filter((m) => m.retired).length} retired • three
-                  sequential signatures retained
+                  {catalog.filter((m) => m.retired).length} retired • two
+                  sequential signatures required
                 </span>
               </div>
               <button className="admin-add-med" onClick={() => setAdding(true)}>
@@ -1136,8 +1148,8 @@ export default function AdminMedicationManager({
                 <li>
                   <i>3</i>
                   <span>
-                    <b>Get 3 approvals</b>
-                    <small>Admin, Line Safety, then Medical Director.</small>
+                    <b>Get 2 approvals</b>
+                    <small>Each reviewer selects their professional title.</small>
                   </span>
                 </li>
                 <li>
@@ -1161,7 +1173,7 @@ export default function AdminMedicationManager({
                 </h3>
                 <p>
                   {releaseBlockers.length
-                    ? `Complete all three checks for ${releaseBlockers
+                    ? `Complete both required checks for ${releaseBlockers
                         .slice(0, 3)
                         .map((m) => m.name)
                         .join(
@@ -1344,7 +1356,7 @@ export default function AdminMedicationManager({
                         </em>
                       </span>
                       <span className="admin-med-review-dates">
-                        <b>{signatureCount(s)}/3 checks</b>
+                        <b>{Math.min(signatureCount(s), REQUIRED_REVIEW_SIGNATURES)}/{REQUIRED_REVIEW_SIGNATURES} checks</b>
                         <small>
                           {visible && !m.retired && !m.pending
                             ? "Field visible"
@@ -1392,8 +1404,8 @@ export default function AdminMedicationManager({
               </div>
               <div>
                 <small>SIGNATURES</small>
-                <b>{signatureCount(reviews[selected.id] || {})}/3</b>
-                <span>Owner → Line Safety → Medical Director</span>
+                <b>{Math.min(signatureCount(reviews[selected.id] || {}), REQUIRED_REVIEW_SIGNATURES)}/{REQUIRED_REVIEW_SIGNATURES}</b>
+                <span>Two sequential approvals • reviewer chooses title</span>
               </div>
             </section>
             <section className="admin-field-control">
@@ -1432,7 +1444,7 @@ export default function AdminMedicationManager({
               <div className="admin-med-draft-warning">
                 <b>Clinical changes are pending review.</b>
                 <span>
-                  Published field data stays active until all three signatures
+                  Published field data stays active until both signatures
                   are complete. A newly added medication stays hidden until its
                   first approval.
                 </span>
@@ -1486,7 +1498,7 @@ export default function AdminMedicationManager({
                 <div>
                   <small>MEDICATION APPROVAL</small>
                   <h3>
-                    {signatureCount(reviews[selected.id] || {}) === 3
+                    {hasRequiredSignatures(reviews[selected.id] || {})
                       ? "Medication fully approved"
                       : record.reviewStartedAt
                         ? "Mark this drug as approved"
@@ -1498,18 +1510,12 @@ export default function AdminMedicationManager({
                     time.
                   </p>
                 </div>
-                <b>{signatureCount(reviews[selected.id] || {})}/3 APPROVED</b>
+                <b>{Math.min(signatureCount(reviews[selected.id] || {}), REQUIRED_REVIEW_SIGNATURES)}/{REQUIRED_REVIEW_SIGNATURES} APPROVED</b>
               </header>
-              {(
-                ["owner", "lineSafety", "medicalDirector"] as ReviewStage[]
-              ).map((stage, index) => {
+              {ACTIVE_REVIEW_STAGES.map((stage, index) => {
                 const approval = reviews[selected.id]?.[stage];
-                const stages: ReviewStage[] = [
-                    "owner",
-                    "lineSafety",
-                    "medicalDirector",
-                  ],
-                  labels = ["Owner / Admin", "Line Safety", "Medical Director"];
+                const stages = ACTIVE_REVIEW_STAGES,
+                  labels = ["Required approval 1", "Required approval 2"];
                 const previousComplete =
                   index === 0 || !!reviews[selected.id]?.[stages[index - 1]];
                 const ready =
@@ -1526,7 +1532,7 @@ export default function AdminMedicationManager({
                       <b>{labels[index]}</b>
                       {approval ? (
                         <small>
-                          Approved by {approval.reviewer} •{" "}
+                          Approved by {approval.reviewer}{approval.title ? ` • ${approval.title}` : ""} •{" "}
                           {new Date(approval.approvedAt).toLocaleString()}
                         </small>
                       ) : ready ? (
@@ -1545,12 +1551,23 @@ export default function AdminMedicationManager({
                           Reviewer name
                           <input
                             value={reviewerName}
+                            readOnly={!!reviewerIdentity}
                             onChange={(event) =>
                               setReviewerName(event.target.value)
                             }
-                            placeholder={`Enter ${labels[index]} name`}
+                            placeholder={`Enter ${labels[index]} reviewer`}
                           />
                         </label>
+                        <label>
+                          Reviewer title
+                          <select value={reviewerTitle} onChange={(event)=>setReviewerTitle(event.target.value)}>
+                            {REVIEWER_TITLES.map(title=><option key={title}>{title}</option>)}
+                          </select>
+                        </label>
+                        {reviewerTitle === "Other" && <label>
+                          Custom title
+                          <input value={customReviewerTitle} onChange={(event)=>setCustomReviewerTitle(event.target.value)} placeholder="Enter professional title" />
+                        </label>}
                         <button
                           className="admin-approve-button"
                           onClick={() => approveStage(stage)}
@@ -1563,11 +1580,11 @@ export default function AdminMedicationManager({
                 );
               })}
               {error && <div className="admin-med-error">{error}</div>}
-              {signatureCount(reviews[selected.id] || {}) === 3 && (
+              {hasRequiredSignatures(reviews[selected.id] || {}) && (
                 <div className="admin-all-approved">
                   <b>✓ Medication fully approved</b>
                   <span>
-                    All three required approvals are complete and retained in
+                    Both required approvals are complete and retained in
                     the medication review history.
                   </span>
                 </div>
@@ -1947,7 +1964,7 @@ function StructuredMedicationEditor({
           ← Previous
         </button>
         <span>
-          Changes remain private until all three reviewers approve and an admin
+          Changes remain private until two reviewers approve and an admin
           makes a release live.
         </span>
         {currentIndex < steps.length - 1 ? (

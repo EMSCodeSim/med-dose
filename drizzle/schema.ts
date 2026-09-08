@@ -8,6 +8,8 @@ import type {MedicationCatalogState} from "../src/medicationCatalogStore";
 export const adminAllowlist=pgTable("admin_allowlist",{
   email:text().primaryKey(),
   role:text().notNull().default("admin"),
+  title:text().notNull().default("Administrator"),
+  invitedBy:text("invited_by"),
   active:boolean().notNull().default(true),
   createdAt:timestamp("created_at",{withTimezone:true,mode:"string"}).notNull().defaultNow(),
 });

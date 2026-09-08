@@ -1,0 +1,13 @@
+.admin-account-backdrop{position:fixed;inset:0;z-index:11000;display:grid;place-items:center;padding:20px;background:#020a10cc;overflow-y:auto}
+.admin-account-panel{box-sizing:border-box;width:min(680px,100%);max-height:calc(100dvh - 40px);overflow-y:auto;border:1px solid #91b9aa;border-radius:20px;background:#f7fafc;color:#152331;box-shadow:0 24px 80px #0008}
+.admin-account-panel>header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:18px 22px;background:#102737;color:#fff}
+.admin-account-panel>header small{color:#85cdb3;font-weight:900;letter-spacing:.12em}
+.admin-account-panel h2{margin:4px 0 0}.admin-account-panel>header button{border:0;background:transparent;color:#fff;font-size:32px;cursor:pointer}
+.admin-account-panel form,.admin-reviewer-access{display:grid;gap:13px;padding:22px;border-bottom:1px solid #d6e1e7}
+.admin-account-panel h3{margin:0;font-size:1.15rem}.admin-account-panel p{margin:0;color:#5d707b;line-height:1.45}
+.admin-account-panel label{display:grid;gap:6px;font-weight:800}.admin-account-panel input,.admin-account-panel select{box-sizing:border-box;width:100%;min-height:46px;padding:10px 12px;border:1px solid #9bb0bc;border-radius:9px;background:#fff;color:#152331;font:inherit}
+.admin-account-panel button.primary{min-height:46px;border:1px solid #28745c;border-radius:9px;background:#28745c;color:#fff;font:inherit;font-weight:850;cursor:pointer}.admin-account-panel button:disabled{opacity:.6;cursor:wait}
+.neon-admin-notice{margin:16px 22px 0;padding:11px 13px;border:1px solid #8cb5a5;border-radius:9px;background:#eaf6f1;color:#214d3e}
+.admin-reviewer-list{display:grid;gap:8px}.admin-reviewer-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid #d5e0e6;border-radius:9px;background:#fff}.admin-reviewer-list span{display:grid;gap:2px;min-width:0}.admin-reviewer-list b{overflow-wrap:anywhere}.admin-reviewer-list small{color:#657987}.admin-reviewer-list i{font-style:normal;font-size:.75rem;font-weight:900;color:#28745c}
+.admin-reviewer-access>form{padding:16px 0 0;border:0;border-top:1px solid #d6e1e7}.admin-reviewer-access>form>small{color:#5d707b;line-height:1.4}
+@media(max-width:650px){.admin-account-backdrop{place-items:stretch;padding:0}.admin-account-panel{width:100%;max-height:100dvh;border:0;border-radius:0}.admin-account-panel>header{padding:15px 16px}.admin-account-panel form,.admin-reviewer-access{padding:18px 16px}.neon-admin-notice{margin:12px 16px 0}.neon-admin-session span:last-child button{min-width:68px;padding:4px 6px}}

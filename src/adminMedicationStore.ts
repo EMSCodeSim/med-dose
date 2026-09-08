@@ -3,7 +3,9 @@ export const CLINICAL_OVERRIDE_KEY = "metro-med-dose-clinical-overrides-v1";
 export const PROTOCOL_REVISION_DEFAULT = "July 2026";
 export const REVIEW_INTERVAL_MONTHS = 6;
 
-export type ReviewSignature = { reviewer:string; approvedAt:number; revision?:string };
+export const REQUIRED_REVIEW_SIGNATURES = 2;
+export const REVIEWER_TITLES = ["Administrator","Line Safety Officer","Medical Director","Clinical Educator","Pharmacist","Other"] as const;
+export type ReviewSignature = { reviewer:string; title?:string; approvedAt:number; revision?:string };
 export type ReviewSignatures = Partial<Record<"owner"|"lineSafety"|"medicalDirector",ReviewSignature>>;
 export type ReviewHistoryEntry = {
   id:string;
@@ -55,6 +57,7 @@ export const addMonths=(timestamp:number,months:number)=>{
 };
 export const initialAdminRecord=(medicationId:string):MedicationAdminRecord=>({medicationId,clinicalRevision:1,protocolRevision:PROTOCOL_REVISION_DEFAULT,history:[]});
 export const signatureCount=(signatures:ReviewSignatures|undefined)=>["owner","lineSafety","medicalDirector"].filter(stage=>!!signatures?.[stage as keyof ReviewSignatures]?.approvedAt).length;
+export const hasRequiredSignatures=(signatures:ReviewSignatures|undefined)=>signatureCount(signatures)>=REQUIRED_REVIEW_SIGNATURES;
 export const reviewTiming=(record:MedicationAdminRecord|undefined,now=Date.now())=>{
   if(record?.reviewStartedAt)return "in-progress" as const;
   if(!record?.nextReviewAt)return "not-scheduled" as const;
