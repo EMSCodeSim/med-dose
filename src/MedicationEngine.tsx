@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useState,type ReactNode} from "react";
 import type {GenericMedication,GenericDosePath} from "./dmpMedicationData";
 import DoseTracker from "./DoseTracker";
 import CalculationBoard from "./CalculationBoard";
@@ -15,12 +15,12 @@ import "./genericMedication.css";
 type RecordedAdministration={drug:string;reason:string;route:string;dose:number;unit:string;volume:number;volumeUnit?:string;time:number;concentration:string;patient?:string;baseAuthorization?:{physician:string;time:number;reason:string}};
 type LocalAdministration={dose:number;volume:number;time:number};
 export type GenericTreatmentContext={medication:string;indication:string;route:string;dose:string;volume:string;administration:string;repeat:string;monitoring:string[];protocolId:string;protocolName:string;protocolPage:number};
-type Props={medication:GenericMedication;close:()=>void;record:(entry:RecordedAdministration)=>void;openProtocol:()=>void;onContextChange?:(context:GenericTreatmentContext|null)=>void;initialPatient?:EncounterPatient|null};
+type Props={medication:GenericMedication;activeHeader?:ReactNode;close:()=>void;record:(entry:RecordedAdministration)=>void;openProtocol:()=>void;onContextChange?:(context:GenericTreatmentContext|null)=>void;initialPatient?:EncounterPatient|null};
 type AgeUnit="years"|"months"|"days";
 type Step="medication"|"concentration"|"indication"|"route"|"patient"|"safety"|"result";
 type FieldConcentration={label?:string;amount?:number;amountUnit?:string;volume?:number;volumeUnit?:string;concentration?:number;concentrationUnit?:string};
 
-export default function MedicationEngine({medication,close,record,openProtocol,onContextChange,initialPatient}:Props){
+export default function MedicationEngine({medication,activeHeader,close,record,openProtocol,onContextChange,initialPatient}:Props){
   const medicationAgents=useMemo(()=>Array.from(new Set(medication.paths.map(x=>x.agent))),[medication]),
     [step,setStep]=useState<Step>(()=>medicationAgents.length===1?(medication.paths.some(pathUsesConcentration)?"concentration":"indication"):"medication"),[path,setPath]=useState<GenericDosePath|null>(null),[selectedAgent,setSelectedAgent]=useState(medicationAgents.length===1?medicationAgents[0]:""),
     [age,setAge]=useState(initialPatient?.ageYears!==undefined?String(initialPatient.ageYears):""),[ageUnit,setAgeUnit]=useState<AgeUnit>("years"),[weight,setWeight]=useState(initialPatient?.weightKg!==undefined?String(initialPatient.weightKg):""),[weightUnit,setWeightUnit]=useState<"kg"|"lb">("kg"),[weightSource,setWeightSource]=useState(initialPatient?.weightKg?"carried from current patient":""),
@@ -112,7 +112,7 @@ export default function MedicationEngine({medication,close,record,openProtocol,o
       {id:"patient",label:"PATIENT",value:patientText,detail:needsPatientInfo?"Dose-changing information":"No patient entry changes dose",complete:needsPatientInfo&&patientComplete,notRequired:!!path&&!needsPatientInfo,active:step==="patient",available:!!path&&!!selectedRoute,onClick:()=>needsPatientInfo&&setStep("patient")},
       {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyComplete?"One confirmation":"Review complete safety list",complete:(contraindications.length>0||specialChecksText.length>0||!!path?.baseContact)&&safetyComplete,notRequired:!!path&&contraindications.length===0&&specialChecksText.length===0&&!path.baseContact,active:step==="safety",available:patientComplete&&(!agentNeedsConcentration||concConfirmed),onClick:()=>setStep("safety")},
       {id:"result",label:"FINAL DOSE",value:result?`${finalGiveText} • ${finalVolumeText}`:"",detail:safetyComplete?selectedRoute:"Complete required checks",complete:step==="result"&&safetyComplete,active:step==="result",available:safetyComplete&&(!agentNeedsConcentration||concConfirmed),onClick:()=>setStep("result")},
-    ]} close={close} reset={close} calculationComplete={step==="result"&&safetyComplete&&(!agentNeedsConcentration||concConfirmed)}>
+    ]} activeHeader={activeHeader} close={close} reset={close} calculationComplete={step==="result"&&safetyComplete&&(!agentNeedsConcentration||concConfirmed)}>
     <div className="builder-stage-form generic-body">
       {step==="medication"&&<><small className="eyebrow">MEDICATION</small><h1>Select medication agent</h1><div className="builder-options">{medicationAgents.map(x=><button key={x} className={selectedAgent===x?"selected":""} onClick={()=>{setSelectedAgent(x);setPath(null);setConcConfirmed(false);setCustomConcentrationMode(false);setCustomConcentration("");const paths=medication.paths.filter(p=>p.agent===x);if(paths.some(pathUsesConcentration))setStep("concentration");else if(paths.length===1)choosePath(paths[0]);else setStep("indication")}}><b>{x}</b><span>DMP {medication.protocolId}</span></button>)}</div></>}
 

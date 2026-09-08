@@ -69,13 +69,12 @@ export default function FieldApp(){
   const closeMedication=()=>{setSelectedId(null);setCalculationSession(0);scrollTo({top:0,behavior:"auto"})};
   const startMedicationOver=()=>{setCalculationSession(value=>value+1);scrollTo({top:0,behavior:"auto"})};
   if(selected)return <div className="field-mode-shell field-engine-shell">
-    <div className="field-active-header" role="banner">
+    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>}
+    <MedicationEngine key={`${selected.id}-${calculationSession}`} medication={selected} activeHeader={<div className="field-active-header" role="banner">
       <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"✓ OFFLINE READY":"OFFLINE — Using cached protocol data"} <span>{selected.id==="txa"?"Dept 500:63":CURRENT_DMP_PROTOCOL_REVISION}</span></div>
       <div className="field-report-bar"><button type="button" disabled={!administrations.length} onClick={()=>setReportOpen(true)}>Report{administrations.length?` (${administrations.length})`:""}</button></div>
       <div className="field-medication-nav" role="navigation" aria-label={`${selected.name} calculator navigation`}><button type="button" onClick={closeMedication}>‹ Medications</button><strong>{selected.name}</strong><button type="button" onClick={startMedicationOver}>Start over</button></div>
-    </div>
-    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
-    <MedicationEngine key={`${selected.id}-${calculationSession}`} medication={selected} close={closeMedication} record={entry=>setAdministrations(items=>[...items,entry])} openProtocol={()=>window.open(selected.id==="txa"?"/protocols/txa-500-63.html":"/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
+    </div>} close={closeMedication} record={entry=>setAdministrations(items=>[...items,entry])} openProtocol={()=>window.open(selected.id==="txa"?"/protocols/txa-500-63.html":"/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
   </div>;
 
   const viewTitle=view==="favorites"?"FAVORITES":view==="treatments"?"TREATMENT MEDICATIONS":"FIELD MEDICATIONS";
