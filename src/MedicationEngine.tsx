@@ -28,6 +28,13 @@ export default function MedicationEngine({medication,close,record,openProtocol,o
     [contraChecks,setContraChecks]=useState<boolean[]>([]),[specialChecks,setSpecialChecks]=useState<boolean[]>([]),[basePhysician,setBasePhysician]=useState(""),[baseApproved,setBaseApproved]=useState(false),
     [actual,setActual]=useState(""),[administrations,setAdministrations]=useState<LocalAdministration[]>([]),[readyForAnother,setReadyForAnother]=useState(false),[now,setNow]=useState(Date.now()),
     [dopamineRate,setDopamineRate]=useState(5),[dropFactor,setDropFactor]=useState(60),[returnToResult,setReturnToResult]=useState(false),[editingFinalDose,setEditingFinalDose]=useState(false),[showFinalMath,setShowFinalMath]=useState(true);
+  useEffect(()=>{
+    const frame=requestAnimationFrame(()=>{
+      document.querySelector<HTMLElement>("#active-medication-screen-top .streamlined-choice-workspace")?.scrollTo({top:0,behavior:"auto"});
+      window.scrollTo({top:0,behavior:"auto"});
+    });
+    return()=>cancelAnimationFrame(frame);
+  },[step,medication.id]);
   const fieldConcentration=useMemo(()=>fieldConcentrationFor(medication.id),[medication.id]);
   const isDopamine=medication.id==="dopamine",
     ageYears=ageUnit==="years"?Number(age):ageUnit==="months"?Number(age)/12:Number(age)/365.25,

@@ -35,7 +35,7 @@ const readList=(key:string)=>{try{return JSON.parse(localStorage.getItem(key)||"
 export default function FieldApp(){
   const [patient,setPatient]=useState<PatientState>(readPatient),[editingPatient,setEditingPatient]=useState(false),[unit,setUnit]=useState<"kg"|"lb">("kg"),
     [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[view,setView]=useState<View>("meds"),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
-    [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent")),[reportOpen,setReportOpen]=useState(false),[administrations,setAdministrations]=useState<any[]>([]),
+    [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent")),[reportOpen,setReportOpen]=useState(false),[administrations,setAdministrations]=useState<any[]>([]),[calculationSession,setCalculationSession]=useState(0),
     [releaseMeta,setReleaseMeta]=useState<ReleaseMeta|null>(readReleaseMeta),[releaseRevision,setReleaseRevision]=useState(0),[syncState,setSyncState]=useState<"idle"|"checking"|"updated"|"failed">("idle");
   useEffect(()=>{sessionStorage.setItem("mmd-patient",JSON.stringify(patient))},[patient]);
   useEffect(()=>{const on=()=>setOnline(true),off=()=>setOnline(false);addEventListener("online",on);addEventListener("offline",off);return()=>{removeEventListener("online",on);removeEventListener("offline",off)}},[]);
@@ -66,11 +66,16 @@ export default function FieldApp(){
   const openMed=(id:string)=>{if(!approvedIds.has(id))return;setPatient(readPatient());setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
   const toggleFav=(id:string)=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[id,...f]);
   const selected=selectedId&&approvedIds.has(selectedId)?fieldMedicationDefinition(selectedId):null;
+  const closeMedication=()=>{setSelectedId(null);setCalculationSession(0);scrollTo({top:0,behavior:"auto"})};
+  const startMedicationOver=()=>{setCalculationSession(value=>value+1);scrollTo({top:0,behavior:"auto"})};
   if(selected)return <div className="field-mode-shell field-engine-shell">
-    <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"✓ OFFLINE READY":"OFFLINE — Using cached protocol data"} <span>{selected.id==="txa"?"Dept 500:63":CURRENT_DMP_PROTOCOL_REVISION}</span></div>
-    <div className="field-report-bar"><button type="button" disabled={!administrations.length} onClick={()=>setReportOpen(true)}>Report{administrations.length?` (${administrations.length})`:""}</button></div>
+    <header className="field-active-header">
+      <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"✓ OFFLINE READY":"OFFLINE — Using cached protocol data"} <span>{selected.id==="txa"?"Dept 500:63":CURRENT_DMP_PROTOCOL_REVISION}</span></div>
+      <div className="field-report-bar"><button type="button" disabled={!administrations.length} onClick={()=>setReportOpen(true)}>Report{administrations.length?` (${administrations.length})`:""}</button></div>
+      <nav className="field-medication-nav" aria-label={`${selected.name} calculator navigation`}><button type="button" onClick={closeMedication}>‹ Medications</button><strong>{selected.name}</strong><button type="button" onClick={startMedicationOver}>Start over</button></nav>
+    </header>
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
-    <MedicationEngine medication={selected} close={()=>setSelectedId(null)} record={entry=>setAdministrations(items=>[...items,entry])} openProtocol={()=>window.open(selected.id==="txa"?"/protocols/txa-500-63.html":"/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
+    <MedicationEngine key={`${selected.id}-${calculationSession}`} medication={selected} close={closeMedication} record={entry=>setAdministrations(items=>[...items,entry])} openProtocol={()=>window.open(selected.id==="txa"?"/protocols/txa-500-63.html":"/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialPatient={initialPatient}/>
   </div>;
 
   const viewTitle=view==="favorites"?"FAVORITES":view==="treatments"?"TREATMENT MEDICATIONS":"FIELD MEDICATIONS";

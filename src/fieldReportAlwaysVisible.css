@@ -59,3 +59,83 @@
     margin-top:0!important;
   }
 }
+
+/* One shared, structural header for every Field Mode medication. This replaces
+   the layered per-medication sticky elements that could disappear on long
+   weight-based result screens. */
+.field-engine-shell .field-active-header{
+  position:sticky;
+  top:0;
+  z-index:240;
+  width:100%;
+  background:#06131b;
+  box-shadow:0 5px 16px #0007;
+}
+.field-engine-shell .field-active-header .field-offline-banner,
+.field-engine-shell .field-active-header .field-report-bar{
+  position:static!important;
+  top:auto!important;
+}
+.field-engine-shell .field-active-header .field-report-bar{
+  display:flex;
+  justify-content:flex-end;
+  width:100%;
+  box-sizing:border-box;
+  padding:7px 12px;
+  background:#06131b;
+  border-bottom:1px solid #29495b;
+}
+.field-engine-shell .field-active-header .field-report-bar button{
+  min-width:104px;
+  min-height:48px;
+  padding:0 16px;
+  border:2px solid #9bcaff;
+  border-radius:12px;
+  background:#102431;
+  color:#f4fbff;
+  font-size:13px;
+  font-weight:900;
+}
+.field-engine-shell .field-active-header .field-report-bar button:disabled{
+  display:block!important;
+  visibility:visible!important;
+  opacity:.68!important;
+}
+.field-medication-nav{
+  display:grid;
+  grid-template-columns:minmax(106px,auto) 1fr minmax(88px,auto);
+  align-items:center;
+  gap:8px;
+  min-height:58px;
+  padding:6px 12px;
+  box-sizing:border-box;
+  background:#03111a;
+  border-bottom:1px solid #264356;
+  color:#fff;
+}
+.field-medication-nav strong{
+  overflow:hidden;
+  text-align:center;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:16px;
+}
+.field-medication-nav button{
+  min-height:42px;
+  padding:0 10px;
+  border:1px solid #607c8c;
+  border-radius:10px;
+  background:transparent;
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+}
+.field-engine-shell #active-medication-screen-top .streamlined-medication-top{
+  display:none!important;
+}
+
+@media(max-width:390px){
+  .field-medication-nav{grid-template-columns:100px 1fr 78px;padding-inline:7px;gap:5px}
+  .field-medication-nav button{padding-inline:6px;font-size:10px}
+  .field-medication-nav strong{font-size:14px}
+}
