@@ -8,6 +8,8 @@ import {loadMedicationCatalogState} from "./medicationCatalogStore";
 import {downloadLatestMedicationRelease,readReleaseMeta,type ReleaseMeta} from "./medicationRelease";
 import type {EncounterPatient} from "./encounterTypes";
 import InstallAppGuide from "./InstallAppGuide";
+import OfflineSetup from "./OfflineSetup";
+import {cacheAndVerifyOfflineFiles,readOfflineReady,saveOfflineReady,type OfflineReadyRecord} from "./offlineReadiness";
 import "./fieldApp.css";
 
 const categories:Record<string,string[]>={
@@ -37,7 +39,8 @@ export default function FieldApp(){
   const [patient,setPatient]=useState<PatientState>(readPatient),[editingPatient,setEditingPatient]=useState(false),[unit,setUnit]=useState<"kg"|"lb">("kg"),
     [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[view,setView]=useState<View>("meds"),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
     [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent")),[reportOpen,setReportOpen]=useState(false),[administrations,setAdministrations]=useState<any[]>([]),[calculationSession,setCalculationSession]=useState(0),
-    [releaseMeta,setReleaseMeta]=useState<ReleaseMeta|null>(readReleaseMeta),[releaseRevision,setReleaseRevision]=useState(0),[syncState,setSyncState]=useState<"idle"|"checking"|"updated"|"failed">("idle");
+    [releaseMeta,setReleaseMeta]=useState<ReleaseMeta|null>(readReleaseMeta),[releaseRevision,setReleaseRevision]=useState(0),[syncState,setSyncState]=useState<"idle"|"checking"|"updated"|"failed">("idle"),
+    [offlineRecord,setOfflineRecord]=useState<OfflineReadyRecord|null>(readOfflineReady),[offlineState,setOfflineState]=useState<"needed"|"downloading"|"ready"|"failed">(()=>readOfflineReady()?"ready":"needed"),[offlineError,setOfflineError]=useState("");
   useEffect(()=>{sessionStorage.setItem("mmd-patient",JSON.stringify(patient))},[patient]);
   useEffect(()=>{const on=()=>setOnline(true),off=()=>setOnline(false);addEventListener("online",on);addEventListener("offline",off);return()=>{removeEventListener("online",on);removeEventListener("offline",off)}},[]);
   useEffect(()=>localStorage.setItem("mmd-favorites",JSON.stringify(favorites)),[favorites]);
@@ -49,6 +52,19 @@ export default function FieldApp(){
   },[]);
   useEffect(()=>{void syncRelease()},[syncRelease]);
   useEffect(()=>{if(online)void syncRelease()},[online,syncRelease]);
+  const prepareOffline=async()=>{
+    if(!navigator.onLine){setOfflineState("failed");setOfflineError("Connect to the internet to download and verify the latest release.");return}
+    setOfflineState("downloading");setOfflineError("");
+    try{
+      const result=await downloadLatestMedicationRelease();
+      const meta=result.meta;
+      if(!meta)throw new Error("No live medication release is available to download.");
+      setReleaseMeta(meta);if(result.updated)setReleaseRevision(value=>value+1);
+      const cachedFiles=await cacheAndVerifyOfflineFiles();
+      const record={bundleVersion:"47",releaseVersion:meta.version,cachedFiles,verifiedAt:Date.now()};
+      saveOfflineReady(record);setOfflineRecord(record);setOfflineState("ready");setSyncState(result.updated?"updated":"idle");
+    }catch(error){setOfflineState("failed");setOfflineError(error instanceof Error?error.message:"Offline download failed. Check your connection and retry.")}
+  };
 
   const hasWeight=patient.weightKg.trim()!==""&&Number(patient.weightKg)>0,hasAge=patient.ageYears.trim()!==""&&Number(patient.ageYears)>=0,
     kg=hasWeight?Number(patient.weightKg):0,age=hasAge?Number(patient.ageYears):0,patientKind:EncounterPatient["patient"]=hasAge&&age<12?"pediatric":"adult";
@@ -82,11 +98,12 @@ export default function FieldApp(){
   const selectView=(next:View)=>{setView(next);setQuery("");if(next!=="treatments")setFilter("");window.scrollTo({top:0,behavior:"auto"})};
   const openCurrentProtocol=()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer");
   return <div className="field-mode-shell">
-    <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><div className="field-header-actions"><InstallAppGuide/><button className={`connect-pill release-sync ${online?"online":"offline"}`} disabled={!online||syncState==="checking"} onClick={()=>void syncRelease()}>{syncState==="checking"?"Checking…":syncState==="updated"?"✓ Updated":syncState==="failed"?"Retry update":online?"Check updates":"Offline"}</button></div></header>
+    <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><div className="field-header-actions"><InstallAppGuide/><button className={`connect-pill release-sync ${offlineState==="ready"?"online":online?"online":"offline"}`} disabled={!online||syncState==="checking"} onClick={()=>void syncRelease()}>{offlineState==="ready"?"✓ Offline Ready":syncState==="checking"?"Checking…":syncState==="updated"?"✓ Updated":syncState==="failed"?"Retry update":online?"Check updates":"Offline"}</button></div></header>
     {administrations.length>0&&<button className="field-home-report" onClick={()=>setReportOpen(true)}>Report • {administrations.length} administration{administrations.length===1?"":"s"}</button>}
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
     <main className="field-home">
       <InstallAppGuide variant="card"/>
+      <OfflineSetup status={offlineState} record={offlineRecord} error={offlineError} onDownload={()=>void prepareOffline()}/>
       {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using downloaded release {releaseMeta?`v${releaseMeta.version}`:"stored on this device"}.</div>}
       {releaseMeta&&<div className="field-release-status"><b>LIVE MEDICATION LIBRARY • RELEASE {releaseMeta.version}</b><span>{releaseMeta.medicationCount} medications • Published {new Date(releaseMeta.publishedAt).toLocaleString()}</span></div>}
       {syncState==="failed"&&<div className="field-release-error"><b>Update check failed.</b><span>The downloaded medication library remains available. Tap “Retry update” when connected.</span></div>}
