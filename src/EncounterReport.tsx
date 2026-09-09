@@ -2,7 +2,7 @@ import {useMemo,useState} from "react";
 import {queueCalculationReport} from "./calculationReportLog";
 import type {RecordedAdministration} from "./encounterTypes";
 
-export default function EncounterReport({entries,close}:{entries:RecordedAdministration[];close:()=>void}){
+export default function EncounterReport({entries,close,onDelete}:{entries:RecordedAdministration[];close:()=>void;onDelete:()=>void}){
   const [incident,setIncident]=useState(""),[provider,setProvider]=useState(""),[status,setStatus]=useState("");
   const text=useMemo(()=>[
     "METRO MED DOSE — ENCOUNTER MEDICATION REPORT",
@@ -15,7 +15,14 @@ export default function EncounterReport({entries,close}:{entries:RecordedAdminis
     "Reconcile with the agency ePCR and current protocol before finalizing documentation.",
   ].join("\n"),[entries,incident,provider]);
   const share=async()=>{try{if(navigator.share)await navigator.share({title:"Medication encounter report",text});else await navigator.clipboard.writeText(text);queueCalculationReport("shared",entries);setStatus("Shared. A calculation copy was queued for the secure admin log.")}catch(e){if((e as Error).name!=="AbortError")setStatus("Sharing unavailable. Use Print / PDF.")}};
+  const email=()=>{
+    const subject=incident.trim()?`Medication encounter report — ${incident.trim()}`:"Medication encounter report";
+    queueCalculationReport("shared",entries);
+    setStatus("Opening an email draft with the report. A calculation copy was queued for the secure admin log.");
+    window.location.href=`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+  };
   const printOrSave=()=>{queueCalculationReport("printed_or_saved",entries);setStatus("A calculation copy was queued for the secure admin log.");window.print()};
+  const deleteWithoutSaving=()=>{if(window.confirm("Delete this report and all recorded administrations from this device? This cannot be undone."))onDelete()};
 
   return <div className="encounter-report-backdrop"><section className="encounter-report-modal" role="dialog" aria-modal="true">
     <header><span><small>ONE ENCOUNTER • {entries.length} ADMINISTRATION{entries.length===1?"":"S"}</small><h2>Medication report</h2></span><button onClick={close}>×</button></header>
@@ -29,7 +36,12 @@ export default function EncounterReport({entries,close}:{entries:RecordedAdminis
       <footer>Clinical decision-support record only • Verify physical medication, concentration, route, current agency protocol and ePCR.</footer>
     </article>
     <p className="encounter-admin-copy-notice">When you share or print/save, the calculation details are sent to the secure administrator log for quality review. The incident/ePCR number and provider identifier are not sent.</p>
-    <div className="encounter-report-actions"><button onClick={share}>Send / share</button><button onClick={printOrSave}>Print / save PDF</button></div>{status&&<p>{status}</p>}
+    <div className="encounter-report-actions">
+      <button onClick={email}>Email report</button>
+      <button className="secondary" onClick={share}>More sharing options</button>
+      <button className="secondary" onClick={printOrSave}>Print / save PDF</button>
+      <button className="delete-report" onClick={deleteWithoutSaving}>Delete without saving</button>
+    </div>{status&&<p>{status}</p>}
   </section></div>;
 }
 

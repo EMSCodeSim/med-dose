@@ -208,8 +208,15 @@
 .encounter-report-backdrop{
   position:fixed;
   inset:0;
+  width:100%;
+  height:100dvh;
+  max-height:100dvh;
   z-index:250;
-  overflow:auto;
+  overflow-x:hidden;
+  overflow-y:scroll;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
   padding:12px;
   box-sizing:border-box;
   background:#020b11f2;
@@ -281,8 +288,15 @@
   font-weight:900;
   font-size:13px;
 }
+.encounter-report-actions button.secondary{
+  background:#17364c;
+}
+.encounter-report-actions button.delete-report{
+  border-color:#f1a09a;
+  background:#8f241d;
+}
 @media(max-width:600px){
-  .encounter-report-backdrop{padding:6px}.encounter-report-modal{padding:10px}.encounter-report-inputs,.encounter-report-actions,.encounter-print-meta{grid-template-columns:1fr}.encounter-print{padding:8px}.encounter-print table{font-size:9px}.encounter-documentation{grid-template-columns:1fr}
+  .encounter-report-backdrop{padding:6px 6px calc(28px + env(safe-area-inset-bottom))}.encounter-report-modal{padding:10px}.encounter-report-inputs,.encounter-report-actions,.encounter-print-meta{grid-template-columns:1fr}.encounter-print{padding:8px}.encounter-print table{font-size:9px}.encounter-documentation{grid-template-columns:1fr}
 }
 @media print{
   body *{visibility:hidden}

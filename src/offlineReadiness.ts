@@ -1,4 +1,4 @@
-export const OFFLINE_BUNDLE_VERSION="51";
+export const OFFLINE_BUNDLE_VERSION="54";
 export const OFFLINE_READY_KEY="mmd-offline-ready-v1";
 
 export type OfflineReadyRecord={bundleVersion:string;releaseVersion:number|null;cachedFiles:number;verifiedAt:number};

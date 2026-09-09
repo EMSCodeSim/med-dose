@@ -92,7 +92,7 @@ export default function FieldApp(){
   const closeMedication=()=>{setSelectedId(null);setCalculationSession(0);scrollTo({top:0,behavior:"auto"})};
   const startMedicationOver=()=>{setCalculationSession(value=>value+1);scrollTo({top:0,behavior:"auto"})};
   if(selected)return <div className="field-mode-shell field-engine-shell">
-    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>}
+    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)} onDelete={()=>{setAdministrations([]);setReportOpen(false)}}/>}
     <MedicationEngine key={`${selected.id}-${calculationSession}`} medication={selected} activeHeader={<div className="field-active-header" role="banner">
       <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"✓ OFFLINE READY":"OFFLINE — Using cached protocol data"} <span>{selected.id==="txa"?"Dept 500:63":CURRENT_DMP_PROTOCOL_REVISION}</span></div>
       <div className="field-report-bar"><button type="button" disabled={!administrations.length} onClick={()=>setReportOpen(true)}>Report{administrations.length?` (${administrations.length})`:""}</button></div>
@@ -104,15 +104,15 @@ export default function FieldApp(){
   const selectView=(next:View)=>{setView(next);setQuery("");if(next!=="treatments")setFilter("");window.scrollTo({top:0,behavior:"auto"})};
   const openCurrentProtocol=()=>window.open("/protocols/dmp-current.pdf","_blank","noopener,noreferrer");
   return <div className="field-mode-shell">
-    <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div><div className="field-header-actions"><InstallAppGuide/><button className={`connect-pill release-sync ${offlineState==="ready"?"online":online?"online":"offline"}`} disabled={!online||syncState==="checking"} onClick={()=>void syncRelease()}>{offlineState==="ready"?"✓ Offline Ready":syncState==="checking"?"Checking…":syncState==="updated"?"✓ Updated":syncState==="failed"?"Retry update":online?"Check updates":"Offline"}</button></div></header>
+    <header className="field-header"><div className="field-brand"><span className="star">✚</span><strong>Metro Med Dose</strong></div></header>
     {administrations.length>0&&<button className="field-home-report" onClick={()=>setReportOpen(true)}>Report • {administrations.length} administration{administrations.length===1?"":"s"}</button>}
-    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
+    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)} onDelete={()=>{setAdministrations([]);setReportOpen(false)}}/>}
     <main className="field-home">
       <InstallAppGuide variant="card"/>
       <OfflineSetup status={offlineState} record={offlineRecord} error={offlineError} onDownload={()=>void prepareOffline()}/>
       {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using downloaded release {releaseMeta?`v${releaseMeta.version}`:"stored on this device"}.</div>}
       {releaseMeta&&<div className="field-release-status"><b>LIVE MEDICATION LIBRARY • RELEASE {releaseMeta.version}</b><span>{releaseMeta.medicationCount} medications • Published {new Date(releaseMeta.publishedAt).toLocaleString()}</span></div>}
-      {syncState==="failed"&&<div className="field-release-error"><b>Update check failed.</b><span>The downloaded medication library remains available. Tap “Retry update” when connected.</span></div>}
+      {syncState==="failed"&&<div className="field-release-error"><b>Update check failed.</b><span>The downloaded medication library remains available. Use “Check updates, download &amp; verify” when connected.</span></div>}
 
       {view==="meds"&&favorites.filter(id=>approvedIds.has(id)).length>0&&<section className="quick-row"><div className="section-head"><b>FAVORITES</b><button onClick={()=>selectView("favorites")}>View all</button></div><div>{favorites.filter(id=>approvedIds.has(id)).map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
 
@@ -132,6 +132,6 @@ export default function FieldApp(){
       {approvedMeds.length>0&&visible.length===0&&<div className="empty-search"><b>No medication found.</b><span>Try the generic name, brand name, indication, or protocol.</span></div>}
       <footer className="field-disclaimer">Clinical decision-support tool. Follow your agency's current protocols and medical direction. Verify medication, concentration, dose and route before administration.</footer>
     </main>
-    <nav className="field-bottom-nav four"><button className={view==="meds"?"active":""} onClick={()=>selectView("meds")}>⌂<span>Meds</span></button><button className={view==="treatments"?"active":""} onClick={()=>selectView("treatments")}>☷<span>Treatments</span></button><button className={view==="favorites"?"active":""} onClick={()=>selectView("favorites")}>☆<span>Favorites</span></button><button onClick={openCurrentProtocol}>▤<span>Protocol</span></button></nav>
+    {!reportOpen&&<nav className="field-bottom-nav four"><button className={view==="meds"?"active":""} onClick={()=>selectView("meds")}>⌂<span>Meds</span></button><button className={view==="treatments"?"active":""} onClick={()=>selectView("treatments")}>☷<span>Treatments</span></button><button className={view==="favorites"?"active":""} onClick={()=>selectView("favorites")}>☆<span>Favorites</span></button><button onClick={openCurrentProtocol}>▤<span>Protocol</span></button></nav>}
   </div>;
 }

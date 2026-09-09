@@ -41,7 +41,7 @@ export default function UnifiedApp(){
     {active&&<section className="wizard-shell generic-calculator-host single-engine-host"><MedicationEngine medication={active} close={()=>{setTreatment(null);setActiveId(null)}} openProtocol={()=>setProtocol({id:active.protocolId,name:active.name,page:active.page})} record={entry=>setAdministrations(items=>[...items,entry])} onContextChange={setTreatment}/></section>}
 
     {active&&<FieldToolbar ageYears={null} ageLabel="Current patient" weightKg={null} currentDrug={active.name} currentIndication={treatment?.indication} currentRoute={treatment?.route} currentDose={treatment?.dose} currentVolume={treatment?.volume} genericTreatment={treatment} approvedMedicationIds={visibleIds} onSelectMedication={openMedication} onSelectSuggestedMedication={openMedication} reportReady={administrations.length>0} onOpenReport={()=>setReportOpen(true)}/>} 
-    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)}/>} 
+    {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)} onDelete={()=>{setAdministrations([]);setReportOpen(false)}}/>}
     {protocol&&<ProtocolViewer target={protocol} close={()=>setProtocol(null)}/>} 
     {adminOpen&&<AdminMedicationManager medications={catalog} reviews={reviews} setReviews={setReviews} close={()=>{setAdminOpen(false);setCatalogRevision(v=>v+1)}}/>}
   </main>;
