@@ -10,6 +10,14 @@ export type RecordedAdministration={
   volumeUnit?:string;
   time:number;
   concentration:string;
+  concentrationRequired?:boolean;
   patient?:string;
+  safety?:string;
+  administration?:string;
+  repeat?:string;
+  protocol?:string;
+  monitoring?:string[];
+  adjustment?:string;
+  calculationMath?:string[];
   baseAuthorization?:{physician:string;time:number;reason:string};
 };

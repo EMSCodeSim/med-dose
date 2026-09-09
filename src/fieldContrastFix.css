@@ -288,6 +288,7 @@
   font-weight:900;
   font-size:13px;
 }
+.encounter-entry-list{display:grid;gap:12px}.encounter-entry{overflow:hidden;border:1px solid #b9c8cf;border-radius:10px;background:#fff}.encounter-entry>header{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:#e7eef2}.encounter-entry>header span{display:flex;flex-direction:column}.encounter-entry>header small,.encounter-entry-grid small,.encounter-entry-result small,.encounter-entry-math>small,.encounter-entry-monitoring>small{color:#526d7b;font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.encounter-entry>header b{font-size:16px}.encounter-entry>header time{font-size:10px;text-align:right}.encounter-entry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:#d4dfe4}.encounter-entry-grid>span{display:flex;flex-direction:column;gap:3px;padding:9px 10px;background:#f8fafb}.encounter-entry-grid b{font-size:11px;line-height:1.35}.encounter-entry-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 12px;background:#12394c;color:#fff}.encounter-entry-result span{display:flex;flex-direction:column}.encounter-entry-result small{color:#b8d9e6}.encounter-entry-result b{font-size:15px}.encounter-entry-math,.encounter-entry-monitoring{padding:10px 12px;border-top:1px solid #d6e0e5}.encounter-entry-math p{margin:5px 0;padding:7px 9px;border-radius:6px;background:#edf4f7;font-size:11px;font-weight:800}.encounter-entry-monitoring ul{margin:6px 0 0;padding-left:18px}.encounter-entry-monitoring li{margin:3px 0;font-size:10px;line-height:1.35}
 .encounter-report-actions button.secondary{
   background:#17364c;
 }
@@ -296,7 +297,7 @@
   background:#8f241d;
 }
 @media(max-width:600px){
-  .encounter-report-backdrop{padding:6px 6px calc(28px + env(safe-area-inset-bottom))}.encounter-report-modal{padding:10px}.encounter-report-inputs,.encounter-report-actions,.encounter-print-meta{grid-template-columns:1fr}.encounter-print{padding:8px}.encounter-print table{font-size:9px}.encounter-documentation{grid-template-columns:1fr}
+  .encounter-report-backdrop{padding:6px 6px calc(28px + env(safe-area-inset-bottom))}.encounter-report-modal{padding:10px}.encounter-report-inputs,.encounter-report-actions,.encounter-print-meta,.encounter-entry-grid{grid-template-columns:1fr}.encounter-print{padding:8px}.encounter-entry>header{align-items:flex-start}.encounter-entry-result{grid-template-columns:1fr 1fr}
 }
 @media print{
   body *{visibility:hidden}

@@ -94,9 +94,40 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
   };
   const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}};
   const showResult=()=>{if(result){setActual(String(nextDoseMaximum(path,result,kg,administrations)||result.minDose||result.dose));setStep("result")}};
-  const recordAmount=(requested:number)=>{if(!path||!result||administrations.length>=maxAdministrations)return;const amount=result.numeric?requested:1;if(result.numeric&&(!(amount>0)||amount>doseMaximum))return;const entryVolume=result.unit==="mL"?amount:needsConcentration?amount/conc:0,time=Date.now();record({drug:path.agent,reason:path.label,route:selectedRoute,dose:amount,unit:result.numeric?result.unit:"treatment",volume:entryVolume,volumeUnit:"mL",time,concentration:needsConcentration?`${fmt(conc)} ${result.unit}/mL`:path.administration,patient:patientText,baseAuthorization:path.baseContact?{physician:basePhysician,time,reason:path.baseContact}:undefined});setAdministrations(x=>[...x,{dose:amount,volume:entryVolume,time}]);setReadyForAnother(false);setNow(time)};
-  const recordDopamine=()=>{if(!path||!conc||!kg)return;const time=Date.now();record({drug:path.agent,reason:path.label,route:`${selectedRoute} at ${dopamineRate} mcg/kg/min`,dose:dopamineTotal,unit:"mcg/min",volume:dopamineMlHr,volumeUnit:"mL/hr",time,concentration:`${fmt(conc)} mcg/mL`,patient:patientText});setAdministrations(x=>[...x,{dose:dopamineTotal,volume:dopamineMlHr,time}]);setNow(time)};
-  const recordLinked=()=>{if(!path||!linkedDose||!linkedAmount||administrations.length!==1)return;const time=Date.now(),linkedVolume=needsConcentration?linkedAmount/conc:0;record({drug:path.agent,reason:`${path.label} — ${linkedDose.label}`,route:selectedRoute,dose:linkedAmount,unit:linkedDose.unit,volume:linkedVolume,volumeUnit:"mL",time,concentration:needsConcentration?`${fmt(conc)} ${linkedDose.unit}/mL`:linkedDose.administration,patient:patientText,baseAuthorization:path.baseContact?{physician:basePhysician,time,reason:path.baseContact}:undefined});setAdministrations(x=>[...x,{dose:linkedAmount,volume:linkedVolume,time}]);setNow(time)};
+  const reportDetails=(administration=path?.administration)=>({
+    concentrationRequired:needsConcentration,
+    safety:contraindications.length||specialChecksText.length||path?.baseContact?"All required safety checks confirmed":"No additional safety confirmation required",
+    administration,
+    repeat:path?.repeat,
+    protocol:path?`Medication ${medication.protocolId} — ${path.protocol}`:undefined,
+    monitoring,
+    adjustment:additionalAdjustment||undefined,
+  });
+  const doseMath=(amount:number,unit:string,entryVolume:number,linked=false)=>{
+    if(!path||!result)return[];
+    const lines:string[]=[];
+    if(linked&&linkedDose){
+      if(linkedDose.perKg)lines.push(`${fmt(kg)} kg × ${fmt(linkedDose.perKg)} ${unit}/kg = ${fmt(kg*linkedDose.perKg)} ${unit}`);
+      else lines.push(`Protocol linked dose = ${fmt(linkedDose.amount||amount)} ${unit}`);
+      if(Math.abs((linkedDose.perKg?kg*linkedDose.perKg:(linkedDose.amount||amount))-amount)>.0001)lines.push(`Protocol limit or adjustment applied = ${fmt(amount)} ${unit}`);
+    }else if(path.formula.kind==="fixed")lines.push(`Protocol fixed dose = ${fmt(path.formula.amount)} ${unit}`);
+    else if(path.formula.kind==="range")lines.push(`Protocol range = ${fmt(path.formula.min)}–${fmt(path.formula.max)} ${unit}`);
+    else if(path.formula.kind==="perKg"){
+      const raw=kg*path.formula.amount;
+      lines.push(`${fmt(kg)} kg × ${fmt(path.formula.amount)} ${unit}/kg = ${fmt(raw)} ${unit}`);
+      if(Math.abs(raw-result.dose)>.0001)lines.push(`Protocol minimum, maximum, or patient adjustment applied = ${fmt(result.dose)} ${unit}`);
+    }else if(path.formula.kind==="ageBands"){
+      const band=path.formula.bands.find(x=>effectiveAgeYears>=x.min&&effectiveAgeYears<x.max);
+      lines.push(`${band?.label||`${fmt(effectiveAgeYears)} years`} age band = ${fmt(result.dose)} ${unit}`);
+    }else lines.push(`Protocol instruction: ${path.formula.text}`);
+    if(result.numeric&&Math.abs(amount-result.dose)>.0001)lines.push(`Recorded dose selected = ${fmt(amount)} ${unit}`);
+    if(needsConcentration)lines.push(`${fmt(amount)} ${unit} ÷ ${fmt(conc)} ${unit}/mL = ${fmt(entryVolume)} mL`);
+    else if(unit==="mL")lines.push(`Protocol dose is the administered volume = ${fmt(entryVolume)} mL`);
+    return lines;
+  };
+  const recordAmount=(requested:number)=>{if(!path||!result||administrations.length>=maxAdministrations)return;const amount=result.numeric?requested:1;if(result.numeric&&(!(amount>0)||amount>doseMaximum))return;const entryVolume=result.unit==="mL"?amount:needsConcentration?amount/conc:0,time=Date.now();record({drug:path.agent,reason:path.label,route:selectedRoute,dose:amount,unit:result.numeric?result.unit:"treatment",volume:entryVolume,volumeUnit:"mL",time,concentration:needsConcentration?`${fmt(conc)} ${result.unit}/mL`:"Not required",patient:patientText,calculationMath:doseMath(amount,result.numeric?result.unit:"treatment",entryVolume),...reportDetails(),baseAuthorization:path.baseContact?{physician:basePhysician,time,reason:path.baseContact}:undefined});setAdministrations(x=>[...x,{dose:amount,volume:entryVolume,time}]);setReadyForAnother(false);setNow(time)};
+  const recordDopamine=()=>{if(!path||!conc||!kg)return;const time=Date.now();record({drug:path.agent,reason:path.label,route:selectedRoute,dose:dopamineTotal,unit:"mcg/min",volume:dopamineMlHr,volumeUnit:"mL/hr",time,concentration:`${fmt(conc)} mcg/mL`,patient:patientText,calculationMath:[`${fmt(kg)} kg × ${dopamineRate} mcg/kg/min = ${fmt(dopamineTotal)} mcg/min`,`${fmt(dopamineTotal)} mcg/min ÷ ${fmt(conc)} mcg/mL = ${fmt(dopamineMlMin)} mL/min`,`${fmt(dopamineMlMin)} mL/min × 60 = ${fmt(dopamineMlHr)} mL/hr`,`${fmt(dopamineMlMin)} mL/min × ${dropFactor} gtt/mL = ${fmt(dopamineGttMin)} gtt/min`],...reportDetails()});setAdministrations(x=>[...x,{dose:dopamineTotal,volume:dopamineMlHr,time}]);setNow(time)};
+  const recordLinked=()=>{if(!path||!linkedDose||!linkedAmount||administrations.length!==1)return;const time=Date.now(),linkedVolume=needsConcentration?linkedAmount/conc:0;record({drug:path.agent,reason:`${path.label} — ${linkedDose.label}`,route:selectedRoute,dose:linkedAmount,unit:linkedDose.unit,volume:linkedVolume,volumeUnit:"mL",time,concentration:needsConcentration?`${fmt(conc)} ${linkedDose.unit}/mL`:"Not required",patient:patientText,calculationMath:doseMath(linkedAmount,linkedDose.unit,linkedVolume,true),...reportDetails(linkedDose.administration),baseAuthorization:path.baseContact?{physician:basePhysician,time,reason:path.baseContact}:undefined});setAdministrations(x=>[...x,{dose:linkedAmount,volume:linkedVolume,time}]);setNow(time)};
   const recordNow=()=>recordAmount(actualDose);
   const prepareRepeat=()=>{if(!path||!result||!repeatAllowed||secondsLeft)return;setActual(String(doseMaximum));setReadyForAnother(true)};
   const visibleSteps:Step[]=[...(medicationAgents.length>1?["medication" as Step]:[]),...(agentNeedsConcentration?["concentration" as Step]:[]),"indication","route",...(needsPatientInfo?["patient" as Step]:[]),"safety","result"],stepNumber=Math.max(1,visibleSteps.indexOf(step)+1),totalSteps=visibleSteps.length;
@@ -136,14 +167,14 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
         </div></section>
 
         <details className="final-all-details"><summary>MORE DETAILS</summary><div className="final-all-details-body">
-          {result.numeric&&<section className="final-math-line"><small>DOSE MATH</small><strong>{isDopamine?`${fmt(kg)} kg × ${dopamineRate} mcg/kg/min = ${fmt(dopamineTotal)} mcg/min → ${fmt(dopamineMlHr)} mL/hr`:needsConcentration?`${fmt(actualDose>0?actualDose:result.dose)} ${result.unit} ÷ ${fmt(conc)} ${result.unit}/mL = ${fmt((actualDose>0?actualDose:result.dose)/conc)} mL`:needsWeight?`${fmt(kg)} kg → ${fmt(actualDose>0?actualDose:result.dose)} ${result.unit}`:`Protocol dose = ${fmt(actualDose>0?actualDose:result.dose)} ${result.unit}`}</strong></section>}
+          {result.numeric&&<section className="final-math-line"><small>DOSE MATH</small><strong>{isDopamine?`${fmt(kg)} kg × ${dopamineRate} mcg/kg/min = ${fmt(dopamineTotal)} mcg/min → ${fmt(dopamineMlHr)} mL/hr`:path.formula.kind==="perKg"?weightBasedMath(path,kg,result.dose,actualDose>0?actualDose:result.dose,result.unit,needsConcentration?conc:0):needsConcentration?`${fmt(actualDose>0?actualDose:result.dose)} ${result.unit} ÷ ${fmt(conc)} ${result.unit}/mL = ${fmt((actualDose>0?actualDose:result.dose)/conc)} mL`:needsWeight?`${fmt(kg)} kg → ${fmt(actualDose>0?actualDose:result.dose)} ${result.unit}`:`Protocol dose = ${fmt(actualDose>0?actualDose:result.dose)} ${result.unit}`}</strong></section>}
           {!isDopamine&&needsConcentration&&result.numeric&&<DoseSyringe volume={(actualDose>0?actualDose:result.dose)/conc}/>}
           <section className="administration-special"><small>ADMINISTRATION</small><div><span><b>Route</b>{selectedRoute}</span><span className="wide"><b>How to give</b>{path.administration}</span><span className="wide"><b>Repeat / reassess</b>{path.repeat}</span></div></section>
           {administrations.length>0&&<div className="dashboard-recorded"><b>✓ {administrations.length} dose{administrations.length===1?"":"s"} recorded</b><span>{fmt(totalDose)} {result.numeric?result.unit:"treatments"} recorded</span></div>}
           {additionalAdjustment&&<div className="generic-dose-adjustment"><b>MEDICATION-SPECIFIC ADJUSTMENT</b><span>{additionalAdjustment}</span></div>}
           <div className="monitoring-cautions"><small>MONITORING</small><ul>{monitoring.map(x=><li key={x}>{x}</li>)}</ul></div>
           <button className="generic-protocol-link" onClick={openProtocol}>Medication {medication.protocolId} ↗</button>
-          {result.numeric&&<details className="calculation-details" open><summary>Show calculation details</summary><div className="generic-calculation">{isDopamine?<><p><span>Weight-based rate</span><b>{fmt(kg)} kg × {dopamineRate} mcg/kg/min = {fmt(dopamineTotal)} mcg/min</b></p><p><span>Volume per minute</span><b>{fmt(dopamineTotal)} mcg/min ÷ {fmt(conc)} mcg/mL = {fmt(dopamineMlMin)} mL/min</b></p><p><span>Pump conversion</span><b>{fmt(dopamineMlMin)} mL/min × 60 = {fmt(dopamineMlHr)} mL/hr</b></p></>:<><p><span>Protocol dose</span><b>{result.text}</b></p>{needsWeight&&<p><span>Calculation weight</span><b>{fmt(kg)} kg</b></p>}{needsConcentration&&<><p><span>Confirmed concentration</span><b>{fmt(conc)} {result.unit}/mL</b></p><p><span>Volume equation</span><b>{fmt(result.dose)} {result.unit} ÷ {fmt(conc)} {result.unit}/mL = {fmt(result.dose/conc)} mL</b></p></>}</>}</div></details>}
+          {result.numeric&&<details className="calculation-details" open><summary>Show calculation details</summary><div className="generic-calculation">{isDopamine?<><p><span>Weight-based rate</span><b>{fmt(kg)} kg × {dopamineRate} mcg/kg/min = {fmt(dopamineTotal)} mcg/min</b></p><p><span>Volume per minute</span><b>{fmt(dopamineTotal)} mcg/min ÷ {fmt(conc)} mcg/mL = {fmt(dopamineMlMin)} mL/min</b></p><p><span>Pump conversion</span><b>{fmt(dopamineMlMin)} mL/min × 60 = {fmt(dopamineMlHr)} mL/hr</b></p></>:<><p><span>Protocol dose</span><b>{result.text}</b></p>{path.formula.kind==="perKg"&&<p><span>Weight-based dose equation</span><b>{fmt(kg)} kg × {fmt(path.formula.amount)} {result.unit}/kg = {fmt(kg*path.formula.amount)} {result.unit}</b></p>}{path.formula.kind==="perKg"&&Math.abs(kg*path.formula.amount-result.dose)>.0001&&<p><span>Protocol limit / adjustment</span><b>{fmt(kg*path.formula.amount)} {result.unit} → {fmt(result.dose)} {result.unit}</b></p>}{result.numeric&&actualDose>0&&Math.abs(actualDose-result.dose)>.0001&&<p><span>Selected final dose</span><b>{fmt(actualDose)} {result.unit}</b></p>}{needsWeight&&<p><span>Calculation weight</span><b>{fmt(kg)} kg</b></p>}{needsConcentration&&<><p><span>Confirmed concentration</span><b>{fmt(conc)} {result.unit}/mL</b></p><p><span>Volume equation</span><b>{fmt(actualDose>0?actualDose:result.dose)} {result.unit} ÷ {fmt(conc)} {result.unit}/mL = {fmt((actualDose>0?actualDose:result.dose)/conc)} mL</b></p></>}</>}</div></details>}
         </div></details>
         
         <FentanylDoseDashboard
@@ -245,6 +276,16 @@ function cleanIndicationLabel(label:string){
   text=text.replace(/\s*[—-]\s*(iv\/io drip|iv\/io|iv|io|im\/in|im|in|po|odt|nebulized|sublingual|auto-injector)\s*$/i,"");
   text=text.replace(/\s*[—-]\s*(adult|pediatric|peds?)\s*$/i,"");
   return text.trim();
+}
+
+function weightBasedMath(path:GenericDosePath,weight:number,protocolDose:number,selectedDose:number,unit:string,concentration:number){
+  if(path.formula.kind!=="perKg")return`Protocol dose = ${fmt(selectedDose)} ${unit}`;
+  const calculated=weight*path.formula.amount;
+  let text=`${fmt(weight)} kg × ${fmt(path.formula.amount)} ${unit}/kg = ${fmt(calculated)} ${unit}`;
+  if(Math.abs(calculated-protocolDose)>.0001)text+=` → protocol limit/adjustment ${fmt(protocolDose)} ${unit}`;
+  if(Math.abs(selectedDose-protocolDose)>.0001)text+=` → selected ${fmt(selectedDose)} ${unit}`;
+  if(concentration>0)text+=` → ${fmt(selectedDose)} ${unit} ÷ ${fmt(concentration)} ${unit}/mL = ${fmt(selectedDose/concentration)} mL`;
+  return text;
 }
 
 function routesFor(route:string){const map:Record<string,string[]>={"IV/IM/PO/ODT":["IV","IM","PO","ODT"],"IV/PO/ODT":["IV","PO","ODT"],"IV/IO/IM/IN":["IV/IO","IM","IN"],"IV/IO/IM":["IV/IO","IM"],"IV/IM":["IV","IM"],"Slow IV/IM":["IV","IM"],"IM or ODT":["IM","ODT"]};return map[route]||[route]}
