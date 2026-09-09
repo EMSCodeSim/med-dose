@@ -131,17 +131,8 @@ function epinephrinePathMatchesConcentration(path:GenericDosePath,stockConcentra
     if(!code.includes(reasonButton))throw new Error("MedicationEngine reason button signature changed");
     code=code.replace(reasonButton,clearerReasonButton);
 
-    const routeChoicesSignature='<div className="builder-options route-options">{routeChoices.map(x=><button key={x} className={selectedRoute===x?"selected":""} onClick={()=>{setRoute(x);if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(needsPatientInfo&&!patientComplete)setStep("patient");else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}}><b>{x}</b><span>Approved route</span></button>)}</div>';
-    const routeChoicesReplacement='<div className="builder-options route-options">{(medication.id==="midazolam"?Array.from(new Set(midazolamRoutePaths(agentPaths,path).flatMap(p=>routesFor(p.route)))):routeChoices).map(x=><button key={x} className={selectedRoute===x?"selected":""} onClick={()=>{let activePath=path;if(medication.id==="midazolam"){const matched=midazolamRoutePaths(agentPaths,path).find(p=>routesFor(p.route).includes(x));if(matched){activePath=matched;setPath(matched)}}setRoute(x);const activeNeedsWeight=activePath.formula.kind==="perKg"||!!activePath.requiresWeight;const activeAgeRequired=activePath.formula.kind==="ageBands"||activePath.minAge!==undefined||activePath.maxAge!==undefined;if(activeAgeRequired&&activePath.patient==="adult"){setAge("");setAgeUnit("years")}const activeNeedsPatient=activeNeedsWeight||activeAgeRequired;if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(activeNeedsPatient)setStep("patient");else{setStep("safety")}}}><b>{x}</b><span>{medication.id==="midazolam"?midazolamReasonLabel(activePathForRoute(agentPaths,path,x)):"Approved route"}</span></button>)}</div>';
-    const activePathHelper=`function activePathForRoute(paths:GenericDosePath[],selected:GenericDosePath,route:string){
-  if(selected.agent!=="Midazolam")return selected;
-  return midazolamRoutePaths(paths,selected).find(path=>routesFor(path.route).includes(route))||selected;
-}
-
-`;
-    if(!code.includes(routeChoicesSignature))throw new Error("MedicationEngine route choice signature changed");
-    code=code.replace('function midazolamRoutePaths(paths:GenericDosePath[],selected:GenericDosePath){\n  const key=midazolamReasonKey(selected);\n  return paths.filter(path=>path.patient===selected.patient&&midazolamReasonKey(path)===key&&!path.id.endsWith(\'-half\'));\n}\n\n','function midazolamRoutePaths(paths:GenericDosePath[],selected:GenericDosePath){\n  const key=midazolamReasonKey(selected);\n  return paths.filter(path=>path.patient===selected.patient&&midazolamReasonKey(path)===key&&!path.id.endsWith(\'-half\'));\n}\n'+activePathHelper);
-    code=code.replace(routeChoicesSignature,routeChoicesReplacement);
+    // Route-to-path recalculation now lives directly in MedicationEngine so an
+    // edited route updates the dose synchronously without a build-time JSX rewrite.
 
     code=code.replace(
       'className={!customConcentrationMode&&concConfirmed?"selected":""}',

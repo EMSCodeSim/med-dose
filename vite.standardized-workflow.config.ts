@@ -48,21 +48,6 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
     if(!code.includes(reasonOld))throw new Error("MedicationEngine reason label signature changed");
     code=code.replace(reasonOld,reasonNew);
 
-    const routeListOld='(medication.id==="midazolam"?Array.from(new Set(midazolamRoutePaths(agentPaths,path).flatMap(p=>routesFor(p.route)))):routeChoices)';
-    const routeListNew='Array.from(new Set(standardizedRoutePaths(agentPaths,path,medication.id,conc).flatMap(p=>routesFor(p.route))))';
-    if(!code.includes(routeListOld))throw new Error("MedicationEngine route list signature changed");
-    code=code.replace(routeListOld,routeListNew);
-
-    const routeMatchOld='if(medication.id==="midazolam"){const matched=midazolamRoutePaths(agentPaths,path).find(p=>routesFor(p.route).includes(x));if(matched){activePath=matched;setPath(matched)}}';
-    const routeMatchNew='{const matched=standardizedRoutePaths(agentPaths,path,medication.id,conc).find(p=>routesFor(p.route).includes(x));if(matched){activePath=matched;setPath(matched)}}';
-    if(!code.includes(routeMatchOld))throw new Error("MedicationEngine route-to-path signature changed");
-    code=code.replace(routeMatchOld,routeMatchNew);
-
-    const routeDetailOld='<span>{medication.id==="midazolam"?midazolamReasonLabel(activePathForRoute(agentPaths,path,x)):"Approved route"}</span>';
-    const routeDetailNew='<span>{standardizedReasonLabel(standardizedRoutePaths(agentPaths,path,medication.id,conc).find(p=>routesFor(p.route).includes(x))||path)}</span>';
-    if(!code.includes(routeDetailOld))throw new Error("MedicationEngine route detail signature changed");
-    code=code.replace(routeDetailOld,routeDetailNew);
-
     const repeatAllowanceOld='maxAdministrations=path?.openEndedRepeats?Number.MAX_SAFE_INTEGER:path?.linkedDose?2:path?.maxAdministrations||1,';
     const repeatAllowanceNew='maxAdministrations=path?.openEndedRepeats||path?.maxCumulative!==undefined||path?.maxCumulativePerKg!==undefined||path?.absoluteCumulativeMax!==undefined?Number.MAX_SAFE_INTEGER:path?.linkedDose?2:path?.maxAdministrations||1,';
     if(!code.includes(repeatAllowanceOld))throw new Error("MedicationEngine repeat allowance signature changed");
@@ -84,11 +69,6 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
     const visibleStepsNew='const visibleSteps:Step[]=[...(medicationAgents.length>1?["medication" as Step]:[]),...(medication.id==="epinephrine"&&agentNeedsConcentration?["concentration" as Step]:[]),"indication","route",...(needsPatientInfo?["patient" as Step]:[]),...(medication.id!=="epinephrine"&&agentNeedsConcentration?["concentration" as Step]:[]),"safety","result"]';
     if(!code.includes(visibleStepsOld))throw new Error("MedicationEngine visible-step signature changed");
     code=code.replace(visibleStepsOld,visibleStepsNew);
-
-    const routePatientOld='const activeNeedsPatient=activeNeedsWeight||activeAgeRequired;if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(activeNeedsPatient)setStep("patient");else{setStep("safety")}';
-    const routePatientNew='const activeNeedsPatient=activeNeedsWeight||activeAgeRequired;const activeNeedsConcentration=activePath.formula.kind!=="instruction"&&!['+"'"+'mL'+"'"+','+"'"+'drops'+"'"+','+"'"+'sprays'+"'"+','+"'"+'device'+"'"+'].includes(activePath.formula.unit)&&(!!activePath.volumeRequired||!!activePath.suggestedConcentration);if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(activeNeedsPatient)setStep("patient");else if(medication.id!=="epinephrine"&&activeNeedsConcentration&&!concConfirmed)setStep("concentration");else{setStep("safety")}';
-    if(!code.includes(routePatientOld))throw new Error("MedicationEngine route-next-step signature changed");
-    code=code.replace(routePatientOld,routePatientNew);
 
     const finishPatientOld='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}};';
     const finishPatientNew='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(medication.id!=="epinephrine"&&needsConcentration&&!concConfirmed)setStep("concentration");else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}};';

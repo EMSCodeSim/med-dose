@@ -39,7 +39,7 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
     ageYears=ageUnit==="years"?Number(age):ageUnit==="months"?Number(age)/12:Number(age)/365.25,
     kg=weightUnit==="kg"?Number(weight):Number(weight)/2.20462,
     selectedAgentPaths=medication.paths.filter(x=>x.agent===selectedAgent),agentNeedsConcentration=selectedAgentPaths.some(pathUsesConcentration),agentHasConcentration=agentNeedsConcentration&&!!fieldConcentration,agentRequiresConcentration=selectedAgentPaths.length>0&&selectedAgentPaths.every(pathRequiresConcentration),
-    needsWeight=!!path&&(path.formula.kind==="perKg"||path.requiresWeight),ageChangesDose=!!path&&(path.formula.kind==="ageBands"||path.minAge!==undefined||path.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id)),ageRequired=ageChangesDose&&path?.patient!=="adult",effectiveAgeYears=age!==""?ageYears:path?.patient==="adult"?40:ageYears,needsPatientInfo=needsWeight||ageRequired,routeChoices=path?routesFor(path.route):[],selectedRoute=route,
+    needsWeight=!!path&&(path.formula.kind==="perKg"||path.requiresWeight),ageChangesDose=!!path&&(path.formula.kind==="ageBands"||path.minAge!==undefined||path.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id)),ageRequired=ageChangesDose&&path?.patient!=="adult",effectiveAgeYears=age!==""?ageYears:path?.patient==="adult"?40:ageYears,needsPatientInfo=needsWeight||ageRequired,routeSelections=path?routePathSelections(selectedAgentPaths,path):[],routeChoices=routeSelections.map(item=>item.route),selectedRoute=route,
     needsConcentration=!!path&&path.formula.kind!=="instruction"&&path.formula.unit!=="mL"&&path.formula.unit!=="drops"&&path.formula.unit!=="sprays"&&path.formula.unit!=="device"&&(!!path.volumeRequired||!!path.suggestedConcentration)&&(!["ODT","PO","Sublingual","PO — chew"].includes(selectedRoute)||!!path.suggestedConcentration),
     agentPaths=selectedAgentPaths,agentConcentrationPath=path&&path.formula.kind!=="instruction"&&!['mL','drops','sprays','device'].includes(path.formula.unit)?path:selectedAgentPaths.find(pathUsesConcentration)||null,
     concentrationUnit=(agentConcentrationPath?.formula.kind!=="instruction"?agentConcentrationPath?.formula.unit:"mg")||"mg",
@@ -94,6 +94,20 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
   };
   const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}};
   const showResult=()=>{if(result){setActual(String(nextDoseMaximum(path,result,kg,administrations)||result.minDose||result.dose));setStep("result")}};
+  const selectRoute=(nextRoute:string)=>{
+    if(!path)return;
+    const nextPath=routeSelections.find(item=>item.route===nextRoute)?.path||path;
+    const nextResult=calculateGenericDose(nextPath,effectiveAgeYears,kg,medication.id);
+    const nextNeedsWeight=nextPath.formula.kind==="perKg"||!!nextPath.requiresWeight;
+    const nextAgeRequired=nextPath.formula.kind==="ageBands"||nextPath.minAge!==undefined||nextPath.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id)||(medication.id==="fentanyl"&&nextPath.patient==="adult");
+    const safetyChanged=nextPath.id!==path.id&&(nextPath.baseContact!==path.baseContact||JSON.stringify(nextPath.special||[])!==JSON.stringify(path.special||[]));
+    setPath(nextPath);setRoute(nextRoute);setActual(String(nextResult.numeric?(nextResult.minDose||nextResult.dose):1));setReadyForAnother(false);
+    if(safetyChanged){setContraChecks([]);setSpecialChecks([]);setBaseApproved(false);setBasePhysician("");setReturnToResult(false)}
+    if((nextNeedsWeight&&!(kg>0))||(nextAgeRequired&&age===""))setStep("patient");
+    else if(returnToResult&&safetyComplete&&!safetyChanged){setReturnToResult(false);setStep("result")}
+    else if(safetyChanged||contraindications.length||applicableSpecialChecks(nextPath).length||nextPath.baseContact)setStep("safety");
+    else{setReturnToResult(false);setStep("result")}
+  };
   const reportDetails=(administration=path?.administration)=>({
     concentrationRequired:needsConcentration,
     safety:contraindications.length||specialChecksText.length||path?.baseContact?"All required safety checks confirmed":"No additional safety confirmation required",
@@ -138,7 +152,7 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
       {id:"medication",label:"MEDICATION",value:selectedAgent||medication.name,detail:selectedAgent?"Selected from medication list":"Select medication agent",complete:!!selectedAgent,active:step==="medication",available:true,onClick:()=>medicationAgents.length>1&&setStep("medication")},
       {id:"concentration",label:"CONCENTRATION",value:conc>0?(customConcentrationMode?`${fmt(conc)} ${concentrationUnit}/mL • Custom`:fieldConcentration?.label||`${fmt(conc)} ${concentrationUnit}/mL`):"",detail:concConfirmed?(customConcentrationMode?"Custom label confirmed":"Admin concentration selected"):"Select concentration",complete:agentNeedsConcentration&&conc>0&&concConfirmed,notRequired:!agentNeedsConcentration,active:step==="concentration",available:!!selectedAgent,onClick:()=>agentNeedsConcentration&&setStep("concentration")},
       {id:"indication",label:"INDICATION",value:path?.label||"",detail:path?"DMP pathway selected":"Select reason for use",complete:!!path,active:step==="indication",available:medConfirmed&&(!agentNeedsConcentration||(conc>0&&concConfirmed)),onClick:()=>setStep("indication")},
-      {id:"route",label:"ROUTE",value:selectedRoute,detail:selectedRoute?"Route selected":"Select route",complete:!!path&&!!selectedRoute,active:step==="route",available:!!path,onClick:()=>setStep("route")},
+      {id:"route",label:"ROUTE",value:selectedRoute,detail:selectedRoute?"Route selected":"Select route",complete:!!path&&!!selectedRoute,active:step==="route",available:!!path,onClick:()=>{setReturnToResult(step==="result");setStep("route")}},
       {id:"patient",label:"PATIENT",value:patientText,detail:needsPatientInfo?"Dose-changing information":"No patient entry changes dose",complete:needsPatientInfo&&patientComplete,notRequired:!!path&&!needsPatientInfo,active:step==="patient",available:!!path&&!!selectedRoute,onClick:()=>needsPatientInfo&&setStep("patient")},
       {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyComplete?"One confirmation":"Review complete safety list",complete:(contraindications.length>0||specialChecksText.length>0||!!path?.baseContact)&&safetyComplete,notRequired:!!path&&contraindications.length===0&&specialChecksText.length===0&&!path.baseContact,active:step==="safety",available:patientComplete&&(!agentNeedsConcentration||concConfirmed),onClick:()=>setStep("safety")},
       {id:"result",label:"FINAL DOSE",value:result?`${finalGiveText} • ${finalVolumeText}`:"",detail:safetyComplete?selectedRoute:"Complete required checks",complete:step==="result"&&safetyComplete,active:step==="result",available:safetyComplete&&(!agentNeedsConcentration||concConfirmed),onClick:()=>setStep("result")},
@@ -148,7 +162,7 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
 
       {step==="indication"&&<><small className="eyebrow">INDICATION</small><h1>Why is {selectedAgent} being given?</h1><div className="indication-age-groups">{(["adult","pediatric","all"] as const).map(group=>{const options=agentPaths.filter(x=>x.patient===group);if(!options.length)return null;return <section key={group} className={`indication-age-group ${group}`}><header><b>{group==="adult"?"ADULT":group==="pediatric"?"PEDIATRIC":"ALL AGES"}</b></header><div className="builder-options">{options.map(x=><button className={path?.id===x.id?"selected":""} key={x.id} onClick={()=>choosePath(x)}><b>{cleanIndicationLabel(x.label)}</b><span>{x.protocol}</span></button>)}</div></section>})}</div></>}
 
-      {step==="route"&&path&&<><small className="eyebrow">ROUTE</small><h1>Select route</h1><div className="route-quick-pick-label">ROUTE QUICK PICK</div><div className="builder-options route-options">{routeChoices.map(x=><button key={x} className={selectedRoute===x?"selected":""} onClick={()=>{setRoute(x);if(returnToResult&&patientComplete&&safetyComplete){setReturnToResult(false);setStep("result")}else if(needsPatientInfo&&!patientComplete)setStep("patient");else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}}><b>{x}</b><span>Approved route</span></button>)}</div></>}
+      {step==="route"&&path&&<><small className="eyebrow">ROUTE</small><h1>Select route</h1><div className="route-quick-pick-label">ROUTE QUICK PICK</div><div className="builder-options route-options">{routeChoices.map(x=><button key={x} className={selectedRoute===x?"selected":""} onClick={()=>selectRoute(x)}><b>{x}</b><span>{routeSelections.find(item=>item.route===x)?.path.id===path.id?"Approved route":"Changes dose pathway"}</span></button>)}</div></>}
 
       {step==="patient"&&path&&<><small className="eyebrow">PATIENT INFORMATION</small><h1>Enter only what affects this dose</h1>{ageRequired&&<><label className="giant-input"><span>Patient age</span><input autoFocus inputMode="decimal" value={age} onChange={e=>setAge(e.target.value)} placeholder="0"/></label><div className="age-unit-toggle">{(["years","months","days"] as AgeUnit[]).map(x=><button key={x} className={ageUnit===x?"selected":""} onClick={()=>setAgeUnit(x)}>{x}</button>)}</div></>}{needsWeight&&<WeightQuickSelect kind={path.patient==="pediatric"?"pediatric":"adult"} valueKg={kg>0?kg:0} onSelect={(nextKg,source)=>{setWeightUnit("kg");setWeight(String(nextKg));setWeightSource(source);setContraChecks([]);setSpecialChecks([]);const nextEligibility=path?genericEligibilityReason(path,ageRequired?effectiveAgeYears:path.patient==="pediatric"?8:40,nextKg):"";if((!ageRequired||age!=="")&&!nextEligibility){if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}}}/>}{ageRequired&&age!==""&&<div className="classification"><span>DMP classification</span><b>{path.patient==="adult"?"Adult":path.patient==="pediatric"?"Pediatric":"All ages"}</b></div>}{eligibility&&(ageRequired?age!=="":weight!=="")&&<div className="hard-stop" role="alert"><b>THIS PATHWAY DOES NOT APPLY</b><span>{eligibility}</span><button className="hard-stop-recovery" onClick={()=>{setPath(null);setAge("");setWeight("");setWeightSource("");setStep("indication")}}>Choose the correct pathway →</button></div>}<button className="continue" disabled={(ageRequired&&!age)||(needsWeight&&!(kg>0))||!!eligibility} onClick={finishPatient}>Continue to {needsConcentrationStep?"concentration":"safety checks"} <span>→</span></button></>}
 
@@ -288,6 +302,25 @@ function weightBasedMath(path:GenericDosePath,weight:number,protocolDose:number,
   return text;
 }
 
-function routesFor(route:string){const map:Record<string,string[]>={"IV/IM/PO/ODT":["IV","IM","PO","ODT"],"IV/PO/ODT":["IV","PO","ODT"],"IV/IO/IM/IN":["IV/IO","IM","IN"],"IV/IO/IM":["IV/IO","IM"],"IV/IM":["IV","IM"],"Slow IV/IM":["IV","IM"],"IM or ODT":["IM","ODT"]};return map[route]||[route]}
+function routePathSelections(paths:GenericDosePath[],current:GenericDosePath){
+  const indication=routeReasonKey(current);
+  const currentFormula=formulaSignature(current);
+  const siblings=paths.filter(candidate=>candidate.patient===current.patient&&candidate.protocol===current.protocol&&routeReasonKey(candidate)===indication&&!/-half$/.test(candidate.id)).sort((a,b)=>Number(b.id===current.id)-Number(a.id===current.id)||Number(formulaSignature(b)===currentFormula)-Number(formulaSignature(a)===currentFormula));
+  const selections:{route:string;path:GenericDosePath}[]=[];
+  for(const candidate of siblings.length?siblings:[current])for(const route of routesFor(candidate.route))if(!selections.some(item=>item.route===route))selections.push({route,path:candidate});
+  return selections;
+}
+
+function formulaSignature(path:GenericDosePath){return JSON.stringify(path.formula)}
+
+function routeReasonKey(path:GenericDosePath){
+  let label=String(path.label||"");
+  label=label.replace(/\s*[—-]\s*(?:½|1\/2|half)\s*dose option.*$/i,"");
+  label=label.replace(/\s*[—-]\s*\d+(?:\.\d+)?\s*(?:mg|mcg|g|mEq)(?:\/kg)?\s*(?:upper-end|lower-dose)?\s*option.*$/i,"");
+  label=label.replace(/\s*[—-]\s*(?:(?:adult|pediatric|peds?)(?:\s+\d+(?:\.\d+)?(?:\s*[–-]\s*\d+(?:\.\d+)?)?\s*(?:years?|months?|days?)?)?\s*)?(?:IV\/IO|IV|IO|IM\/IN|IM|IN|PO|ODT|SL|sublingual|nebulized|neb)(?:\s+route)?\s*$/i,"");
+  return cleanIndicationLabel(label).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+}
+
+function routesFor(route:string){const map:Record<string,string[]>={"IV/IM/PO/ODT":["IV","IM","PO","ODT"],"IV/PO/ODT":["IV","PO","ODT"],"IV/IO/IM/IN":["IV/IO","IM","IN"],"IV/IO/IM":["IV/IO","IM"],"IM/IN":["IM","IN"],"IV/IM":["IV","IM"],"Slow IV/IM":["IV","IM"],"IM or ODT":["IM","ODT"]};return map[route]||[route]}
 function ageLabel(years:number){return years<1?`${Math.round(years*12)} months`:`${fmt(years)} years`}
 function fmt(n:number){const d=Math.abs(n)>0&&Math.abs(n)<1?3:2;return Number.isFinite(n)?Number(n.toFixed(d)).toString():"—"}
