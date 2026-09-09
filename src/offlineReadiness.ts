@@ -1,7 +1,7 @@
-export const OFFLINE_BUNDLE_VERSION="55";
+export const OFFLINE_BUNDLE_VERSION="56";
 export const OFFLINE_READY_KEY="mmd-offline-ready-v1";
 
-export type OfflineReadyRecord={bundleVersion:string;releaseVersion:number|null;cachedFiles:number;verifiedAt:number};
+export type OfflineReadyRecord={bundleVersion:string;releaseVersion:number|null;cachedFiles:number;verifiedAt:number;hiddenMedicationIds?:string[]};
 type WorkerReply={ok:boolean;cachedFiles?:number;missing?:string[];error?:string};
 
 export function readOfflineReady():OfflineReadyRecord|null{

@@ -63,10 +63,10 @@ export default function FieldApp(){
     try{
       const result=await downloadLatestMedicationRelease();
       const meta=result.meta;
-      if(!meta)throw new Error("No live medication release is available to download.");
       setReleaseMeta(meta);if(result.updated)setReleaseRevision(value=>value+1);
       const cachedFiles=await cacheAndVerifyOfflineFiles();
-      const record={bundleVersion:OFFLINE_BUNDLE_VERSION,releaseVersion:meta.version,cachedFiles,verifiedAt:Date.now()};
+      const visibility=readFieldVisibility(),hiddenMedicationIds=Object.entries(visibility).filter(([,hidden])=>hidden===true).map(([id])=>id).sort();
+      const record={bundleVersion:OFFLINE_BUNDLE_VERSION,releaseVersion:meta?.version??null,cachedFiles,verifiedAt:Date.now(),hiddenMedicationIds};
       saveOfflineReady(record);setOfflineRecord(record);setOfflineState("ready");setSyncState(result.updated?"updated":"idle");
     }catch(error){setOfflineState("failed");setOfflineError(error instanceof Error?error.message:"Offline download failed. Check your connection and retry.")}
   };
@@ -75,7 +75,7 @@ export default function FieldApp(){
     kg=hasWeight?Number(patient.weightKg):0,age=hasAge?Number(patient.ageYears):0,patientKind:EncounterPatient["patient"]=hasAge&&age<12?"pediatric":"adult";
   const initialPatient:EncounterPatient={patient:patientKind,...(hasAge?{ageYears:age}:{}),...(hasWeight?{weightKg:kg}:{})};
 
-  const meds=useMemo(()=>{const catalog=loadMedicationCatalogState(),fieldVisibility=readFieldVisibility(),releaseHidden=new Set(releaseMeta?.hiddenMedicationIds||[]);const candidateIds=releaseMeta?.medicationIds?.length?releaseMeta.medicationIds:[...DEFAULT_FIELD_MEDICATION_IDS,...Object.keys(catalog)];const ids=Array.from(new Set(candidateIds)).filter(id=>{const item=catalog[id],hasDownloadedVisibility=Object.prototype.hasOwnProperty.call(fieldVisibility,id),hidden=hasDownloadedVisibility?fieldVisibility[id]===true:releaseHidden.has(id);return !hidden&&!item?.retired&&!item?.pending&&item?.visible!==false});return ids.map(id=>{const def=fieldMedicationDefinition(id);if(!def)return null;const status=medicationApprovalStatus(id);return{id,def,status}}).filter(Boolean) as {id:string;def:NonNullable<ReturnType<typeof fieldMedicationDefinition>>;status:ReturnType<typeof medicationApprovalStatus>}[]},[releaseRevision,releaseMeta?.version,releaseMeta?.hiddenMedicationIds]);
+  const meds=useMemo(()=>{const catalog=loadMedicationCatalogState(),fieldVisibility=readFieldVisibility(),releaseHidden=new Set([...(releaseMeta?.hiddenMedicationIds||[]),...(offlineRecord?.hiddenMedicationIds||[])]);const candidateIds=releaseMeta?.medicationIds?.length?releaseMeta.medicationIds:[...DEFAULT_FIELD_MEDICATION_IDS,...Object.keys(catalog)];const ids=Array.from(new Set(candidateIds)).filter(id=>{const item=catalog[id],hasDownloadedVisibility=Object.prototype.hasOwnProperty.call(fieldVisibility,id),hidden=hasDownloadedVisibility?fieldVisibility[id]===true:releaseHidden.has(id);return !hidden&&!item?.retired&&!item?.pending&&item?.visible!==false});return ids.map(id=>{const def=fieldMedicationDefinition(id);if(!def)return null;const status=medicationApprovalStatus(id);return{id,def,status}}).filter(Boolean) as {id:string;def:NonNullable<ReturnType<typeof fieldMedicationDefinition>>;status:ReturnType<typeof medicationApprovalStatus>}[]},[releaseRevision,releaseMeta?.version,releaseMeta?.hiddenMedicationIds,offlineRecord?.hiddenMedicationIds]);
   const approvedMeds=useMemo(()=>meds.filter(({status})=>status.state==="approved"),[meds]);
   const approvedIds=useMemo(()=>new Set(approvedMeds.map(x=>x.id)),[approvedMeds]);
   const visible=useMemo(()=>approvedMeds.filter(({id,def})=>{
