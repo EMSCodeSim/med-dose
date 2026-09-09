@@ -19,7 +19,7 @@ export type ReleasePayload={
   catalog:MedicationCatalogState;
   clinicalOverrides:ClinicalOverrideState;
 };
-export type ReleaseMeta={version:number;publishedAt:string;protocolRevision:string;medicationCount:number;medicationIds:string[]};
+export type ReleaseMeta={version:number;publishedAt:string;protocolRevision:string;medicationCount:number;medicationIds:string[];hiddenMedicationIds?:string[]};
 export type MedicationReleaseRow={release_version:number;protocol_revision:string;payload:ReleasePayload;medication_count:number;published_at:string};
 export type FieldVisibilityState=Record<string,boolean>;
 
@@ -50,27 +50,36 @@ async function downloadFieldVisibility(){
   const next=Object.fromEntries((data||[]).map(row=>[String((row as {medication_id:string}).medication_id),Boolean((row as {hidden:boolean}).hidden)]));
   const before=JSON.stringify(readFieldVisibility()),after=JSON.stringify(next);
   if(before!==after)localStorage.setItem(FIELD_VISIBILITY_KEY,after);
-  return before!==after;
+  return {updated:before!==after,state:next};
 }
 
-export function installMedicationRelease(row:MedicationReleaseRow){
+const hiddenMedicationIds=(visibility:FieldVisibilityState)=>Object.entries(visibility).filter(([,hidden])=>hidden===true).map(([id])=>id).sort();
+function saveReleaseVisibility(meta:ReleaseMeta,visibility:FieldVisibilityState){
+  const hiddenIds=hiddenMedicationIds(visibility),before=JSON.stringify(meta.hiddenMedicationIds||[]),after=JSON.stringify(hiddenIds);
+  if(before===after)return meta;
+  const next={...meta,hiddenMedicationIds:hiddenIds};
+  localStorage.setItem(RELEASE_META_KEY,JSON.stringify(next));
+  return next;
+}
+
+export function installMedicationRelease(row:MedicationReleaseRow,visibility:FieldVisibilityState=readFieldVisibility()){
   if(!validateReleasePayload(row.payload))throw new Error("The downloaded medication release failed validation.");
   if(row.payload.medicationIds.length!==Number(row.medication_count))throw new Error("The downloaded medication count failed validation.");
   localStorage.setItem(ADMIN_MEDICATION_STATE_KEY,JSON.stringify(row.payload.medicationState));
   localStorage.setItem(REVIEW_KEY,JSON.stringify(row.payload.reviews));
   localStorage.setItem(MEDICATION_CATALOG_KEY,JSON.stringify(row.payload.catalog));
   localStorage.setItem(CLINICAL_OVERRIDE_KEY,JSON.stringify(row.payload.clinicalOverrides));
-  const meta:ReleaseMeta={version:Number(row.release_version),publishedAt:row.published_at,protocolRevision:row.protocol_revision,medicationCount:Number(row.medication_count),medicationIds:row.payload.medicationIds};
+  const meta:ReleaseMeta={version:Number(row.release_version),publishedAt:row.published_at,protocolRevision:row.protocol_revision,medicationCount:Number(row.medication_count),medicationIds:row.payload.medicationIds,hiddenMedicationIds:hiddenMedicationIds(visibility)};
   localStorage.setItem(RELEASE_META_KEY,JSON.stringify(meta));
   return meta;
 }
 
 export async function downloadLatestMedicationRelease(){
-  const visibilityUpdated=await downloadFieldVisibility();
+  const visibility=await downloadFieldVisibility();
   const {data,error}=await neonPublicClient.from("medication_releases").select("release_version,protocol_revision,payload,medication_count,published_at").order("release_version",{ascending:false}).limit(1).maybeSingle();
   if(error)throw error;
-  if(!data)return {updated:visibilityUpdated,meta:readReleaseMeta()};
+  if(!data){const current=readReleaseMeta();return {updated:visibility.updated,meta:current?saveReleaseVisibility(current,visibility.state):null}}
   const row=data as MedicationReleaseRow,current=readReleaseMeta();
-  if(current&&current.version>=Number(row.release_version))return {updated:visibilityUpdated,meta:current};
-  return {updated:true,meta:installMedicationRelease(row)};
+  if(current&&current.version>=Number(row.release_version))return {updated:visibility.updated,meta:saveReleaseVisibility(current,visibility.state)};
+  return {updated:true,meta:installMedicationRelease(row,visibility.state)};
 }
