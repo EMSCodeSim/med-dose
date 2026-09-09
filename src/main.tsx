@@ -18,6 +18,7 @@ import "./fieldSpeed.css";
 import "./fieldReportAlwaysVisible.css";
 import "./fieldDetailsReadabilityFix.css";
 import "./fieldRelease.css";
+import "./adminDesktop.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><Home /></React.StrictMode>);
 
