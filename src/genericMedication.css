@@ -587,6 +587,7 @@
 .final-dose-card .dashboard-give-now-inline { width:100%; min-height:88px; margin-top:16px; border-radius:12px; }
 .final-dose-card .dashboard-give-now-inline strong { font-size:24px; }
 .final-action-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0; }
+.final-action-row.single { grid-template-columns:1fr; }
 .final-action-row>button { min-height:72px; padding:10px; border:2px solid #9fbac8; border-radius:12px; background:#fff; color:#173f56; text-align:left; }
 .final-action-row>button.active { border-color:#0873b5; background:#edf8fe; }
 .final-action-row small,.final-action-row strong { display:block; }
@@ -599,6 +600,7 @@
 .final-all-details { margin:12px 0; overflow:hidden; border:1px solid #c8d8df; border-radius:12px; background:#fff; }
 .final-all-details>summary { padding:15px; cursor:pointer; color:#365565; font-size:12px; font-weight:900; letter-spacing:.06em; }
 .final-all-details-body { padding:0 12px 12px; }
+.final-all-details-body>.final-math-line { margin-top:0; }
 .final-all-details .result-collapsible,.final-all-details .generic-hidden-old-monitoring { display:none !important; }
 .final-all-details .calculation-details { margin-top:10px; border:0; }
 .final-all-details .calculation-details>summary { display:none; }
