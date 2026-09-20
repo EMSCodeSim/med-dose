@@ -39,7 +39,7 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
     ageYears=ageUnit==="years"?Number(age):ageUnit==="months"?Number(age)/12:Number(age)/365.25,
     kg=weightUnit==="kg"?Number(weight):Number(weight)/2.20462,
     selectedAgentPaths=medication.paths.filter(x=>x.agent===selectedAgent),agentNeedsConcentration=selectedAgentPaths.some(pathUsesConcentration),agentHasConcentration=agentNeedsConcentration&&!!fieldConcentration,agentRequiresConcentration=selectedAgentPaths.length>0&&selectedAgentPaths.every(pathRequiresConcentration),
-    needsWeight=!!path&&(path.formula.kind==="perKg"||path.requiresWeight),ageChangesDose=!!path&&(path.formula.kind==="ageBands"||path.minAge!==undefined||path.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id)),ageRequired=ageChangesDose&&path?.patient!=="adult",effectiveAgeYears=age!==""?ageYears:path?.patient==="adult"?40:ageYears,needsPatientInfo=needsWeight||ageRequired,routeSelections=path?routePathSelections(selectedAgentPaths,path):[],routeChoices=routeSelections.map(item=>item.route),selectedRoute=route,
+    needsWeight=!!path&&(path.formula.kind==="perKg"||path.requiresWeight),ageChangesDose=!!path&&(path.formula.kind==="ageBands"||path.minAge!==undefined||path.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id)||(medication.id==="fentanyl"&&path.patient==="adult")),ageRequired=ageChangesDose,effectiveAgeYears=age!==""?ageYears:path?.patient==="adult"?40:ageYears,needsPatientInfo=needsWeight||ageRequired,routeSelections=path?routePathSelections(selectedAgentPaths,path):[],routeChoices=routeSelections.map(item=>item.route),selectedRoute=route,
     needsConcentration=!!path&&path.formula.kind!=="instruction"&&path.formula.unit!=="mL"&&path.formula.unit!=="drops"&&path.formula.unit!=="sprays"&&path.formula.unit!=="device"&&(!!path.volumeRequired||!!path.suggestedConcentration)&&(!["ODT","PO","Sublingual","PO — chew"].includes(selectedRoute)||!!path.suggestedConcentration),
     agentPaths=selectedAgentPaths,agentConcentrationPath=path&&path.formula.kind!=="instruction"&&!['mL','drops','sprays','device'].includes(path.formula.unit)?path:selectedAgentPaths.find(pathUsesConcentration)||null,
     concentrationUnit=(agentConcentrationPath?.formula.kind!=="instruction"?agentConcentrationPath?.formula.unit:"mg")||"mg",
@@ -63,6 +63,11 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
     repeatActionForFinal=result?.numeric&&!isDopamine&&!linkedDose&&administrations.length>0&&repeatRemaining>0&&doseMaximum>0?{enabled:secondsLeft===0,label:secondsLeft?"REASSESS / WAIT":"GIVE NEXT DOSE",text:secondsLeft?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`:`${fmt(doseMaximum)} ${finalResultUnit}${needsConcentration?` • ${fmt(doseMaximum/conc)} mL`:""}`,detail:secondsLeft?"Repeat button unlocks when the medication-specific interval is complete.":"Tap to record the next dose using the current medication-specific limit.",onGive:()=>recordAmount(doseMaximum)}:null;
 
   useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);
+  useEffect(()=>{
+    if(!result?.numeric)return;
+    setActual(String(result.minDose||result.dose));
+    setEditingFinalDose(false);
+  },[path?.id,result?.dose,result?.minDose]);
   useEffect(()=>{
     if(step!=="result")return;
     const resetFinalTop=()=>{
@@ -231,7 +236,7 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
 export function calculateGenericDose(path:GenericDosePath,age:number,weight:number,medicationId:string){
   const f=path.formula;if(f.kind==="instruction")return{numeric:false,dose:0,minDose:0,unit:f.unit,text:f.text};let dose=0,minDose=0,unit=f.unit;
   if(f.kind==="fixed")dose=f.amount;if(f.kind==="range"){dose=f.max;minDose=f.min}if(f.kind==="perKg")dose=Math.min(f.max??Infinity,Math.max(f.min??0,weight*f.amount));if(f.kind==="ageBands")dose=f.bands.find(x=>age>=x.min&&age<x.max)?.amount||0;
-  if(medicationId==="diltiazem"&&age>65){dose*=.5;dose=Math.min(dose,10)}if((medicationId==="antipsychotics"||medicationId==="haloperidol")&&age>=65)dose*=.5;if((medicationId==="diazepam"||medicationId==="lorazepam")&&path.patient==="adult"&&(age>65||weight<50)){dose*=.5;minDose*=.5}
+  if(medicationId==="fentanyl"&&path.patient==="adult")dose=Math.min(dose,age>65?50:100);if(medicationId==="diltiazem"&&age>65){dose*=.5;dose=Math.min(dose,10)}if((medicationId==="antipsychotics"||medicationId==="haloperidol")&&age>=65)dose*=.5;if((medicationId==="diazepam"||medicationId==="lorazepam")&&path.patient==="adult"&&(age>65||weight<50)){dose*=.5;minDose*=.5}
   const rate=medicationId==="dopamine"?"/min":"";return{numeric:true,dose,minDose,unit,text:f.kind==="range"?`${fmt(minDose)}–${fmt(dose)} ${unit}`:`${fmt(dose)} ${unit}${rate}`};
 }
 

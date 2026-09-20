@@ -55,8 +55,8 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
 
     const ageRequiredOld='ageRequired=ageChangesDose&&path?.patient!=="adult"';
     const ageRequiredNew='ageRequired=ageChangesDose';
-    if(!code.includes(ageRequiredOld))throw new Error("MedicationEngine age-required signature changed");
-    code=code.replace(ageRequiredOld,ageRequiredNew);
+    if(code.includes(ageRequiredOld))code=code.replace(ageRequiredOld,ageRequiredNew);
+    else if(!code.includes(ageRequiredNew))throw new Error("MedicationEngine age-required signature changed");
 
     // Field-first sequence. Epinephrine remains concentration-first until its
     // concentration-specific pathway data is normalized independently.

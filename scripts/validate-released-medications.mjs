@@ -21,23 +21,26 @@ function representativeWeight(path){
   return path.patient==="pediatric"?20:80;
 }
 
-function referenceDose(formula,age,kg){
+function referenceDose(formula,age,kg,medicationId,patient){
+  let result;
   switch(formula.kind){
     case "instruction": return {numeric:false,text:String(formula.text||"")};
-    case "fixed": return {numeric:true,dose:Number(formula.amount),minDose:0,unit:formula.unit};
-    case "range": return {numeric:true,dose:Number(formula.max),minDose:Number(formula.min),unit:formula.unit};
+    case "fixed": result={numeric:true,dose:Number(formula.amount),minDose:0,unit:formula.unit};break;
+    case "range": result={numeric:true,dose:Number(formula.max),minDose:Number(formula.min),unit:formula.unit};break;
     case "perKg": {
       let dose=Number(formula.amount)*kg;
       if(formula.min!==undefined)dose=Math.max(dose,Number(formula.min));
       if(formula.max!==undefined)dose=Math.min(dose,Number(formula.max));
-      return {numeric:true,dose,minDose:0,unit:formula.unit};
+      result={numeric:true,dose,minDose:0,unit:formula.unit};break;
     }
     case "ageBands": {
       const band=formula.bands.find(x=>age>=Number(x.min)&&age<Number(x.max))||formula.bands.at(-1);
-      return {numeric:true,dose:Number(band?.amount||0),minDose:0,unit:formula.unit};
+      result={numeric:true,dose:Number(band?.amount||0),minDose:0,unit:formula.unit};break;
     }
     default:return {numeric:false,text:"Unknown formula"};
   }
+  if(medicationId==="fentanyl"&&patient==="adult")result.dose=Math.min(result.dose,age>65?50:100);
+  return result;
 }
 
 const server=await createServer({server:{middlewareMode:true},appType:"custom",logLevel:"silent"});
@@ -84,7 +87,7 @@ try{
 
       const age=representativeAge(path),kg=representativeWeight(path);
       const live=engine.calculateGenericDose(path,age,kg,med.id);
-      const ref=referenceDose(f,age,kg);
+      const ref=referenceDose(f,age,kg,med.id,path.patient);
       if(ref.numeric){
         if(!live?.numeric)failures.push(`${med.id}/${path.id}: live engine returned non-numeric result for numeric formula`);
         else {
@@ -96,6 +99,24 @@ try{
       }else if(live?.numeric||!String(live?.text||"").trim())failures.push(`${med.id}/${path.id}: instruction pathway did not return explanatory treatment text`);
     }
   }
+
+  const fentanyl=meds.find(m=>m.id==="fentanyl");
+  const adultHigh=fentanyl?.paths.find(path=>path.id==="adult-ivio");
+  const adultLow=fentanyl?.paths.find(path=>path.id==="adult-ivio-low");
+  const pediatric=fentanyl?.paths.find(path=>path.id==="ped-ivio");
+  if(!adultHigh||!adultLow||!pediatric)failures.push("fentanyl: cap regression pathways are missing");
+  else{
+    const standardAdult=engine.calculateGenericDose(adultHigh,65,80,"fentanyl");
+    const olderAdult=engine.calculateGenericDose(adultHigh,66,80,"fentanyl");
+    const olderAdultLow=engine.calculateGenericDose(adultLow,66,80,"fentanyl");
+    const pediatricDose=engine.calculateGenericDose(pediatric,10,40,"fentanyl");
+    if(!approx(standardAdult.dose,100))failures.push(`fentanyl: 80 kg adult cap expected 100 mcg, received ${standardAdult.dose}`);
+    if(!approx(olderAdult.dose,50))failures.push(`fentanyl: 80 kg adult over 65 cap expected 50 mcg, received ${olderAdult.dose}`);
+    if(!approx(olderAdultLow.dose,50))failures.push(`fentanyl: lower-dose adult over 65 cap expected 50 mcg, received ${olderAdultLow.dose}`);
+    if(!approx(pediatricDose.dose,80))failures.push(`fentanyl: pediatric pathway must remain uncapped at 80 mcg, received ${pediatricDose.dose}`);
+  }
+
+  if(!engineSource.includes('setActual(String(result.minDose||result.dose))'))failures.push("MedicationEngine no longer synchronizes the administration amount after a dose-changing patient edit");
 
   if(failures.length){console.error(`Clinical release validation failed (${failures.length}):\n- ${failures.join("\n- ")}`);process.exitCode=1}
   else console.log(`Clinical release validation passed: ${meds.length} released medications, ${pathCount} dose pathways, one shared workflow, independent dose checks enabled.`);
