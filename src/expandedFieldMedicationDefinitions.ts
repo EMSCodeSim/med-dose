@@ -24,7 +24,7 @@ function droperidolDefinition():GenericMedication|null{
   const antipsychotics=genericMedication("antipsychotics");
   const antiemetics=genericMedication("antiemetics");
   const antipsychoticPaths=(antipsychotics?.paths.filter(path=>path.agent.toLowerCase()==="droperidol")||[]).map(elderlyHalfDosePath);
-  const antiemeticPaths=antiemetics?.paths.filter(path=>path.agent.toLowerCase()==="droperidol")||[];
+  const antiemeticPaths=(antiemetics?.paths.filter(path=>path.agent.toLowerCase()==="droperidol")||[]).map(elderlyHalfDosePath);
   const paths:GenericDosePath[]=[...antipsychoticPaths,...antiemeticPaths];
   if(!paths.length)return null;
   return {

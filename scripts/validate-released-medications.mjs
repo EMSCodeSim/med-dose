@@ -118,6 +118,35 @@ try{
 
   if(!engineSource.includes('setActual(String(result.minDose||result.dose))'))failures.push("MedicationEngine no longer synchronizes the administration amount after a dose-changing patient edit");
 
+  const droperidol=meds.find(m=>m.id==="droperidol");
+  const dropAdult=droperidol?.paths.find(path=>path.id==="drop-adult");
+  const dropImminent=droperidol?.paths.find(path=>path.id==="drop-imminent");
+  const dropPediatric=droperidol?.paths.find(path=>path.id==="drop-ped");
+  const dropAntiemetic=droperidol?.paths.find(path=>path.id==="drop-antiemetic");
+  if(!droperidol||!dropAdult||!dropImminent||!dropPediatric||!dropAntiemetic)failures.push("droperidol: all four July 2026 protocol pathways are required");
+  else{
+    const cases=[
+      ["adult agitation under 65",dropAdult,64,80,5],
+      ["adult agitation age 65+",dropAdult,65,80,2.5],
+      ["imminent harm under 65",dropImminent,64,80,10],
+      ["imminent harm age 65+",dropImminent,65,80,5],
+      ["adult antiemetic under 65",dropAntiemetic,64,80,1.25],
+      ["adult antiemetic age 65+",dropAntiemetic,65,80,.625],
+      ["pediatric 30 kg",dropPediatric,10,30,.75],
+      ["pediatric maximum",dropPediatric,11,60,1.25],
+    ];
+    for(const [label,path,age,kg,expected] of cases){
+      const result=engine.calculateGenericDose(path,age,kg,"droperidol");
+      if(!approx(result.dose,expected))failures.push(`droperidol: ${label} expected ${expected} mg, received ${result.dose}`);
+    }
+    for(const path of [dropAdult,dropImminent,dropPediatric,dropAntiemetic]){
+      if(!Array.isArray(path.monitoring)||path.monitoring.length<3)failures.push(`droperidol/${path.id}: protocol-specific monitoring is incomplete`);
+    }
+    if(dropAdult.repeatAfterMinutes!==5||dropAdult.maxAdministrations!==2)failures.push("droperidol: adult agitation repeat must remain one repeat after 5 minutes");
+    if(dropImminent.route!=="IM")failures.push("droperidol: imminent-harm pathway must remain IM-only");
+    if(dropPediatric.formula.kind!=="perKg"||!approx(dropPediatric.formula.amount,.025)||!approx(dropPediatric.formula.max,1.25))failures.push("droperidol: pediatric pathway must remain 0.025 mg/kg, maximum 1.25 mg");
+  }
+
   if(failures.length){console.error(`Clinical release validation failed (${failures.length}):\n- ${failures.join("\n- ")}`);process.exitCode=1}
   else console.log(`Clinical release validation passed: ${meds.length} released medications, ${pathCount} dose pathways, one shared workflow, independent dose checks enabled.`);
 }finally{
