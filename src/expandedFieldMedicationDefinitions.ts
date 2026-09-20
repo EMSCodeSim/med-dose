@@ -59,7 +59,19 @@ function ketorolacDefinition():GenericMedication|null{
     name:"Ketorolac (Toradol)",
     protocolId:"9225",
     page:162,
-    contraindications:unique(nsaids.contraindications),
+    contraindications:unique([
+      ...nsaids.contraindications,
+      "Patient is under 8 years old or over 65 years old",
+      "Concomitant NSAID use, including aspirin, ibuprofen, or naproxen",
+    ]),
+    clinicalOverview:[
+      "Nonsteroidal anti-inflammatory drug (NSAID): cyclooxygenase inhibition blocks prostaglandin synthesis, reducing pain and inflammation while also affecting renal blood flow and stomach acid secretion.",
+      "Onset of IV analgesia is within 5 minutes; peak effect occurs at approximately 1 hour.",
+      "Duration of analgesia is approximately 4 hours.",
+      "Indicated for acute mild, moderate, or severe pain, including suspected kidney stones, acute exacerbations of chronic pain, and musculoskeletal pain. Ketorolac is specifically considered for moderate to severe pain; fever treatment in DMP 9225 applies to ibuprofen only.",
+      "The pain-management guideline supports multimodal analgesia with an NSAID plus an opioid or other sedating agent when clinically appropriate. Strongly consider reduced dosing in frail patients; ketorolac remains contraindicated over age 65.",
+      "Avoid concomitant NSAIDs and anticoagulant or antiplatelet medications because of bleeding and renal risk.",
+    ],
     paths,
   };
 }

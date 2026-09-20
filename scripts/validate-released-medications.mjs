@@ -118,6 +118,27 @@ try{
 
   if(!engineSource.includes('setActual(String(result.minDose||result.dose))'))failures.push("MedicationEngine no longer synchronizes the administration amount after a dose-changing patient edit");
 
+  const ketorolac=meds.find(m=>m.id==="ketorolac");
+  const ketAdult=ketorolac?.paths.find(path=>path.id==="ket-adult");
+  const ketPediatric=ketorolac?.paths.find(path=>path.id==="ket-ped");
+  if(!ketorolac||!ketAdult||!ketPediatric)failures.push("ketorolac: adult and pediatric July 2026 protocol pathways are required");
+  else{
+    const adultDose=engine.calculateGenericDose(ketAdult,65,80,"ketorolac");
+    const pediatricDose=engine.calculateGenericDose(ketPediatric,10,30,"ketorolac");
+    if(!approx(adultDose.dose,15))failures.push(`ketorolac: adult dose expected 15 mg, received ${adultDose.dose}`);
+    if(!approx(pediatricDose.dose,10))failures.push(`ketorolac: pediatric dose expected 10 mg, received ${pediatricDose.dose}`);
+    if(engine.genericEligibilityReason(ketAdult,65,80))failures.push("ketorolac: age 65 must remain eligible");
+    if(!engine.genericEligibilityReason(ketAdult,65.01,80))failures.push("ketorolac: over age 65 hard stop is missing");
+    if(!engine.genericEligibilityReason(ketPediatric,7.99,30))failures.push("ketorolac: under age 8 hard stop is missing");
+    if(ketAdult.route!=="IV/IM"||ketPediatric.route!=="IV/IM")failures.push("ketorolac: both pathways must remain IV or IM");
+    for(const path of [ketAdult,ketPediatric]){
+      if(!Array.isArray(path.monitoring)||path.monitoring.length<4)failures.push(`ketorolac/${path.id}: protocol-specific monitoring is incomplete`);
+      if(!Array.isArray(path.special)||!path.special.some(item=>item.includes("Paramedic")))failures.push(`ketorolac/${path.id}: Paramedic-only restriction is missing`);
+    }
+    if(!Array.isArray(ketorolac.clinicalOverview)||ketorolac.clinicalOverview.length<6)failures.push("ketorolac: clinical overview must include mechanism, onset, duration, indications, multimodal guidance, and interactions");
+    else if(!ketorolac.clinicalOverview.some(item=>item.includes("within 5 minutes"))||!ketorolac.clinicalOverview.some(item=>item.includes("4 hours")))failures.push("ketorolac: IV onset or duration is missing from the clinical overview");
+  }
+
   const droperidol=meds.find(m=>m.id==="droperidol");
   const dropAdult=droperidol?.paths.find(path=>path.id==="drop-adult");
   const dropImminent=droperidol?.paths.find(path=>path.id==="drop-imminent");
