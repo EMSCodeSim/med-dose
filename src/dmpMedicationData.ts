@@ -15,7 +15,7 @@ export type GenericDosePath={
   titrationRates?:number[];titrationStepMinutes?:number;
 };
 export type GenericMedication={
-  id:string;name:string;protocolId:string;page:number;contraindications:string[];paths:GenericDosePath[];
+  id:string;name:string;protocolId:string;page:number;contraindications:string[];paths:GenericDosePath[];clinicalOverview?:string[];
 };
 const fixed=(amount:number,unit:GenericDoseUnit):DoseFormula=>({kind:"fixed",amount,unit});
 const kg=(amount:number,unit:GenericDoseUnit,min?:number,max?:number):DoseFormula=>({kind:"perKg",amount,unit,min,max});

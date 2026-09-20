@@ -39,6 +39,12 @@ function droperidolDefinition():GenericMedication|null{
       "Known QTc prolongation",
       "Pregnancy",
     ],
+    clinicalOverview:[
+      "Butyrophenone antipsychotic: dopamine blockade produces sedation and tranquilization; mild alpha-adrenergic blockade may cause peripheral vasodilation. Droperidol is also a potent antiemetic.",
+      "Onset: IV within 5–10 minutes; IM within 10 minutes. Peak effect occurs within 30 minutes.",
+      "Duration: 2–4 hours and may be longer.",
+      "Protocol indications include severe agitation/combative behavior that prevents routine EMS care (IMC-RASS +3/+4), combative head injury, and second-line treatment of adult intractable vomiting.",
+    ],
     paths,
   };
 }

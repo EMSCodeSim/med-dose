@@ -142,6 +142,8 @@ try{
     for(const path of [dropAdult,dropImminent,dropPediatric,dropAntiemetic]){
       if(!Array.isArray(path.monitoring)||path.monitoring.length<3)failures.push(`droperidol/${path.id}: protocol-specific monitoring is incomplete`);
     }
+    if(!Array.isArray(droperidol.clinicalOverview)||droperidol.clinicalOverview.length<4)failures.push("droperidol: clinical overview must include mechanism, onset, duration, and indication scope");
+    else if(!droperidol.clinicalOverview.some(item=>item.includes("5–10 minutes"))||!droperidol.clinicalOverview.some(item=>item.includes("2–4 hours")))failures.push("droperidol: onset or duration is missing from the clinical overview");
     if(dropAdult.repeatAfterMinutes!==5||dropAdult.maxAdministrations!==2)failures.push("droperidol: adult agitation repeat must remain one repeat after 5 minutes");
     if(dropImminent.route!=="IM")failures.push("droperidol: imminent-harm pathway must remain IM-only");
     if(dropPediatric.formula.kind!=="perKg"||!approx(dropPediatric.formula.amount,.025)||!approx(dropPediatric.formula.max,1.25))failures.push("droperidol: pediatric pathway must remain 0.025 mg/kg, maximum 1.25 mg");

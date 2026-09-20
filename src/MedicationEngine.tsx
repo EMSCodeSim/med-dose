@@ -186,6 +186,7 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
         </div></section>
 
         <details className="final-all-details"><summary>MORE DETAILS</summary><div className="final-all-details-body">
+          {medication.clinicalOverview?.length&&<div className="monitoring-cautions"><small>CLINICAL OVERVIEW</small><ul>{medication.clinicalOverview.map(x=><li key={x}>{x}</li>)}</ul></div>}
           {result.numeric&&<section className="final-math-line"><small>DOSE MATH</small><strong>{isDopamine?`${fmt(kg)} kg × ${dopamineRate} mcg/kg/min = ${fmt(dopamineTotal)} mcg/min → ${fmt(dopamineMlHr)} mL/hr`:path.formula.kind==="perKg"?weightBasedMath(path,kg,result.dose,actualDose>0?actualDose:result.dose,result.unit,needsConcentration?conc:0):needsConcentration?`${fmt(actualDose>0?actualDose:result.dose)} ${result.unit} ÷ ${fmt(conc)} ${result.unit}/mL = ${fmt((actualDose>0?actualDose:result.dose)/conc)} mL`:needsWeight?`${fmt(kg)} kg → ${fmt(actualDose>0?actualDose:result.dose)} ${result.unit}`:`Protocol dose = ${fmt(actualDose>0?actualDose:result.dose)} ${result.unit}`}</strong></section>}
           {!isDopamine&&needsConcentration&&result.numeric&&<DoseSyringe volume={(actualDose>0?actualDose:result.dose)/conc}/>}
           <section className="administration-special"><small>ADMINISTRATION</small><div><span><b>Route</b>{selectedRoute}</span><span className="wide"><b>How to give</b>{path.administration}</span><span className="wide"><b>Repeat / reassess</b>{path.repeat}</span></div></section>
