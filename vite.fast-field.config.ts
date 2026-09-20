@@ -6,24 +6,13 @@ const fastFieldWorkflow:Plugin={
   enforce:"pre",
   transform(code,id){
     if(id.endsWith("/src/FieldApp.tsx")){
-      // Patient carry-forward is now implemented directly in FieldApp.tsx.
-      // Keep a guard so future source changes are noticed, but do not try to
-      // rewrite the old openMed implementation at build time.
-      const openCurrent='const openMed=(id:string)=>{if(!approvedIds.has(id))return;setPatient(readPatient());setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};';
-      if(!code.includes(openCurrent))throw new Error("FieldApp open-med signature changed before fast workflow");
+      // FieldApp owns the fresh-patient boundary. Never inject persistence or
+      // carry-forward behavior during the production build.
       return null;
     }
 
     if(id.endsWith("/src/MedicationEngine.tsx")){
-      const ageOld='[age,setAge]=useState(initialPatient?.ageYears!==undefined?String(initialPatient.ageYears):"")';
-      const ageNew='[age,setAge]=useState(()=>{try{const carried=JSON.parse(sessionStorage.getItem("mmd-patient")||"{}");const saved=carried.ageYears!==undefined&&String(carried.ageYears)!==""?Number(carried.ageYears):undefined;const value=initialPatient?.ageYears??saved;return value!==undefined?String(value):""}catch{return initialPatient?.ageYears!==undefined?String(initialPatient.ageYears):""}})';
-      if(!code.includes(ageOld))throw new Error("MedicationEngine age carry-forward signature changed");
-      code=code.replace(ageOld,ageNew);
-
-      const weightOld='[weight,setWeight]=useState(initialPatient?.weightKg!==undefined?String(initialPatient.weightKg):"")';
-      const weightNew='[weight,setWeight]=useState(()=>{try{const carried=JSON.parse(sessionStorage.getItem("mmd-patient")||"{}");const saved=carried.weightKg!==undefined&&String(carried.weightKg)!==""?Number(carried.weightKg):undefined;const value=initialPatient?.weightKg??saved;return value!==undefined?String(value):""}catch{return initialPatient?.weightKg!==undefined?String(initialPatient.weightKg):""}})';
-      if(!code.includes(weightOld))throw new Error("MedicationEngine weight carry-forward signature changed");
-      code=code.replace(weightOld,weightNew);
+      if(code.includes('sessionStorage.getItem("mmd-patient")'))throw new Error("MedicationEngine must not carry patient data between calculations");
 
       // Age is safety-critical whenever it changes dose or pathway eligibility.
       // Adult pathways must not skip an elderly/restricted age band (for example

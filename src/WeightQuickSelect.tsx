@@ -30,13 +30,7 @@ const lengthBands=[
 export default function WeightQuickSelect({kind,valueKg,onSelect}:Props){
   const [method,setMethod]=useState<"quick"|"manual"|"age"|"length">(kind==="adult"?"quick":"age"),[manual,setManual]=useState(""),[unit,setUnit]=useState<"kg"|"lb">("lb");
   const manualKg=unit==="kg"?Number(manual):Number(manual)/2.20462;
-  const choose=(kg:number,source:string,estimatedAgeYears?:number)=>{
-    try{
-      const current=JSON.parse(sessionStorage.getItem("mmd-patient")||"{}");
-      sessionStorage.setItem("mmd-patient",JSON.stringify({...current,weightKg:String(kg),...(estimatedAgeYears!==undefined?{ageYears:String(estimatedAgeYears)}:{})}));
-    }catch{}
-    onSelect(kg,source,estimatedAgeYears);
-  };
+  const choose=(kg:number,source:string,estimatedAgeYears?:number)=>onSelect(kg,source,estimatedAgeYears);
   return <section className="weight-quick-select">
     <div className="weight-unit-toggle weight-unit-primary"><button className={unit==="lb"?"selected":""} onClick={()=>{setUnit("lb");setManual("")}}>Pounds (lb)</button><button className={unit==="kg"?"selected":""} onClick={()=>{setUnit("kg");setManual("")}}>Kilograms (kg)</button></div>
     {kind==="adult"?<>

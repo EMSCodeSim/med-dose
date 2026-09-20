@@ -44,6 +44,24 @@ export function readFieldVisibility():FieldVisibilityState{
   }catch{return {}}
 }
 
+function readStoredObject(key:string):Record<string,unknown>|null{
+  try{
+    const parsed=JSON.parse(localStorage.getItem(key)||"null");
+    return objectRecord(parsed)?parsed as Record<string,unknown>:null;
+  }catch{return null}
+}
+
+export function medicationReleaseNeedsRepair(meta:ReleaseMeta,row:MedicationReleaseRow){
+  if(meta.version!==Number(row.release_version))return true;
+  if(meta.medicationCount!==Number(row.medication_count)||meta.medicationIds.length!==row.payload.medicationIds.length)return true;
+  const medicationState=readStoredObject(ADMIN_MEDICATION_STATE_KEY);
+  const reviews=readStoredObject(REVIEW_KEY);
+  const catalog=readStoredObject(MEDICATION_CATALOG_KEY);
+  const clinicalOverrides=readStoredObject(CLINICAL_OVERRIDE_KEY);
+  if(!medicationState||!reviews||!catalog||!clinicalOverrides)return true;
+  return row.payload.medicationIds.some(id=>!objectRecord(medicationState[id])||!objectRecord(reviews[id]));
+}
+
 async function downloadFieldVisibility(){
   const {data,error}=await neonPublicClient.from("field_medication_visibility").select("medication_id,hidden").order("medication_id",{ascending:true});
   if(error)throw error;
@@ -80,6 +98,7 @@ export async function downloadLatestMedicationRelease(){
   if(error)throw error;
   if(!data){const current=readReleaseMeta();return {updated:visibility.updated,meta:current?saveReleaseVisibility(current,visibility.state):null}}
   const row=data as MedicationReleaseRow,current=readReleaseMeta();
-  if(current&&current.version>=Number(row.release_version))return {updated:visibility.updated,meta:saveReleaseVisibility(current,visibility.state)};
+  if(current&&current.version>Number(row.release_version))return {updated:visibility.updated,meta:saveReleaseVisibility(current,visibility.state)};
+  if(current&&current.version===Number(row.release_version)&&!medicationReleaseNeedsRepair(current,row))return {updated:visibility.updated,meta:saveReleaseVisibility(current,visibility.state)};
   return {updated:true,meta:installMedicationRelease(row,visibility.state)};
 }

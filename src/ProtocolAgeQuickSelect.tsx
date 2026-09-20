@@ -84,20 +84,10 @@ function choicesFor(medicationId:string,path:GenericDosePath):Choice[]{
   return orderAgeChoices(out);
 }
 
-function persistAge(years:number|string){
-  const n=Number(years);
-  if(!(n>=0))return;
-  try{
-    const current=JSON.parse(sessionStorage.getItem("mmd-patient")||"{}");
-    sessionStorage.setItem("mmd-patient",JSON.stringify({...current,ageYears:String(n)}));
-  }catch{}
-}
-
 export default function ProtocolAgeQuickSelect({medicationId,path,value,onSelect,onExact}:Props){
   const choices=choicesFor(medicationId,path);
   const [pendingOlderAdult,setPendingOlderAdult]=useState<Choice|null>(null);
   const finish=(choice:Choice,doseMode?:DoseMode)=>{
-    persistAge(choice.years);
     onSelect(choice.years,choice.label,doseMode);
     setPendingOlderAdult(null);
     const requiresWeight=path.formula.kind==="perKg"||!!path.requiresWeight;
@@ -110,19 +100,16 @@ export default function ProtocolAgeQuickSelect({medicationId,path,value,onSelect
   const choose=(choice:Choice)=>{
     const olderAdult=path.patient==="adult"&&choice.years>65;
     if(olderAdult&&medicationId==="midazolam"){
-      persistAge(choice.years);
       setPendingOlderAdult(choice);
       return;
     }
     if(olderAdult&&medicationId==="fentanyl"&&path.formula.kind==="perKg"&&path.formula.amount>1){
-      persistAge(choice.years);
       setPendingOlderAdult(choice);
       return;
     }
     finish(choice,"standard");
   };
   const exact=(next:string)=>{
-    persistAge(next);
     onExact(next);
     if(Number(next)>65&&(medicationId==="midazolam"||(medicationId==="fentanyl"&&path.formula.kind==="perKg"&&path.formula.amount>1))){
       setPendingOlderAdult({label:"Adult >65",detail:"Exact age entered",years:Number(next)});

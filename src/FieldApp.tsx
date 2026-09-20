@@ -33,19 +33,18 @@ const treatmentFilters=["Arrest","Airway","Cardiac","Pain/Sedation","Trauma"];
 type View="meds"|"treatments"|"favorites";
 type PatientState={weightKg:string;ageYears:string};
 const EMPTY_PATIENT:PatientState={weightKg:"",ageYears:""};
-const readPatient=():PatientState=>{try{const parsed=JSON.parse(sessionStorage.getItem("mmd-patient")||"null");return parsed&&typeof parsed==="object"?{weightKg:String(parsed.weightKg||""),ageYears:String(parsed.ageYears||"")}:EMPTY_PATIENT}catch{return EMPTY_PATIENT}};
 const readList=(key:string)=>{try{return JSON.parse(localStorage.getItem(key)||"[]") as string[]}catch{return[]}};
 const formatReviewedDate=(completedAt?:number)=>completedAt
   ?new Date(completedAt).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})
   :"Date unavailable";
 
 export default function FieldApp(){
-  const [patient,setPatient]=useState<PatientState>(readPatient),[editingPatient,setEditingPatient]=useState(false),[unit,setUnit]=useState<"kg"|"lb">("kg"),
+  const [patient,setPatient]=useState<PatientState>(EMPTY_PATIENT),
     [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[view,setView]=useState<View>("meds"),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
     [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent")),[reportOpen,setReportOpen]=useState(false),[administrations,setAdministrations]=useState<RecordedAdministration[]>([]),[calculationSession,setCalculationSession]=useState(0),
     [releaseMeta,setReleaseMeta]=useState<ReleaseMeta|null>(readReleaseMeta),[releaseRevision,setReleaseRevision]=useState(0),[syncState,setSyncState]=useState<"idle"|"checking"|"updated"|"failed">("idle"),
     [offlineRecord,setOfflineRecord]=useState<OfflineReadyRecord|null>(readOfflineReady),[offlineState,setOfflineState]=useState<"needed"|"downloading"|"ready"|"failed">(()=>readOfflineReady()?"ready":"needed"),[offlineError,setOfflineError]=useState("");
-  useEffect(()=>{sessionStorage.setItem("mmd-patient",JSON.stringify(patient))},[patient]);
+  useEffect(()=>{sessionStorage.removeItem("mmd-patient")},[]);
   useEffect(()=>{const on=()=>setOnline(true),off=()=>setOnline(false);addEventListener("online",on);addEventListener("offline",off);return()=>{removeEventListener("online",on);removeEventListener("offline",off)}},[]);
   useEffect(()=>localStorage.setItem("mmd-favorites",JSON.stringify(favorites)),[favorites]);
   useEffect(()=>localStorage.setItem("mmd-recent",JSON.stringify(recent)),[recent]);
@@ -85,12 +84,13 @@ export default function FieldApp(){
     const hay=[id,def.name,brandNames[id],def.protocolId,...(aliases[id]||[]),...def.paths.flatMap(p=>[p.label,p.protocol])].filter(Boolean).join(" ").toLowerCase();return hay.includes(q);
   }).sort((a,b)=>view==="favorites"?favorites.indexOf(a.id)-favorites.indexOf(b.id):a.def.name.localeCompare(b.def.name)),[approvedMeds,query,filter,view,favorites]);
 
-  const openMed=(id:string)=>{if(!approvedIds.has(id))return;setPatient(readPatient());setSelectedId(id);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
+  const resetPatient=()=>{setPatient({...EMPTY_PATIENT});sessionStorage.removeItem("mmd-patient")};
+  const openMed=(id:string)=>{if(!approvedIds.has(id))return;resetPatient();setSelectedId(id);setCalculationSession(value=>value+1);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
   const toggleFav=(id:string)=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[id,...f]);
   const selected=selectedId&&approvedIds.has(selectedId)?fieldMedicationDefinition(selectedId):null;
   const selectedStatus=selectedId?meds.find(({id})=>id===selectedId)?.status:null;
-  const closeMedication=()=>{setSelectedId(null);setCalculationSession(0);scrollTo({top:0,behavior:"auto"})};
-  const startMedicationOver=()=>{setCalculationSession(value=>value+1);scrollTo({top:0,behavior:"auto"})};
+  const closeMedication=()=>{resetPatient();setSelectedId(null);setCalculationSession(0);scrollTo({top:0,behavior:"auto"})};
+  const startMedicationOver=()=>{resetPatient();setCalculationSession(value=>value+1);scrollTo({top:0,behavior:"auto"})};
   if(selected)return <div className="field-mode-shell field-engine-shell">
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)} onDelete={()=>{setAdministrations([]);setReportOpen(false)}}/>}
     <MedicationEngine key={`${selected.id}-${calculationSession}`} medication={selected} activeHeader={<div className="field-active-header" role="banner">
