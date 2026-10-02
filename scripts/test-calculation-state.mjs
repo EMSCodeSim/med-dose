@@ -16,6 +16,12 @@ globalThis.fetch=async()=>{throw new Error('Offline test')};
 const server=await createServer({configFile:'vite.fast-field.config.ts',server:{middlewareMode:true},appType:'custom',logLevel:'silent'});
 const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
 const click=async(text)=>{const buttons=[...host.querySelectorAll('button')];const button=buttons.find(x=>x.textContent.trim()===text)||buttons.find(x=>!x.disabled&&x.textContent.includes(text));assert.ok(button,`Missing button: ${text}`);assert.equal(button.disabled,false,`Disabled button: ${text}`);await act(async()=>{button.click();await new Promise(r=>setTimeout(r,30))})};
+const clickFentanylTwoMcg=async()=>{
+  const buttons=[...host.querySelectorAll('button')].filter(x=>!x.disabled);
+  const button=buttons.find(x=>/moderate to severe pain/i.test(x.textContent)&&/2\s*mcg\/kg/i.test(x.textContent))||buttons.find(x=>/2\s*mcg\/kg/i.test(x.textContent));
+  assert.ok(button,'Fentanyl 2 mcg/kg dose option is available');
+  await act(async()=>{button.click();await new Promise(r=>setTimeout(r,30))});
+};
 const confirmConcentration=async()=>{
   assert.ok(host.textContent.includes('Confirm medication concentration')||host.textContent.includes('Select concentration'),'Dedicated concentration screen is rendered');
   const buttons=[...host.querySelectorAll('button')];
@@ -46,7 +52,7 @@ try{
   assert.equal(host.querySelectorAll('.field-med-card').length,23);
   await act(async()=>{[...host.querySelectorAll('.field-med-card')].find(x=>x.textContent.includes('FENTANYL')).click();await new Promise(r=>setTimeout(r,30))});
   await confirmConcentration();
-  await click('Moderate to severe pain — 2 mcg/kg');
+  await clickFentanylTwoMcg();
   await click('IV/IOApproved route');
   await click('Adult 12–65');
   await click('Kilograms (kg)');
@@ -64,7 +70,7 @@ try{
   assert.equal(host.querySelector('.final-dose-display'),null);
   assert.ok(!host.textContent.includes('GIVE 100 mcg'),'Previous result is gone');
   assert.ok(!host.textContent.includes('DOSE 1 GIVEN'),'Previous repeat history is gone');
-  await click('Moderate to severe pain — 2 mcg/kg');
+  await clickFentanylTwoMcg();
   await click('IV/IOApproved route');
   assert.ok(host.textContent.includes('Select patient age group'),'Every new calculation requires fresh age');
   assert.ok(!host.textContent.includes('80 kg'),'Previous patient weight does not carry forward');
@@ -81,7 +87,7 @@ try{
   await click('New Calculation');
   await openMedication('FENTANYL');
   await confirmConcentration();
-  await click('Moderate to severe pain — 2 mcg/kg');
+  await clickFentanylTwoMcg();
   await click('IV/IOApproved route');
   assert.ok(host.textContent.includes('Select patient age group'),'Fresh-patient rule remains active for later calculations');
 
