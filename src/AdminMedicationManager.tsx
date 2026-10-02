@@ -1126,7 +1126,7 @@ export default function AdminMedicationManager({
   return (
     <div className="modal-backdrop admin-med-backdrop" onClick={closeAdmin}>
       <section
-        className="admin-med-modal"
+        className={`admin-med-modal ${selected?"detail-view":"dashboard-view"}${adding?" adding":""}`}
         role="dialog"
         aria-modal="true"
         aria-label="Medication administration"
