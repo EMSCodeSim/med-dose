@@ -10,7 +10,7 @@ type ClinicalData={paths?:Array<{patient?:string}>;concentrations?:unknown[]};
 export const MEDICATION_VALIDATION_LABELS:Record<MedicationValidationKey,{label:string;description:string}>={
   protocol:{label:"Protocol reviewed",description:"Compared with the current department-approved source."},
   formula:{label:"Formula validated",description:"Dose rules, units, limits and rounding were independently checked."},
-  concentration:{label:"Concentrations validated",description:"Every field concentration and volume conversion was checked."},
+  concentration:{label:"Concentration / supplied strength validated",description:"The field concentration, package strength, preparation and any volume conversion were checked."},
   adult:{label:"Adult cases passed",description:"Adult minimum, typical, maximum and input-change cases passed."},
   pediatric:{label:"Pediatric cases passed",description:"Pediatric weights, ages, limits and input-change cases passed."},
   edgeCases:{label:"Edge cases passed",description:"Route changes, caps, resets, invalid input and repeat-dose behavior passed."},
@@ -25,11 +25,9 @@ export function requiredValidationKeys(data:ClinicalData):MedicationValidationKe
   const groups=new Set(paths.map(path=>path.patient));
   const hasAdult=groups.has("adult")||groups.has("all");
   const hasPediatric=groups.has("pediatric")||groups.has("all");
-  const hasConcentration=Array.isArray(data.concentrations)&&data.concentrations.length>0;
   return MEDICATION_VALIDATION_KEYS.filter(key=>
     (key!=="adult"||hasAdult)&&
-    (key!=="pediatric"||hasPediatric)&&
-    (key!=="concentration"||hasConcentration),
+    (key!=="pediatric"||hasPediatric),
   );
 }
 
