@@ -16,6 +16,14 @@ globalThis.fetch=async()=>{throw new Error('Offline test')};
 const server=await createServer({configFile:'vite.fast-field.config.ts',server:{middlewareMode:true},appType:'custom',logLevel:'silent'});
 const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
 const click=async(text)=>{const buttons=[...host.querySelectorAll('button')];const button=buttons.find(x=>x.textContent.trim()===text)||buttons.find(x=>!x.disabled&&x.textContent.includes(text));assert.ok(button,`Missing button: ${text}`);assert.equal(button.disabled,false,`Disabled button: ${text}`);await act(async()=>{button.click();await new Promise(r=>setTimeout(r,30))})};
+const confirmMedicationAndSafety=async()=>{
+  const medicationButton=[...host.querySelectorAll('.safety-concentration-check button')].find(x=>!x.disabled&&(x.textContent.includes('DEPARTMENT DEFAULT')||x.textContent.includes('Confirm formulation in hand')));
+  assert.ok(medicationButton,'Medication/formulation confirmation is available');
+  await act(async()=>{medicationButton.click();await new Promise(r=>setTimeout(r,30))});
+  const safetyCheckbox=[...host.querySelectorAll('input[type=checkbox]')].find(x=>!x.disabled);
+  assert.ok(safetyCheckbox,'Safety confirmation is enabled after medication/formulation confirmation');
+  await act(async()=>{safetyCheckbox.click();await new Promise(r=>setTimeout(r,30))});
+};
 try{
   const {default:FieldApp}=await server.ssrLoadModule('/src/FieldApp.tsx');
   await act(async()=>{root.render(React.createElement(FieldApp));await new Promise(r=>setTimeout(r,30))});
@@ -26,7 +34,7 @@ try{
   await click('Adult 12–65');
   await click('Kilograms (kg)');
   await click('80kg');
-  await act(async()=>{host.querySelector('input[type=checkbox]').click()});
+  await confirmMedicationAndSafety();
   assert.ok(host.textContent.includes('GIVE 100 mcg'));
   await click('GIVE NOW');
   assert.ok(host.textContent.includes('Report (1)'));
@@ -46,7 +54,7 @@ try{
   assert.equal(host.querySelector('.selected-calculation-weight'),null,'Old weight did not carry');
   await click('Kilograms (kg)');
   await click('70kg');
-  await act(async()=>{host.querySelector('input[type=checkbox]').click()});
+  await confirmMedicationAndSafety();
   assert.ok(host.textContent.includes('GIVE NOW'),'Fresh patient can complete a new calculation');
   assert.ok(!host.textContent.includes('AVAILABLE IN'),'Repeat timer was reset');
   await click('New Calculation');
@@ -66,5 +74,5 @@ try{
   dirty.weight='80';assert.equal(copied.weight,'6.5','Reuse is a snapshot');
   assert.equal(hasPatientMeasurements(null),false);
   assert.equal(hasPatientMeasurements({...copied,age:'',weight:''}),false);
-  console.log('Calculation-state integration passed: every new medication calculation starts with a fresh patient; safety/results/repeat state reset; age units and length-band provenance remain isolated.');
+  console.log('Calculation-state integration passed: every new medication calculation starts with a fresh patient; medication/formulation safety confirmation, safety/results/repeat state reset; age units and length-band provenance remain isolated.');
 }finally{await act(async()=>root.unmount());await server.close();await win.happyDOM.close()}
