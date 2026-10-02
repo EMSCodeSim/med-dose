@@ -7,7 +7,6 @@ import {medicationApprovalStatus} from "./medicationApprovalStatus";
 import {loadMedicationCatalogState} from "./medicationCatalogStore";
 import {downloadLatestMedicationRelease,readFieldVisibility,readReleaseMeta,type ReleaseMeta} from "./medicationRelease";
 import type {RecordedAdministration} from "./encounterTypes";
-import {copyPatientMeasurements,hasPatientMeasurements,type CalculationPatient} from "./calculationPatient";
 import InstallAppGuide from "./InstallAppGuide";
 import OfflineSetup from "./OfflineSetup";
 import {cacheAndVerifyOfflineFiles,OFFLINE_BUNDLE_VERSION,readOfflineReady,saveOfflineReady,type OfflineReadyRecord} from "./offlineReadiness";
@@ -38,9 +37,7 @@ const formatReviewedDate=(completedAt?:number)=>completedAt
   :"Date unavailable";
 
 export default function FieldApp(){
-  const [currentPatient,setCurrentPatient]=useState<CalculationPatient|null>(null),
-    [initialMeasurements,setInitialMeasurements]=useState<CalculationPatient|null>(null),[pendingReuse,setPendingReuse]=useState<CalculationPatient|null>(null),
-    [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[view,setView]=useState<View>("meds"),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
+  const     [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[view,setView]=useState<View>("meds"),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
     [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent")),[reportOpen,setReportOpen]=useState(false),[administrations,setAdministrations]=useState<RecordedAdministration[]>([]),[calculationSession,setCalculationSession]=useState(0),
     [releaseMeta,setReleaseMeta]=useState<ReleaseMeta|null>(readReleaseMeta),[releaseRevision,setReleaseRevision]=useState(0),[syncState,setSyncState]=useState<"idle"|"checking"|"updated"|"failed">("idle"),
     [offlineRecord,setOfflineRecord]=useState<OfflineReadyRecord|null>(readOfflineReady),[offlineState,setOfflineState]=useState<"needed"|"downloading"|"ready"|"failed">(()=>readOfflineReady()?"ready":"needed"),[offlineError,setOfflineError]=useState("");
@@ -80,21 +77,19 @@ export default function FieldApp(){
     const hay=[id,def.name,brandNames[id],def.protocolId,...(aliases[id]||[]),...def.paths.flatMap(p=>[p.label,p.protocol])].filter(Boolean).join(" ").toLowerCase();return hay.includes(q);
   }).sort((a,b)=>view==="favorites"?favorites.indexOf(a.id)-favorites.indexOf(b.id):a.def.name.localeCompare(b.def.name)),[approvedMeds,query,filter,view,favorites]);
 
-  const resetPatient=()=>{setCurrentPatient(null);setInitialMeasurements(null);setPendingReuse(null);sessionStorage.removeItem("mmd-patient")};
-  const updatePatient=useCallback((value:CalculationPatient)=>setCurrentPatient(copyPatientMeasurements(value)),[]);
-  const openMed=(id:string)=>{if(!approvedIds.has(id))return;const reused=pendingReuse?copyPatientMeasurements(pendingReuse):null;resetPatient();setInitialMeasurements(reused);setSelectedId(id);setCalculationSession(value=>value+1);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
+  const resetPatient=()=>{sessionStorage.removeItem("mmd-patient")};
+  const openMed=(id:string)=>{if(!approvedIds.has(id))return;resetPatient();setSelectedId(id);setCalculationSession(value=>value+1);setRecent(r=>[id,...r.filter(x=>x!==id)].slice(0,5));scrollTo({top:0,behavior:"auto"})};
   const toggleFav=(id:string)=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[id,...f]);
   const selected=selectedId&&approvedIds.has(selectedId)?fieldMedicationDefinition(selectedId):null;
   const selectedStatus=selectedId?meds.find(({id})=>id===selectedId)?.status:null;
   const closeMedication=()=>{resetPatient();setSelectedId(null);setCalculationSession(value=>value+1);scrollTo({top:0,behavior:"auto"})};
-  const reusePatient=()=>{if(!hasPatientMeasurements(currentPatient)||!currentPatient)return;const measurements=copyPatientMeasurements(currentPatient);closeMedication();setPendingReuse(measurements)};
   if(selected)return <div className="field-mode-shell field-engine-shell">
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)} onDelete={()=>{setAdministrations([]);setReportOpen(false)}}/>}
     <MedicationEngine key={`${selected.id}-${calculationSession}`} medication={selected} activeHeader={<div className="field-active-header" role="banner">
       <div className={`field-offline-banner ${online?"online":"offline"}`}>{online?"✓ OFFLINE READY":"OFFLINE — Using cached protocol data"} <span>{selected.id==="txa"?"Dept 500:63":CURRENT_DMP_PROTOCOL_REVISION}</span></div>
-      <div className="field-report-bar"><button type="button" disabled={!hasPatientMeasurements(currentPatient)} onClick={reusePatient}>Reuse Patient</button><button type="button" disabled={!administrations.length} onClick={()=>setReportOpen(true)}>Report{administrations.length?` (${administrations.length})`:""}</button></div>
+      <div className="field-report-bar"><button type="button" disabled={!administrations.length} onClick={()=>setReportOpen(true)}>Report{administrations.length?` (${administrations.length})`:""}</button></div>
       <div className="field-medication-nav" role="navigation" aria-label={`${selected.name} calculator navigation`}><button type="button" onClick={closeMedication}>‹ Medications</button><span className="field-medication-review"><strong>{selected.name}</strong><small>Reviewed {formatReviewedDate(selectedStatus?.completedAt)}</small></span><button type="button" onClick={closeMedication}>New Calculation</button></div>
-    </div>} close={closeMedication} record={entry=>setAdministrations(items=>[...items,entry])} openProtocol={()=>window.open(selected.id==="txa"?"/protocols/txa-500-63.html":"/protocols/dmp-current.pdf","_blank","noopener,noreferrer")} initialMeasurements={initialMeasurements} onPatientChange={updatePatient}/>
+    </div>} close={closeMedication} record={entry=>setAdministrations(items=>[...items,entry])} openProtocol={()=>window.open(selected.id==="txa"?"/protocols/txa-500-63.html":"/protocols/dmp-current.pdf","_blank","noopener,noreferrer")}/>
   </div>;
 
   const viewTitle=view==="favorites"?"FAVORITES":view==="treatments"?"TREATMENT MEDICATIONS":"FIELD MEDICATIONS";
@@ -105,7 +100,6 @@ export default function FieldApp(){
     {administrations.length>0&&<button className="field-home-report" onClick={()=>setReportOpen(true)}>Report • {administrations.length} administration{administrations.length===1?"":"s"}</button>}
     {reportOpen&&<EncounterReport entries={administrations} close={()=>setReportOpen(false)} onDelete={()=>{setAdministrations([]);setReportOpen(false)}}/>}
     <main className="field-home">
-      {pendingReuse&&<div className="patient-reuse-notice" role="status"><b>Reuse Patient for the next medication</b><span>{pendingReuse.age!==""?`${pendingReuse.age} ${pendingReuse.ageUnit} • `:""}{pendingReuse.weight!==""?`${pendingReuse.weight} ${pendingReuse.weightUnit}`:""}{pendingReuse.weightSource?` • ${pendingReuse.weightSource}`:""}</span><button type="button" onClick={closeMedication}>New Calculation — clear patient</button></div>}
       <InstallAppGuide variant="card"/>
       <OfflineSetup status={offlineState} record={offlineRecord} error={offlineError} onDownload={()=>void prepareOffline()}/>
       {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using downloaded release {releaseMeta?`v${releaseMeta.version}`:"stored on this device"}.</div>}
