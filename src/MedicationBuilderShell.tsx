@@ -29,7 +29,7 @@ type Props={
 export default function MedicationBuilderShell({medication,activeHeader,boxes,close,reset,children,leftTools,calculationComplete=false,ariaLabel}:Props){
   return <main id="active-medication-screen-top" className={`versed-builder fentanyl-builder unified-medication-builder streamlined-medication-flow${calculationComplete?" calculation-complete-flow":""}`} aria-label={ariaLabel||`${medication.name} calculator`}>
     {activeHeader}
-    <div className="versed-builder-top streamlined-medication-top"><button className="drug-back-button" onClick={close}>‹ Medications</button><strong>{medication.name}</strong><button onClick={reset||close}>Start over</button></div>
+    <div className="versed-builder-top streamlined-medication-top"><button className="drug-back-button" onClick={close}>‹ Medications</button><strong>{medication.name}</strong><button onClick={reset||close}>New Calculation</button></div>
     <div className={`versed-layout streamlined-medication-layout${calculationComplete?" calculation-complete":""}`}>
       <aside className="versed-left-column unified-left-column streamlined-progress-column" aria-label="Calculation controls"><CalculationBoard boxes={boxes} className="versed-status-board"/>{leftTools&&<div className="versed-left-tools">{leftTools}</div>}</aside>
       <section className="builder-workspace unified-medication-workspace streamlined-choice-workspace" aria-label={`${medication.name} selection workspace`}>{children}</section>
