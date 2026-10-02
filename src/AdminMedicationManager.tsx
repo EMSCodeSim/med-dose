@@ -483,7 +483,7 @@ export default function AdminMedicationManager({
   const [reviewerTitle, setReviewerTitle] = useState<string>("Administrator");
   const [customReviewerTitle, setCustomReviewerTitle] = useState("");
   const [medicationFilter, setMedicationFilter] =
-    useState<MedicationFilter>("all");
+    useState<MedicationFilter>("action");
   const overrides = useMemo(() => loadClinicalOverrides(), [state]);
   const selected = selectedId
     ? catalog.find((m) => m.id === selectedId) || null
@@ -1122,7 +1122,6 @@ export default function AdminMedicationManager({
       : DEFAULT_VISIBLE_IDS.includes(selected.id)
     : false;
   const selectedValidation=selected&&record&&currentData?medicationValidationProgress(record,currentData):null;
-  const releaseReadyCount=reviewTargets.length-releaseBlockers.length;
   return (
     <div className="modal-backdrop admin-med-backdrop" onClick={closeAdmin}>
       <section
@@ -1169,17 +1168,6 @@ export default function AdminMedicationManager({
                 + Add medication
               </button>
             </div>
-            <section className="admin-validation-dashboard" aria-labelledby="validation-dashboard-title">
-              <header>
-                <div><small>TODAY</small><h3 id="validation-dashboard-title">Needs attention</h3><p>Open a medication to complete its validation and approvals.</p></div>
-                <b>{releaseBlockers.length}</b>
-              </header>
-              <div className="admin-attention-summary"><span><b>{releaseReadyCount}</b>Ready</span><span><b>{validationBlockers.length}</b>Need validation</span><span><b>{approvalBlockers.length}</b>Need approval</span></div>
-              <div className="admin-attention-list" aria-label="Medications needing attention">
-                {releaseBlockers.map(m=>{const r=getRecord(state,m.id),progress=validationProgressFor(m),approvals=Math.min(signatureCount(reviews[m.id]||{}),REQUIRED_REVIEW_SIGNATURES);return <button type="button" key={m.id} onClick={()=>{setSelectedId(m.id);setEditing(false);setError("")}}><span><strong>{m.name}</strong><small>DMP {m.protocol.id}</small></span><span><b>Validation {progress.completed.length}/{progress.total}</b><small>Approvals {approvals}/{REQUIRED_REVIEW_SIGNATURES}</small></span><i>Open</i></button>})}
-                {!releaseBlockers.length&&<div className="admin-attention-empty"><b>Everything is ready</b><span>You can make the next release live.</span></div>}
-              </div>
-            </section>
             <section
               className={`admin-publish-panel ${releaseBlockers.length ? "blocked" : "ready"}`}
             >
@@ -1314,8 +1302,8 @@ export default function AdminMedicationManager({
               {(
                 [
                   ["all", "All"],
-                  ["action", "Needs action"],
-                  ["approved", "Approved"],
+                  ["action", `Needs attention (${releaseBlockers.length})`],
+                  ["approved", "Ready"],
                   ["hidden", "Hidden"],
                 ] as [MedicationFilter, string][]
               ).map(([value, label]) => (

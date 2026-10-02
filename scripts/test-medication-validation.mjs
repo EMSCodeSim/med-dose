@@ -44,11 +44,10 @@ try{
   function Harness(){const [reviews,setReviews]=useState({});return React.createElement(AdminMedicationManager,{medications:[medication],reviews,setReviews,reviewerIdentity:"reviewer@example.com",close:()=>{}})}
   await act(async()=>{root.render(React.createElement(Harness));await new Promise(resolve=>setTimeout(resolve,30))});
   assert.ok(host.querySelector(".admin-med-modal.dashboard-view"),"Admin dashboard exposes the desktop workspace layout hook");
-  assert.ok(host.textContent.includes("Needs attention"),"Admin renders the simplified validation work queue");
-  assert.ok(host.textContent.includes("Need validation"));
+  assert.ok(host.textContent.includes("Needs attention"),"Admin combines incomplete medications into the primary work list");
   const makeLive=[...host.querySelectorAll("button")].find(button=>button.textContent.includes("Make release"));
   assert.equal(makeLive.disabled,true,"Make Live is blocked while formal validation is incomplete");
-  await act(async()=>{host.querySelector(".admin-attention-list button").click();await new Promise(resolve=>setTimeout(resolve,20))});
+  await act(async()=>{host.querySelector(".admin-med-row button").click();await new Promise(resolve=>setTimeout(resolve,20))});
   assert.ok(host.textContent.includes("Complete medication validation"));
   const startReview=[...host.querySelectorAll("button")].find(button=>button.textContent.includes("Start 6-month review"));
   await act(async()=>{startReview.click();await new Promise(resolve=>setTimeout(resolve,20))});
