@@ -19,7 +19,6 @@ const fastFieldWorkflow:Plugin={
       if(code.includes(ageRequiredOld))code=code.replace(ageRequiredOld,ageRequiredNew);
       else if(!code.includes(ageRequiredNew))throw new Error("MedicationEngine age-required signature changed");
 
-      // Every medication starts with an explicit concentration/formulation selection.
       const initialStepOld='[step,setStep]=useState<Step>(()=>medicationAgents.length===1?(medication.paths.some(pathUsesConcentration)?"concentration":"indication"):"medication")';
       const initialStepNew='[step,setStep]=useState<Step>(()=>medicationAgents.length===1?"concentration":"medication")';
       if(!code.includes(initialStepOld))throw new Error("MedicationEngine initial concentration step signature changed");
@@ -40,8 +39,6 @@ const fastFieldWorkflow:Plugin={
       if(!code.includes(headingOld))throw new Error("MedicationEngine concentration heading signature changed");
       code=code.replace(headingOld,headingNew);
 
-      // Separate safety-screen confirmation. A prior display/selection is not enough:
-      // the medic must actively verify what is in hand before the final safety confirmation.
       const stateOld='[editingFinalDose,setEditingFinalDose]=useState(false);';
       const stateNew='[editingFinalDose,setEditingFinalDose]=useState(false),[safetyMedicationConfirmed,setSafetyMedicationConfirmed]=useState(false);';
       if(!code.includes(stateOld))throw new Error("MedicationEngine safety confirmation state anchor changed");
@@ -52,23 +49,19 @@ const fastFieldWorkflow:Plugin={
       if(!code.includes(safetyCompleteOld))throw new Error("MedicationEngine safetyComplete signature changed");
       code=code.replace(safetyCompleteOld,safetyCompleteNew);
 
-      // Every route selection is a new medication-in-hand verification point.
       const routeStartOld='  const selectRoute=(nextRoute:string)=>{\n    if(!path)return;';
       const routeStartNew='  const selectRoute=(nextRoute:string)=>{\n    if(!path)return;\n    setSafetyMedicationConfirmed(false);';
       if(!code.includes(routeStartOld))throw new Error("MedicationEngine route safety reset anchor changed");
       code=code.replace(routeStartOld,routeStartNew);
 
-      // All medication paths go through Safety, even if there are no other contraindication rows.
       code=code.replace('else if(safetyChanged||contraindications.length||applicableSpecialChecks(nextPath).length||nextPath.baseContact)setStep("safety");\n    else{setReturnToResult(false);setStep("result")}', 'else setStep("safety")');
       code=code.replace('else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")', 'else setStep("safety")');
 
-      // Replace passive concentration text with an explicit medication-in-hand choice.
       const passiveOld='{agentNeedsConcentration&&<div className="safety-concentration-check"><b>CONCENTRATION CHECK</b><span>Default: {defaultConcentrationText} • In hand: {usedConcentrationText}</span>{concentrationChanged&&<strong role="alert">NON-DEFAULT CONCENTRATION — verify the physical medication label before administration.</strong>}</div>}';
       const interactiveNew='<div className="safety-concentration-check"><b>{agentNeedsConcentration?"CONCENTRATION CHECK":"FORMULATION CHECK"}</b><span>{agentNeedsConcentration?"Select the concentration physically in hand before continuing.":"Confirm the medication/formulation physically in hand before continuing."}</span><div className="builder-options concentration-options">{fieldConcentration&&<button type="button" className={!customConcentrationMode&&safetyMedicationConfirmed?"selected":""} onClick={()=>{setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);setSafetyMedicationConfirmed(true)}}><b>{fieldConcentration.label||defaultConcentrationText}</b><span>DEPARTMENT DEFAULT — tap to confirm in hand</span></button>}{agentNeedsConcentration&&<button type="button" className={customConcentrationMode?"selected":""} onClick={()=>{setCustomConcentrationMode(true);setCustomConcentration("");setConcConfirmed(false);setSafetyMedicationConfirmed(false)}}><b>Different concentration</b><span>Enter the concentration from the physical label</span></button>}{!agentNeedsConcentration&&!fieldConcentration&&<button type="button" className={safetyMedicationConfirmed?"selected":""} onClick={()=>setSafetyMedicationConfirmed(true)}><b>Confirm formulation in hand</b><span>Tablet, device, gas, spray, or other non-liquid formulation</span></button>}</div>{customConcentrationMode&&agentNeedsConcentration&&<div className="builder-custom"><label>Concentration<input inputMode="decimal" value={customConcentration} onChange={e=>{setCustomConcentration(e.target.value);setConcConfirmed(false);setSafetyMedicationConfirmed(false)}} placeholder="0"/><b>{concentrationUnit}/mL</b></label><button type="button" className="continue" disabled={!(Number(customConcentration)>0)} onClick={()=>{setConcConfirmed(true);setSafetyMedicationConfirmed(true)}}>CONFIRM PHYSICAL LABEL →</button></div>}{concentrationChanged&&safetyMedicationConfirmed&&<strong role="alert">NON-DEFAULT CONCENTRATION — physical label confirmed.</strong>}</div>';
       if(!code.includes(passiveOld))throw new Error("MedicationEngine passive concentration safety block changed");
       code=code.replace(passiveOld,interactiveNew);
 
-      // The master safety confirmation cannot be checked before medication-in-hand verification.
       const masterOld='<input type="checkbox" checked={safetyListConfirmed} onChange={e=>{const confirmed=e.target.checked;';
       const masterNew='<input type="checkbox" disabled={!safetyMedicationConfirmed} checked={safetyListConfirmed&&safetyMedicationConfirmed} onChange={e=>{const confirmed=e.target.checked;';
       if(!code.includes(masterOld))throw new Error("MedicationEngine master safety checkbox signature changed");
@@ -83,6 +76,19 @@ const fastFieldWorkflow:Plugin={
       const linkedDisplayNew='nextDose:showingLinkedDose?`${fmt(linkedAmount)} ${linkedDose?.unit}`:repeatRemaining>0&&doseMaximum>0?`Up to ${fmt(doseMaximum)} ${result.unit}`:undefined';
       if(!code.includes(linkedDisplayOld))throw new Error("MedicationEngine next-dose display signature changed");
       code=code.replace(linkedDisplayOld,linkedDisplayNew);
+
+      // Timed drips/infusions cannot be repeated while the first infusion is still running.
+      // Parse the documented administration duration and add a five-minute reassessment period.
+      // Example: "infuse over 10 minutes" => repeat control stays locked for at least 15 minutes.
+      const timerOld='repeatTimerMinutes=path?.linkedDose?.afterMinutes||path?.titrationStepMinutes||path?.repeatAfterMinutes,secondsLeft=repeatTimerMinutes&&lastAdministration?Math.max(0,Math.ceil((lastAdministration.time+repeatTimerMinutes*60000-now)/1000)):0,';
+      const timerNew='documentedInfusionMinutes=path&&/infusion|drip/i.test(`${selectedRoute} ${path.administration}`)?Number(path.administration.match(/(?:over|for)\\s+(\\d+(?:\\.\\d+)?)\\s*minutes?/i)?.[1]||0):0,infusionRepeatMinimum=documentedInfusionMinutes>0?documentedInfusionMinutes+5:0,repeatTimerMinutes=Math.max(path?.linkedDose?.afterMinutes||0,path?.titrationStepMinutes||0,path?.repeatAfterMinutes||0,infusionRepeatMinimum),secondsLeft=repeatTimerMinutes&&lastAdministration?Math.max(0,Math.ceil((lastAdministration.time+repeatTimerMinutes*60000-now)/1000)):0,';
+      if(!code.includes(timerOld))throw new Error("MedicationEngine repeat timer signature changed");
+      code=code.replace(timerOld,timerNew);
+
+      const detailOld='detail:secondsLeft?"Repeat button unlocks when the medication-specific interval is complete.":"Tap to record the next dose using the current medication-specific limit."';
+      const detailNew='detail:secondsLeft?(infusionRepeatMinimum>0?`Infusion/reassessment lockout: ${documentedInfusionMinutes} min infusion + 5 min reassessment. Next drip cannot start until the countdown reaches zero.`:"Repeat button unlocks when the medication-specific interval is complete."):"Tap to record the next dose using the current medication-specific limit."';
+      if(!code.includes(detailOld))throw new Error("MedicationEngine repeat timer detail signature changed");
+      code=code.replace(detailOld,detailNew);
 
       const effectAnchor='  useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);';
       const fastEffects=`  useEffect(()=>{\n    if(step!=="route"||!path||route)return;\n    const choices=Array.from(new Set(standardizedRoutePaths(agentPaths,path,medication.id,conc).flatMap(p=>routesFor(p.route))));\n    if(choices.length!==1)return;\n    const timer=window.setTimeout(()=>{\n      const buttons=Array.from(document.querySelectorAll("#active-medication-screen-top .route-options button")) as HTMLButtonElement[];\n      if(buttons.length===1&&!buttons[0].disabled)buttons[0].click();\n    },0);\n    return()=>window.clearTimeout(timer);\n  },[step,path,route,agentPaths,medication.id,conc]);\n\n${effectAnchor}`;
