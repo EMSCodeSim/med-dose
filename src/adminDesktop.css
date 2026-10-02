@@ -112,9 +112,9 @@
 
   .admin-med-list {
     display: grid !important;
-    grid-template-columns: repeat(2,minmax(0,1fr));
+    grid-template-columns: minmax(0,1fr);
     align-content: start;
-    gap: 9px !important;
+    gap: 6px !important;
     padding: 12px 22px 22px !important;
   }
 
@@ -124,8 +124,8 @@
   }
 
   .admin-med-open {
-    grid-template-columns: minmax(0, 1fr) 105px 18px !important;
-    padding: 9px 11px !important;
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 190px) 70px !important;
+    padding: 9px 14px !important;
   }
 
   .admin-med-detail {
@@ -222,14 +222,7 @@
 }
 
 @media (min-width: 1380px) {
-  .admin-med-list {
-    grid-template-columns: repeat(3,minmax(0,1fr));
-  }
   .admin-med-open {
-    grid-template-columns: minmax(0, 1fr) 96px !important;
-  }
-
-  .admin-med-open > i {
-    display: none !important;
+    grid-template-columns: minmax(0, 1fr) 210px 80px !important;
   }
 }
