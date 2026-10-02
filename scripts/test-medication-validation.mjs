@@ -43,6 +43,7 @@ try{
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   function Harness(){const [reviews,setReviews]=useState({});return React.createElement(AdminMedicationManager,{medications:[medication],reviews,setReviews,reviewerIdentity:"reviewer@example.com",close:()=>{}})}
   await act(async()=>{root.render(React.createElement(Harness));await new Promise(resolve=>setTimeout(resolve,30))});
+  assert.ok(host.querySelector(".admin-med-modal.dashboard-view"),"Admin dashboard exposes the desktop workspace layout hook");
   assert.ok(host.textContent.includes("Medication test dashboard"),"Admin renders the formal validation dashboard");
   assert.ok(host.textContent.includes("0/1 ready"));
   const makeLive=[...host.querySelectorAll("button")].find(button=>button.textContent.includes("Make release"));
