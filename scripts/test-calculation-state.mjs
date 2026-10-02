@@ -17,7 +17,9 @@ const server=await createServer({configFile:'vite.fast-field.config.ts',server:{
 const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
 const click=async(text)=>{const buttons=[...host.querySelectorAll('button')];const button=buttons.find(x=>x.textContent.trim()===text)||buttons.find(x=>!x.disabled&&x.textContent.includes(text));assert.ok(button,`Missing button: ${text}`);assert.equal(button.disabled,false,`Disabled button: ${text}`);await act(async()=>{button.click();await new Promise(r=>setTimeout(r,30))})};
 const confirmConcentration=async()=>{
-  const concentrationButton=[...host.querySelectorAll('.concentration-options button')].find(x=>!x.disabled&&x.textContent.includes('DEFAULT / DEPARTMENT'));
+  assert.ok(host.textContent.includes('Confirm medication concentration')||host.textContent.includes('Select concentration'),'Dedicated concentration screen is rendered');
+  const buttons=[...host.querySelectorAll('.concentration-options button')];
+  const concentrationButton=buttons.find(x=>!x.disabled&&!x.textContent.includes('Different concentration'))||buttons.find(x=>!x.disabled);
   assert.ok(concentrationButton,'Dedicated concentration confirmation is available');
   await act(async()=>{concentrationButton.click();await new Promise(r=>setTimeout(r,30))});
 };
