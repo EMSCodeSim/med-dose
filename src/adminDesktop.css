@@ -161,33 +161,9 @@
   .admin-med-modal.detail-view .admin-field-control{margin:0}
   .admin-med-modal.detail-view .admin-med-actions{position:sticky;top:92px;z-index:3;padding:10px;border:1px solid #d4e0e6;border-radius:10px;background:#f7fafcf2;backdrop-filter:blur(8px)}
 
-  .admin-med-status-card {
-    position: sticky;
-    top: 0;
-    z-index: 4;
-    padding-bottom: 10px;
-    background: #f7fafcf2;
-    backdrop-filter: blur(8px);
-  }
-
-  .admin-med-status-card > div {
-    min-height: 72px;
-  }
-
   .admin-structured-editor {
     max-width: 1480px;
     margin: 0 auto;
-  }
-
-  .admin-editor-steps {
-    position: sticky;
-    top: 92px;
-    z-index: 3;
-    padding: 8px;
-    border: 1px solid #d4e0e6;
-    border-radius: 12px;
-    background: #f7fafcf2;
-    backdrop-filter: blur(8px);
   }
 
   .admin-form-grid {
