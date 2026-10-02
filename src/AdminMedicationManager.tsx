@@ -582,6 +582,11 @@ export default function AdminMedicationManager({
     const signatures = reviews[id] || {};
     updateRecord(id, (r) => ({ ...r, reviewStartedAt: Date.now(),validation:undefined }));
     if (signatureCount(signatures) > 0) resetSignatures(id);
+    setError("");
+    setSavedMessage("Review started. Complete the medication validation checks below.");
+    requestAnimationFrame(() =>
+      document.querySelector("#medication-validation")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
   };
   const approveStage = (stage: ReviewStage) => {
     if (!selected || !record?.reviewStartedAt) return;
@@ -644,12 +649,17 @@ export default function AdminMedicationManager({
     if(!title){setError("Select or enter the validator's title before recording a passed check.");return}
     const item=MEDICATION_VALIDATION_LABELS[key];
     if(!window.confirm(`Mark “${item.label}” as passed for ${selected.name}? This records your identity, date and time.`))return;
+    const remainingBefore=selectedValidation?.required.filter(requiredKey=>!selectedValidation.completed.includes(requiredKey))||[];
+    const completesValidation=remainingBefore.length===1&&remainingBefore[0]===key;
     updateRecord(selected.id,r=>{
       const target=validationTarget(r);
       const current=validationIsCurrent(r)?r.validation:undefined;
       return {...r,validation:{...target,checks:{...(current?.checks||{}),[key]:{validatedBy:reviewer,title,validatedAt:Date.now()}}}};
     });
-    setError("");setSavedMessage(`${item.label} recorded as passed.`);
+    setError("");setSavedMessage(completesValidation?"Validation complete. Continue to medication approval below.":`${item.label} recorded as passed.`);
+    if(completesValidation)requestAnimationFrame(() =>
+      document.querySelector("#medication-approval")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
   };
   const beginEdit = () => {
     if (!selected || !currentData) return;
@@ -1122,6 +1132,7 @@ export default function AdminMedicationManager({
       : DEFAULT_VISIBLE_IDS.includes(selected.id)
     : false;
   const selectedValidation=selected&&record&&currentData?medicationValidationProgress(record,currentData):null;
+  const selectedApprovalCount=selected?Math.min(signatureCount(reviews[selected.id]||{}),REQUIRED_REVIEW_SIGNATURES):0;
   return (
     <div className="modal-backdrop admin-med-backdrop" onClick={closeAdmin}>
       <section
@@ -1202,9 +1213,9 @@ export default function AdminMedicationManager({
                   <div>
                     <h3>Add a medication</h3>
                     <p>
-                      Start with the basic identification. The next screen
-                      guides you through concentrations, uses, routes, doses,
-                      and safety information.
+                      Enter the name and protocol ID. The guided editor handles
+                      concentrations, doses, safety information, and optional
+                      record details next.
                     </p>
                   </div>
                 </div>
@@ -1219,24 +1230,6 @@ export default function AdminMedicationManager({
                       }
                     />
                   </Field>
-                  <Field label="Brand / common name">
-                    <input
-                      value={newMed.brand}
-                      placeholder="Optional"
-                      onChange={(e) =>
-                        setNewMed((v) => ({ ...v, brand: e.target.value }))
-                      }
-                    />
-                  </Field>
-                  <Field label="Category">
-                    <input
-                      value={newMed.category}
-                      placeholder="Example: Analgesic"
-                      onChange={(e) =>
-                        setNewMed((v) => ({ ...v, category: e.target.value }))
-                      }
-                    />
-                  </Field>
                   <Field label="DMP medication ID">
                     <input
                       value={newMed.protocolId}
@@ -1246,33 +1239,10 @@ export default function AdminMedicationManager({
                       }
                     />
                   </Field>
-                  <Field label="Protocol name">
-                    <input
-                      value={newMed.protocolName}
-                      placeholder="Defaults to medication name"
-                      onChange={(e) =>
-                        setNewMed((v) => ({
-                          ...v,
-                          protocolName: e.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <Field label="Protocol page">
-                    <input
-                      type="number"
-                      value={newMed.page}
-                      placeholder="Page number"
-                      onChange={(e) =>
-                        setNewMed((v) => ({ ...v, page: e.target.value }))
-                      }
-                    />
-                  </Field>
                 </div>
                 <div className="admin-form-help">
-                  * Required. This medication remains hidden from field users
-                  until all approvals are complete and an admin makes a release
-                  live.
+                  The medication stays hidden until validation, two approvals,
+                  and a field release are complete.
                 </div>
                 {error && <div className="admin-med-error">{error}</div>}
                 <div className="admin-inline-actions">
@@ -1285,7 +1255,7 @@ export default function AdminMedicationManager({
                     Cancel
                   </button>
                   <button className="primary" onClick={createMedication}>
-                    Continue to medication details →
+                    Create draft & enter details →
                   </button>
                 </div>
               </section>
@@ -1369,64 +1339,27 @@ export default function AdminMedicationManager({
           <div className="admin-med-detail">
             <section className="admin-med-status-card">
               <div>
-                <small>CLINICAL REVISION</small>
+                <small>1 • MEDICATION DETAILS</small>
                 <b>
-                  Revision {record.clinicalRevision}
-                  {record.draft ? " • DRAFT" : ""}
+                  {editing ? "Editing draft" : record.draft ? "Draft saved" : "Record available"}
                 </b>
-                <span>
-                  {selected.pending
-                    ? "New medication awaiting first approval"
-                    : statusLabel(record, reviews[selected.id] || {})}
-                </span>
+                <span>Clinical revision {record.clinicalRevision}</span>
               </div>
               <div>
-                <small>LAST REVIEW</small>
-                <b>{formatReviewDate(record.lastCompletedAt)}</b>
-                <span>
-                  Next:{" "}
-                  {record.nextReviewAt
-                    ? formatReviewDate(record.nextReviewAt)
-                    : "Complete the first review"}
-                </span>
+                <small>2 • VALIDATION</small>
+                <b>{selectedValidation?.completed.length || 0}/{selectedValidation?.total || 0} passed</b>
+                <span>{record.reviewStartedAt ? selectedValidation?.complete ? "Complete" : "Complete required checks" : "Start review first"}</span>
               </div>
               <div>
-                <small>SIGNATURES</small>
-                <b>{Math.min(signatureCount(reviews[selected.id] || {}), REQUIRED_REVIEW_SIGNATURES)}/{REQUIRED_REVIEW_SIGNATURES}</b>
-                <span>Two sequential approvals • reviewer chooses title</span>
+                <small>3 • APPROVALS</small>
+                <b>{selectedApprovalCount}/{REQUIRED_REVIEW_SIGNATURES} approved</b>
+                <span>{selectedValidation?.complete ? selectedApprovalCount===REQUIRED_REVIEW_SIGNATURES?"Complete":"Next reviewer may approve":"Complete validation first"}</span>
               </div>
-            </section>
-            <section className="admin-field-control">
               <div>
-                <small>FIELD AVAILABILITY</small>
-                <b>
-                  {selected.retired
-                    ? "RETIRED"
-                    : selected.pending
-                      ? "WAITING FOR INITIAL REVIEW"
-                      : desiredVisible
-                        ? "VISIBLE TO USERS"
-                        : "HIDDEN FROM USERS"}
-                </b>
-                <span>
-                  Visibility does not delete the medication or its history.
-                </span>
+                <small>4 • FIELD RELEASE</small>
+                <b>{selectedValidation?.complete&&selectedApprovalCount===REQUIRED_REVIEW_SIGNATURES?"Ready":"Waiting"}</b>
+                <span>{selected.pending ? "Hidden until released" : statusLabel(record, reviews[selected.id] || {})}</span>
               </div>
-              <button
-                disabled={selected.retired || selected.pending}
-                onClick={toggleVisibility}
-              >
-                {desiredVisible ? "Hide from users" : "Show to users"}
-              </button>
-              {selected.retired ? (
-                <button onClick={reactivateMedication}>
-                  Reactivate medication
-                </button>
-              ) : (
-                <button className="danger" onClick={retireMedication}>
-                  Retire / remove from field use
-                </button>
-              )}
             </section>
             {!!record.draft && (
               <div className="admin-med-draft-warning">
@@ -1441,14 +1374,7 @@ export default function AdminMedicationManager({
             {savedMessage && (
               <div className="admin-med-success">{savedMessage}</div>
             )}
-            {selectedValidation&&<section className={`admin-med-validation ${selectedValidation.complete?"complete":"incomplete"}`}>
-              <header><div><small>FORMAL VALIDATION • REVISION {validationTarget(record).clinicalRevision}</small><h3>{selectedValidation.complete?"All required tests passed":"Complete medication validation"}</h3><p>Each passed item records the validator, title, date and time. Saving a clinical change resets these checks.</p></div><b>{selectedValidation.completed.length}/{selectedValidation.total} PASSED</b></header>
-              {!record.reviewStartedAt&&<div className="admin-validation-start-note">Start the six-month review before recording validation results.</div>}
-              <div className="admin-validation-checks">{MEDICATION_VALIDATION_KEYS.map(key=>{
-                const required=selectedValidation.required.includes(key),check=selectedValidation.current?record.validation?.checks[key]:undefined,item=MEDICATION_VALIDATION_LABELS[key];
-                return <article key={key} className={!required?"na":check?"passed":"pending"}><i>{!required?"—":check?"✓":"!"}</i><span><b>{item.label}</b><small>{item.description}</small>{check&&<em>Passed by {check.validatedBy}{check.title?` • ${check.title}`:""} • {new Date(check.validatedAt).toLocaleString()}</em>}</span>{required&&!check&&<button type="button" disabled={!record.reviewStartedAt||editing} onClick={()=>validateMedicationCheck(key)}>Mark passed</button>}</article>;
-              })}</div>
-            </section>}
+            {error && <div className="admin-med-error">{error}</div>}
             <div className="admin-med-actions">
               {!editing && (
                 <button onClick={beginEdit}>Edit medication fields</button>
@@ -1458,11 +1384,8 @@ export default function AdminMedicationManager({
                   className="primary"
                   onClick={() => beginReview(selected.id)}
                 >
-                  Start 6-month review
+                  Start review & validation
                 </button>
-              )}
-              {record.reviewStartedAt && (
-                <button disabled>Review in progress</button>
               )}
               {!!record.draft && !editing && (
                 <button className="danger" onClick={discardDraft}>
@@ -1489,10 +1412,18 @@ export default function AdminMedicationManager({
             ) : (
               <ClinicalRecord data={currentData} />
             )}
-            <section className="admin-med-signatures admin-approval-panel">
+            {selectedValidation&&<section id="medication-validation" className={`admin-med-validation ${selectedValidation.complete?"complete":"incomplete"}`}>
+              <header><div><small>STEP 2 • FORMAL VALIDATION • REVISION {validationTarget(record).clinicalRevision}</small><h3>{selectedValidation.complete?"All required tests passed":"Complete medication validation"}</h3><p>Review the medication record above, then record each required check. Clinical changes reset validation.</p></div><b>{selectedValidation.completed.length}/{selectedValidation.total} PASSED</b></header>
+              {!record.reviewStartedAt&&<div className="admin-validation-start-note">Select “Start review & validation” above to enable these checks.</div>}
+              <div className="admin-validation-checks">{MEDICATION_VALIDATION_KEYS.map(key=>{
+                const required=selectedValidation.required.includes(key),check=selectedValidation.current?record.validation?.checks[key]:undefined,item=MEDICATION_VALIDATION_LABELS[key];
+                return <article key={key} className={!required?"na":check?"passed":"pending"}><i>{!required?"—":check?"✓":"!"}</i><span><b>{item.label}</b><small>{item.description}</small>{check&&<em>Passed by {check.validatedBy}{check.title?` • ${check.title}`:""} • {new Date(check.validatedAt).toLocaleString()}</em>}</span>{required&&!check&&<button type="button" disabled={!record.reviewStartedAt||editing} onClick={()=>validateMedicationCheck(key)}>Mark passed</button>}</article>;
+              })}</div>
+            </section>}
+            <section id="medication-approval" className="admin-med-signatures admin-approval-panel">
               <header>
                 <div>
-                  <small>MEDICATION APPROVAL</small>
+                  <small>STEP 3 • MEDICATION APPROVAL</small>
                   <h3>
                     {hasRequiredSignatures(reviews[selected.id] || {})
                       ? "Medication fully approved"
@@ -1516,6 +1447,8 @@ export default function AdminMedicationManager({
                   index === 0 || !!reviews[selected.id]?.[stages[index - 1]];
                 const ready =
                   !!record.reviewStartedAt && !approval && previousComplete;
+                const currentReviewer=(reviewerIdentity||reviewerName).trim().toLowerCase();
+                const requiresDifferentReviewer=ready&&!!currentReviewer&&Object.values(reviews[selected.id]||{}).some(item=>item?.reviewer.trim().toLowerCase()===currentReviewer);
                 return (
                   <article
                     key={stage}
@@ -1532,7 +1465,7 @@ export default function AdminMedicationManager({
                           {new Date(approval.approvedAt).toLocaleString()}
                         </small>
                       ) : ready ? (
-                        <small>Ready for this reviewer’s approval</small>
+                        <small>{requiresDifferentReviewer?"A different signed-in reviewer must complete this approval":"Ready for this reviewer’s approval"}</small>
                       ) : (
                         <small>
                           {record.reviewStartedAt
@@ -1541,7 +1474,7 @@ export default function AdminMedicationManager({
                         </small>
                       )}
                     </span>
-                    {ready && (
+                    {ready && !requiresDifferentReviewer && (
                       <div className="admin-approve-action">
                         <label>
                           Reviewer name
@@ -1572,10 +1505,10 @@ export default function AdminMedicationManager({
                         </button>
                       </div>
                     )}
+                    {requiresDifferentReviewer&&<div className="admin-reviewer-blocked">Sign out, then have the second authorized reviewer sign in and approve this medication.</div>}
                   </article>
                 );
               })}
-              {error && <div className="admin-med-error">{error}</div>}
               {hasRequiredSignatures(reviews[selected.id] || {}) && (
                 <div className="admin-all-approved">
                   <b>✓ Medication fully approved</b>
@@ -1584,6 +1517,38 @@ export default function AdminMedicationManager({
                     the medication review history.
                   </span>
                 </div>
+              )}
+            </section>
+            <section className="admin-field-control">
+              <div>
+                <small>FIELD AVAILABILITY</small>
+                <b>
+                  {selected.retired
+                    ? "RETIRED"
+                    : selected.pending
+                      ? "WAITING FOR FIELD RELEASE"
+                      : desiredVisible
+                        ? "VISIBLE TO USERS"
+                        : "HIDDEN FROM USERS"}
+                </b>
+                <span>
+                  Manage visibility after validation and approvals. This does not delete review history.
+                </span>
+              </div>
+              <button
+                disabled={selected.retired || selected.pending}
+                onClick={toggleVisibility}
+              >
+                {desiredVisible ? "Hide from users" : "Show to users"}
+              </button>
+              {selected.retired ? (
+                <button onClick={reactivateMedication}>
+                  Reactivate medication
+                </button>
+              ) : (
+                <button className="danger" onClick={retireMedication}>
+                  Retire / remove from field use
+                </button>
               )}
             </section>
             <section className="admin-med-history">
