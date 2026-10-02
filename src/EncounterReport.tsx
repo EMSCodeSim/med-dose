@@ -53,7 +53,7 @@ function ReportEntry({entry,index}:{entry:RecordedAdministration;index:number}){
     <header><span><small>ADMINISTRATION {index+1}</small><b>{entry.drug}</b></span><time>{new Date(entry.time).toLocaleString()}</time></header>
     <div className="encounter-entry-grid">
       <Detail label="Indication" value={entry.reason}/><Detail label="Route" value={entry.route}/>
-      {showConcentration&&<Detail label="Concentration" value={entry.concentration}/>}<Detail label="Patient" value={entry.patient||"No patient detail recorded"}/>
+      {showConcentration&&<Detail label="Concentration used" value={entry.concentration}/>} {entry.defaultConcentration&&<Detail label="Default concentration" value={entry.defaultConcentration}/>} {entry.concentrationOverride&&<Detail label="Concentration override" value="YES — non-default concentration used"/>}<Detail label="Patient" value={entry.patient||"No patient detail recorded"}/>
       <Detail label="Safety" value={entry.safety||"Safety selection not retained in this earlier entry"}/>
       {entry.administration&&<Detail label="How to give" value={entry.administration}/>}
       {entry.repeat&&<Detail label="Repeat / reassess" value={entry.repeat}/>}
@@ -61,7 +61,7 @@ function ReportEntry({entry,index}:{entry:RecordedAdministration;index:number}){
       {entry.baseAuthorization&&<Detail label="Base authorization" value={`${entry.baseAuthorization.physician} • ${new Date(entry.baseAuthorization.time).toLocaleString()} • ${entry.baseAuthorization.reason}`}/>}
       {entry.adjustment&&<Detail label="Dose adjustment" value={entry.adjustment}/>}
     </div>
-    <div className="encounter-entry-result"><span><small>FINAL DOSE</small><b>{fmt(entry.dose)} {entry.unit}</b></span>{entry.volume>0&&<span><small>{entry.volumeUnit==="mL/hr"?"FINAL RATE":"FINAL VOLUME"}</small><b>{volumeLabel(entry)}</b></span>}</div>
+    <div className="encounter-entry-result">{entry.calculatedDose!==undefined&&<span><small>CALCULATED / DEFAULT DOSE</small><b>{fmt(entry.calculatedDose)} {entry.unit}</b></span>}<span><small>FINAL DOSE GIVEN</small><b>{fmt(entry.dose)} {entry.unit}{entry.doseOverride?" • CHANGED":""}</b></span>{entry.volume>0&&<span><small>{entry.volumeUnit==="mL/hr"?"FINAL RATE":"FINAL VOLUME"}</small><b>{volumeLabel(entry)}</b></span>}</div>
     {math.length>0&&<div className="encounter-entry-math"><small>CALCULATION MATH</small>{math.map((line,i)=><p key={i}>{line}</p>)}</div>}
     {!!entry.monitoring?.length&&<div className="encounter-entry-monitoring"><small>MONITORING / DETAILS</small><ul>{entry.monitoring.map((item,i)=><li key={i}>{item}</li>)}</ul></div>}
   </section>;
@@ -85,13 +85,16 @@ function reportEntryText(entry:RecordedAdministration,index:number){
     `Route: ${entry.route}`,
     `Patient: ${entry.patient||"No patient detail recorded"}`,
     `Safety: ${entry.safety||"Safety selection not retained in this earlier entry"}`,
-    ...(entry.concentrationRequired??looksLikeConcentration(entry.concentration)?[`Concentration: ${entry.concentration}`]:[]),
+    ...(entry.concentrationRequired??looksLikeConcentration(entry.concentration)?[`Concentration used: ${entry.concentration}`]:[]),
+    ...(entry.defaultConcentration?[`Default concentration: ${entry.defaultConcentration}`]:[]),
+    ...(entry.concentrationOverride?[`Concentration override: YES — non-default concentration used`]:[]),
     ...(entry.administration?[`How to give: ${entry.administration}`]:[]),
     ...(entry.repeat?[`Repeat / reassess: ${entry.repeat}`]:[]),
     ...(entry.protocol?[`Protocol: ${entry.protocol}`]:[]),
     ...(entry.baseAuthorization?[`Base authorization: ${entry.baseAuthorization.physician} at ${new Date(entry.baseAuthorization.time).toLocaleString()} — ${entry.baseAuthorization.reason}`]:[]),
     ...(entry.adjustment?[`Dose adjustment: ${entry.adjustment}`]:[]),
-    `Final dose: ${fmt(entry.dose)} ${entry.unit}`,
+    ...(entry.calculatedDose!==undefined?[`Calculated/default dose: ${fmt(entry.calculatedDose)} ${entry.unit}`]:[]),
+    `Final dose given: ${fmt(entry.dose)} ${entry.unit}${entry.doseOverride?" — CHANGED FROM CALCULATED/DEFAULT":""}`,
     ...(entry.volume>0?[`${entry.volumeUnit==="mL/hr"?"Final rate":"Final volume"}: ${volumeLabel(entry)}`]:[]),
     ...calculationMath(entry).map((line,i)=>`Math ${i+1}: ${line}`),
     ...(entry.monitoring?.map(item=>`Monitoring/detail: ${item}`)||[]),
