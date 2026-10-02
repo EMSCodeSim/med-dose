@@ -16,12 +16,15 @@ globalThis.fetch=async()=>{throw new Error('Offline test')};
 const server=await createServer({configFile:'vite.fast-field.config.ts',server:{middlewareMode:true},appType:'custom',logLevel:'silent'});
 const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
 const click=async(text)=>{const buttons=[...host.querySelectorAll('button')];const button=buttons.find(x=>x.textContent.trim()===text)||buttons.find(x=>!x.disabled&&x.textContent.includes(text));assert.ok(button,`Missing button: ${text}`);assert.equal(button.disabled,false,`Disabled button: ${text}`);await act(async()=>{button.click();await new Promise(r=>setTimeout(r,30))})};
-const confirmMedicationAndSafety=async()=>{
-  const medicationButton=[...host.querySelectorAll('.safety-concentration-check button')].find(x=>!x.disabled&&(x.textContent.includes('DEPARTMENT DEFAULT')||x.textContent.includes('Confirm formulation in hand')));
-  assert.ok(medicationButton,'Medication/formulation confirmation is available');
-  await act(async()=>{medicationButton.click();await new Promise(r=>setTimeout(r,30))});
+const confirmConcentration=async()=>{
+  const concentrationButton=[...host.querySelectorAll('.concentration-options button')].find(x=>!x.disabled&&x.textContent.includes('DEFAULT / DEPARTMENT'));
+  assert.ok(concentrationButton,'Dedicated concentration confirmation is available');
+  await act(async()=>{concentrationButton.click();await new Promise(r=>setTimeout(r,30))});
+};
+const confirmSafety=async()=>{
+  assert.equal(host.querySelector('.safety-concentration-check'),null,'Concentration is not repeated on the safety screen');
   const safetyCheckbox=[...host.querySelectorAll('input[type=checkbox]')].find(x=>!x.disabled);
-  assert.ok(safetyCheckbox,'Safety confirmation is enabled after medication/formulation confirmation');
+  assert.ok(safetyCheckbox,'Safety confirmation is available');
   await act(async()=>{safetyCheckbox.click();await new Promise(r=>setTimeout(r,30))});
 };
 try{
@@ -29,12 +32,13 @@ try{
   await act(async()=>{root.render(React.createElement(FieldApp));await new Promise(r=>setTimeout(r,30))});
   assert.equal(host.querySelectorAll('.field-med-card').length,23);
   await act(async()=>{[...host.querySelectorAll('.field-med-card')].find(x=>x.textContent.includes('FENTANYL')).click();await new Promise(r=>setTimeout(r,30))});
+  await confirmConcentration();
   await click('Moderate to severe pain — 2 mcg/kg');
   await click('IV/IOApproved route');
   await click('Adult 12–65');
   await click('Kilograms (kg)');
   await click('80kg');
-  await confirmMedicationAndSafety();
+  await confirmSafety();
   assert.ok(host.textContent.includes('GIVE 100 mcg'));
   await click('GIVE NOW');
   assert.ok(host.textContent.includes('Report (1)'));
@@ -43,6 +47,7 @@ try{
   await click('New Calculation');
   const openMedication=async(name)=>{await act(async()=>{const card=[...host.querySelectorAll('.field-med-card')].find(x=>x.textContent.includes(name));assert.ok(card);card.click();await new Promise(r=>setTimeout(r,30))})};
   await openMedication('FENTANYL');
+  await confirmConcentration();
   assert.equal(host.querySelector('.final-dose-display'),null);
   assert.ok(!host.textContent.includes('GIVE 100 mcg'),'Previous result is gone');
   assert.ok(!host.textContent.includes('DOSE 1 GIVEN'),'Previous repeat history is gone');
@@ -54,7 +59,7 @@ try{
   assert.equal(host.querySelector('.selected-calculation-weight'),null,'Old weight did not carry');
   await click('Kilograms (kg)');
   await click('70kg');
-  await confirmMedicationAndSafety();
+  await confirmSafety();
   assert.ok(host.textContent.includes('GIVE NOW'),'Fresh patient can complete a new calculation');
   assert.ok(!host.textContent.includes('AVAILABLE IN'),'Repeat timer was reset');
   await click('New Calculation');
@@ -62,6 +67,7 @@ try{
   assert.ok(!host.textContent.includes('70 kg'),'Medication B starts with no inherited patient');
   await click('New Calculation');
   await openMedication('FENTANYL');
+  await confirmConcentration();
   await click('Moderate to severe pain — 2 mcg/kg');
   await click('IV/IOApproved route');
   assert.ok(host.textContent.includes('Select patient age group'),'Fresh-patient rule remains active for later calculations');
@@ -74,5 +80,5 @@ try{
   dirty.weight='80';assert.equal(copied.weight,'6.5','Reuse is a snapshot');
   assert.equal(hasPatientMeasurements(null),false);
   assert.equal(hasPatientMeasurements({...copied,age:'',weight:''}),false);
-  console.log('Calculation-state integration passed: every new medication calculation starts with a fresh patient; medication/formulation safety confirmation, safety/results/repeat state reset; age units and length-band provenance remain isolated.');
+  console.log('Calculation-state integration passed: dedicated concentration step, separate safety confirmation, fresh-patient reset, result/repeat reset, and age/weight isolation.');
 }finally{await act(async()=>root.unmount());await server.close();await win.happyDOM.close()}
