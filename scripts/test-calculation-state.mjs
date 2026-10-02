@@ -44,6 +44,7 @@ const confirmConcentration=async()=>{
 };
 const confirmSafety=async()=>{
   assert.equal(host.querySelector('.safety-concentration-check'),null,'Concentration is not repeated on the safety screen');
+  assert.ok(host.textContent.includes('Confirm the physical medication label matches'),'Concentration is a required item in the safety checklist');
   const safetyCheckbox=[...host.querySelectorAll('input[type=checkbox]')].find(x=>!x.disabled);
   assert.ok(safetyCheckbox,'Safety confirmation is available');
   await act(async()=>{safetyCheckbox.click();await new Promise(r=>setTimeout(r,30))});
@@ -59,6 +60,7 @@ try{
   await click('Adult 12–65');
   await click('Kilograms (kg)');
   await click('80kg');
+  await confirmConcentration();
   await confirmSafety();
   assert.ok(host.textContent.includes('GIVE 100 mcg'));
   await click('GIVE NOW');
@@ -80,6 +82,7 @@ try{
   assert.equal(host.querySelector('.selected-calculation-weight'),null,'Old weight did not carry');
   await click('Kilograms (kg)');
   await click('70kg');
+  await confirmConcentration();
   await confirmSafety();
   assert.ok(host.textContent.includes('GIVE NOW'),'Fresh patient can complete a new calculation');
   assert.ok(!host.textContent.includes('AVAILABLE IN'),'Repeat timer was reset');
