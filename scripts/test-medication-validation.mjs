@@ -33,10 +33,13 @@ try{
   record.protocolRevision="October 2026";
   assert.equal(validation.medicationValidationProgress(record,data).complete,false,"A protocol revision invalidates prior validation");
   const adultOnly={paths:[{patient:"adult"}],concentrations:[]};
-  assert.deepEqual(validation.requiredValidationKeys(adultOnly),["protocol","formula","adult","edgeCases"],"Non-applicable pediatric and concentration checks are excluded");
+  assert.deepEqual(validation.requiredValidationKeys(adultOnly),["protocol","formula","concentration","adult","edgeCases"],"Concentration or supplied-strength validation remains required when pediatric testing is not applicable");
 
   const {default:AdminMedicationManager}=await server.ssrLoadModule("/src/AdminMedicationManager.tsx");
   const {releasedFieldMedicationDefinitions}=await server.ssrLoadModule("/src/expandedFieldMedicationDefinitions.ts");
+  assert.equal(releasedFieldMedicationDefinitions.length,23);
+  for(const item of releasedFieldMedicationDefinitions)
+    assert.ok(validation.requiredValidationKeys(item).includes("concentration"),`${item.name} requires concentration or supplied-strength validation`);
   const fentanyl=releasedFieldMedicationDefinitions.find(item=>item.id==="fentanyl");
   const medication={id:fentanyl.id,name:fentanyl.name,brand:"Fentanyl",sub:"Opioid analgesic",protocol:{id:fentanyl.protocolId,name:fentanyl.name,page:fentanyl.page},visible:true};
   localStorage.setItem(store.ADMIN_MEDICATION_STATE_KEY,JSON.stringify({fentanyl:{medicationId:"fentanyl",clinicalRevision:1,protocolRevision:"July 2026",history:[]}}));
