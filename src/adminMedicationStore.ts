@@ -7,6 +7,14 @@ export const REQUIRED_REVIEW_SIGNATURES = 2;
 export const REVIEWER_TITLES = ["Administrator","Line Safety Officer","Medical Director","Clinical Educator","Pharmacist","Other"] as const;
 export type ReviewSignature = { reviewer:string; title?:string; approvedAt:number; revision?:string };
 export type ReviewSignatures = Partial<Record<"owner"|"lineSafety"|"medicalDirector",ReviewSignature>>;
+export const MEDICATION_VALIDATION_KEYS = ["protocol","formula","concentration","adult","pediatric","edgeCases"] as const;
+export type MedicationValidationKey = typeof MEDICATION_VALIDATION_KEYS[number];
+export type MedicationValidationCheck = {validatedBy:string;title?:string;validatedAt:number};
+export type MedicationValidationState = {
+  protocolRevision:string;
+  clinicalRevision:number;
+  checks:Partial<Record<MedicationValidationKey,MedicationValidationCheck>>;
+};
 export type ReviewHistoryEntry = {
   id:string;
   startedAt:number;
@@ -16,6 +24,7 @@ export type ReviewHistoryEntry = {
   clinicalRevision:number;
   result:"no-change"|"changes-approved";
   signatures:ReviewSignatures;
+  validation?:MedicationValidationState;
   changeSummary?:string[];
 };
 export type MedicationAdminRecord = {
@@ -28,6 +37,7 @@ export type MedicationAdminRecord = {
   draft?:unknown;
   draftCreatedAt?:number;
   history:ReviewHistoryEntry[];
+  validation?:MedicationValidationState;
 };
 export type MedicationAdminState = Record<string,MedicationAdminRecord>;
 export type ClinicalOverrideState = Record<string,unknown>;

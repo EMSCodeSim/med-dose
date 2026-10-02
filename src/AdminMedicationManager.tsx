@@ -12,12 +12,14 @@ import {
   REVIEW_INTERVAL_MONTHS,
   REQUIRED_REVIEW_SIGNATURES,
   REVIEWER_TITLES,
+  MEDICATION_VALIDATION_KEYS,
   reviewTiming,
   saveClinicalOverrides,
   saveMedicationAdminState,
   signatureCount,
   type MedicationAdminRecord,
   type MedicationAdminState,
+  type MedicationValidationKey,
   type ReviewSignatures,
 } from "./adminMedicationStore";
 import {
@@ -32,10 +34,12 @@ import {
 } from "./medicationReleaseConfig";
 import type { AdminWorkspacePayload } from "./neonAdmin";
 import { medicationApprovalStatus } from "./medicationApprovalStatus";
+import {MEDICATION_VALIDATION_LABELS,medicationValidationProgress,requiredValidationKeys,validationIsCurrent,validationReviewers,validationTarget} from "./medicationValidation";
 import type { ReleasePayload } from "./medicationRelease";
 import "./adminMedicationManager.css";
 import "./adminApproval.css";
 import "./adminPublish.css";
+import "./adminValidation.css";
 
 type Reviews = Record<string, ReviewSignatures>;
 type ReviewStage = "owner" | "lineSafety" | "medicalDirector";
@@ -524,12 +528,16 @@ export default function AdminMedicationManager({
         a.name.localeCompare(b.name),
     );
   const reviewTargets = catalog.filter((m) => !m.retired);
-  const releaseBlockers = reviewTargets.filter(
-    (m) =>
-      !(["approved", "due-soon"] as string[]).includes(
-        medicationApprovalStatus(m.id, state).state,
-      ),
+  const clinicalDataFor=(medication:CatalogMedication)=>{
+    const medicationRecord=getRecord(state,medication.id);
+    return (medicationRecord.draft as JsonObject|undefined)||(loadClinicalOverrides()[medication.id] as JsonObject|undefined)||baseData(medication);
+  };
+  const validationProgressFor=(medication:CatalogMedication)=>medicationValidationProgress(getRecord(state,medication.id),clinicalDataFor(medication));
+  const approvalBlockers = reviewTargets.filter((m)=>
+    !(["approved", "due-soon"] as string[]).includes(medicationApprovalStatus(m.id,state).state),
   );
+  const validationBlockers=reviewTargets.filter((m)=>!validationProgressFor(m).complete);
+  const releaseBlockers=Array.from(new Set([...approvalBlockers,...validationBlockers]));
   const releaseMedicationIds = catalog
     .filter(
       (m) =>
@@ -572,7 +580,7 @@ export default function AdminMedicationManager({
   };
   const beginReview = (id: string) => {
     const signatures = reviews[id] || {};
-    updateRecord(id, (r) => ({ ...r, reviewStartedAt: Date.now() }));
+    updateRecord(id, (r) => ({ ...r, reviewStartedAt: Date.now(),validation:undefined }));
     if (signatureCount(signatures) > 0) resetSignatures(id);
   };
   const approveStage = (stage: ReviewStage) => {
@@ -580,6 +588,11 @@ export default function AdminMedicationManager({
     const stages = ACTIVE_REVIEW_STAGES;
     const stageIndex = stages.indexOf(stage),
       signatures = reviews[selected.id] || {};
+    const validationProgress=medicationValidationProgress(record,currentData||{});
+    if(!validationProgress.complete){
+      setError(`Complete all ${validationProgress.total} required validation checks before recording medication approval.`);
+      return;
+    }
     if (stageIndex > 0 && !signatures[stages[stageIndex - 1]]) {
       setError("The previous reviewer must approve this medication first.");
       return;
@@ -620,6 +633,23 @@ export default function AdminMedicationManager({
     setError("");
     setSavedMessage(`${labels[stage]} approval recorded.`);
     setReviewerName(reviewerIdentity);
+  };
+  const validateMedicationCheck=(key:MedicationValidationKey)=>{
+    if(!selected||!record?.reviewStartedAt)return;
+    const required=requiredValidationKeys(currentData||{});
+    if(!required.includes(key))return;
+    const reviewer=(reviewerIdentity||reviewerName).trim();
+    if(!reviewer){setError("Enter the validator name before recording a passed check.");return}
+    const title=reviewerTitle==="Other"?customReviewerTitle.trim():reviewerTitle;
+    if(!title){setError("Select or enter the validator's title before recording a passed check.");return}
+    const item=MEDICATION_VALIDATION_LABELS[key];
+    if(!window.confirm(`Mark “${item.label}” as passed for ${selected.name}? This records your identity, date and time.`))return;
+    updateRecord(selected.id,r=>{
+      const target=validationTarget(r);
+      const current=validationIsCurrent(r)?r.validation:undefined;
+      return {...r,validation:{...target,checks:{...(current?.checks||{}),[key]:{validatedBy:reviewer,title,validatedAt:Date.now()}}}};
+    });
+    setError("");setSavedMessage(`${item.label} recorded as passed.`);
   };
   const beginEdit = () => {
     if (!selected || !currentData) return;
@@ -870,6 +900,7 @@ export default function AdminMedicationManager({
         reviewStartedAt: r.reviewStartedAt || Date.now(),
         draft: nextData,
         draftCreatedAt: Date.now(),
+        validation: undefined,
       }));
       resetSignatures(selected.id);
       setSavedMessage(
@@ -1055,6 +1086,7 @@ export default function AdminMedicationManager({
       clinicalRevision: r.draft ? r.clinicalRevision + 1 : r.clinicalRevision,
       result: r.draft ? ("changes-approved" as const) : ("no-change" as const),
       signatures: deepClone(signatures),
+      validation: r.validation?deepClone(r.validation):undefined,
       changeSummary,
     };
     const nextRecord: MedicationAdminRecord = {
@@ -1089,6 +1121,8 @@ export default function AdminMedicationManager({
       ? selected.visible
       : DEFAULT_VISIBLE_IDS.includes(selected.id)
     : false;
+  const selectedValidation=selected&&record&&currentData?medicationValidationProgress(record,currentData):null;
+  const validationsComplete=reviewTargets.filter(m=>validationProgressFor(m).complete).length;
   return (
     <div className="modal-backdrop admin-med-backdrop" onClick={closeAdmin}>
       <section
@@ -1161,18 +1195,44 @@ export default function AdminMedicationManager({
                 <li>
                   <i>3</i>
                   <span>
+                    <b>Validate</b>
+                    <small>Pass all required clinical and calculation tests.</small>
+                  </span>
+                </li>
+                <li>
+                  <i>4</i>
+                  <span>
                     <b>Get 2 approvals</b>
                     <small>Each reviewer selects their professional title.</small>
                   </span>
                 </li>
                 <li>
-                  <i>4</i>
+                  <i>5</i>
                   <span>
                     <b>Make live</b>
                     <small>Approved updates become available to phones.</small>
                   </span>
                 </li>
               </ol>
+            </section>
+            <section className="admin-validation-dashboard" aria-labelledby="validation-dashboard-title">
+              <header>
+                <div><small>FORMAL VALIDATION</small><h3 id="validation-dashboard-title">Medication test dashboard</h3><p>Every required check must pass for the current protocol and clinical revision before a release can go live.</p></div>
+                <b>{validationsComplete}/{reviewTargets.length} ready</b>
+              </header>
+              <div className="admin-validation-legend"><span><i className="passed">✓</i> Passed</span><span><i className="pending">!</i> Required</span><span><i className="na">—</i> Not applicable</span></div>
+              <div className="admin-validation-table" role="table" aria-label="Medication validation status">
+                <div className="admin-validation-table-head" role="row"><span>Medication</span>{MEDICATION_VALIDATION_KEYS.map(key=><span key={key}>{MEDICATION_VALIDATION_LABELS[key].label.replace(" validated","").replace(" passed","")}</span>)}<span>Last validated</span></div>
+                {reviewTargets.map(m=>{
+                  const r=getRecord(state,m.id),data=clinicalDataFor(m),progress=medicationValidationProgress(r,data),required=new Set(progress.required),validation=progress.current?r.validation:undefined;
+                  const dates=Object.values(validation?.checks||{}).map(check=>check?.validatedAt||0).filter(Boolean),lastValidated=dates.length?Math.max(...dates):0,reviewerNames=validationReviewers(validation);
+                  return <button type="button" role="row" className={`admin-validation-row ${progress.complete?"complete":"incomplete"}`} key={m.id} onClick={()=>{setSelectedId(m.id);setEditing(false);setError("")}}>
+                    <span className="medication"><strong>{m.name}</strong><small>{progress.completed.length}/{progress.total} required checks</small></span>
+                    {MEDICATION_VALIDATION_KEYS.map(key=>{const applicable=required.has(key),check=validation?.checks[key];return <span key={key} className="check" aria-label={`${MEDICATION_VALIDATION_LABELS[key].label}: ${!applicable?"not applicable":check?"passed":"required"}`}><i className={!applicable?"na":check?"passed":"pending"}>{!applicable?"—":check?"✓":"!"}</i></span>})}
+                    <span className="validated"><b>{lastValidated?new Date(lastValidated).toLocaleDateString():"Not validated"}</b><small>{reviewerNames.length?reviewerNames.join(", "):"Open medication to complete"}</small></span>
+                  </button>;
+                })}
+              </div>
             </section>
             <section
               className={`admin-publish-panel ${releaseBlockers.length ? "blocked" : "ready"}`}
@@ -1181,12 +1241,12 @@ export default function AdminMedicationManager({
                 <small>FIELD RELEASE</small>
                 <h3>
                   {releaseBlockers.length
-                    ? `${releaseBlockers.length} medication${releaseBlockers.length === 1 ? "" : "s"} still need approval`
+                    ? `${releaseBlockers.length} medication${releaseBlockers.length === 1 ? "" : "s"} are not release-ready`
                     : "All required reviews are complete"}
                 </h3>
                 <p>
                   {releaseBlockers.length
-                    ? `Complete both required checks for ${releaseBlockers
+                    ? `Complete validation and both approvals for ${releaseBlockers
                         .slice(0, 3)
                         .map((m) => m.name)
                         .join(
@@ -1466,6 +1526,14 @@ export default function AdminMedicationManager({
             {savedMessage && (
               <div className="admin-med-success">{savedMessage}</div>
             )}
+            {selectedValidation&&<section className={`admin-med-validation ${selectedValidation.complete?"complete":"incomplete"}`}>
+              <header><div><small>FORMAL VALIDATION • REVISION {validationTarget(record).clinicalRevision}</small><h3>{selectedValidation.complete?"All required tests passed":"Complete medication validation"}</h3><p>Each passed item records the validator, title, date and time. Saving a clinical change resets these checks.</p></div><b>{selectedValidation.completed.length}/{selectedValidation.total} PASSED</b></header>
+              {!record.reviewStartedAt&&<div className="admin-validation-start-note">Start the six-month review before recording validation results.</div>}
+              <div className="admin-validation-checks">{MEDICATION_VALIDATION_KEYS.map(key=>{
+                const required=selectedValidation.required.includes(key),check=selectedValidation.current?record.validation?.checks[key]:undefined,item=MEDICATION_VALIDATION_LABELS[key];
+                return <article key={key} className={!required?"na":check?"passed":"pending"}><i>{!required?"—":check?"✓":"!"}</i><span><b>{item.label}</b><small>{item.description}</small>{check&&<em>Passed by {check.validatedBy}{check.title?` • ${check.title}`:""} • {new Date(check.validatedAt).toLocaleString()}</em>}</span>{required&&!check&&<button type="button" disabled={!record.reviewStartedAt||editing} onClick={()=>validateMedicationCheck(key)}>Mark passed</button>}</article>;
+              })}</div>
+            </section>}
             <div className="admin-med-actions">
               {!editing && (
                 <button onClick={beginEdit}>Edit medication fields</button>
