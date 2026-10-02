@@ -20,6 +20,29 @@ const fastFieldWorkflow:Plugin={
       if(code.includes(ageRequiredOld))code=code.replace(ageRequiredOld,ageRequiredNew);
       else if(!code.includes(ageRequiredNew))throw new Error("MedicationEngine age-required signature changed");
 
+      // Every medication begins with an explicit concentration/formulation check.
+      // Liquid medications show department stock plus Different concentration.
+      // Non-liquid/device medications still require an explicit formulation confirmation.
+      const initialStepOld='[step,setStep]=useState<Step>(()=>medicationAgents.length===1?(medication.paths.some(pathUsesConcentration)?"concentration":"indication"):"medication")';
+      const initialStepNew='[step,setStep]=useState<Step>(()=>medicationAgents.length===1?"concentration":"medication")';
+      if(!code.includes(initialStepOld))throw new Error("MedicationEngine initial concentration step signature changed");
+      code=code.replace(initialStepOld,initialStepNew);
+
+      const agentSelectionOld='const paths=medication.paths.filter(p=>p.agent===x);if(paths.some(pathUsesConcentration))setStep("concentration");else if(paths.length===1)choosePath(paths[0]);else setStep("indication")';
+      const agentSelectionNew='const paths=medication.paths.filter(p=>p.agent===x);setStep("concentration")';
+      if(!code.includes(agentSelectionOld))throw new Error("MedicationEngine agent concentration step signature changed");
+      code=code.replace(agentSelectionOld,agentSelectionNew);
+
+      const noDefaultOld='{!fieldConcentration&&!customConcentrationMode&&<div className="input-guidance"><b>No department concentration configured</b><span>Choose Custom for this calculation, then have Admin set the department default.</span></div>}';
+      const noDefaultNew='{!fieldConcentration&&!customConcentrationMode&&<div className="input-guidance"><b>No liquid concentration configured</b><span>If this is a tablet, device, gas, spray, or other non-liquid product, confirm the formulation. If a liquid medication is in hand, choose Different concentration and enter the physical label.</span><button type="button" className="continue" onClick={()=>{setConcConfirmed(true);if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")}}>CONFIRM NON-LIQUID / DEVICE FORMULATION →</button></div>}';
+      if(!code.includes(noDefaultOld))throw new Error("MedicationEngine no-default concentration guidance signature changed");
+      code=code.replace(noDefaultOld,noDefaultNew);
+
+      const headingOld='<small className="eyebrow">CONCENTRATION</small><h1>Select concentration</h1>';
+      const headingNew='<small className="eyebrow">MEDICATION SAFETY CHECK</small><h1>Select concentration / formulation</h1>';
+      if(!code.includes(headingOld))throw new Error("MedicationEngine concentration heading signature changed");
+      code=code.replace(headingOld,headingNew);
+
       // If a pediatric age-based weight estimate is chosen, that tap supplies both
       // a calculation weight and the age-band information needed for eligibility.
       const weightHandlerOld='onSelect={(nextKg,source)=>{setWeightUnit("kg");setWeight(String(nextKg));setWeightSource(source);setContraChecks([]);setSpecialChecks([]);const nextEligibility=path?genericEligibilityReason(path,ageRequired?effectiveAgeYears:path.patient==="pediatric"?8:40,nextKg):"";if((!ageRequired||age!=="")&&!nextEligibility){';
@@ -36,8 +59,7 @@ const fastFieldWorkflow:Plugin={
       const effectAnchor='  useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);';
       const fastEffects=`  // Experienced-user fast path: if the selected reason leaves only one
   // protocol-approved route, run the existing route button handler automatically.
-  // Concentration is intentionally excluded from fast-path behavior: the medic must
-  // explicitly select/confirm the concentration for every medication calculation.
+  // Concentration/formulation is intentionally excluded from fast-path behavior.
   useEffect(()=>{
     if(step!=="route"||!path||route)return;
     const choices=Array.from(new Set(standardizedRoutePaths(agentPaths,path,medication.id,conc).flatMap(p=>routesFor(p.route))));
