@@ -34,7 +34,7 @@ import {
 } from "./medicationReleaseConfig";
 import type { AdminWorkspacePayload } from "./neonAdmin";
 import { medicationApprovalStatus } from "./medicationApprovalStatus";
-import {MEDICATION_VALIDATION_LABELS,medicationValidationProgress,requiredValidationKeys,validationIsCurrent,validationReviewers,validationTarget} from "./medicationValidation";
+import {MEDICATION_VALIDATION_LABELS,medicationValidationProgress,requiredValidationKeys,validationIsCurrent,validationTarget} from "./medicationValidation";
 import type { ReleasePayload } from "./medicationRelease";
 import "./adminMedicationManager.css";
 import "./adminApproval.css";
@@ -1122,7 +1122,7 @@ export default function AdminMedicationManager({
       : DEFAULT_VISIBLE_IDS.includes(selected.id)
     : false;
   const selectedValidation=selected&&record&&currentData?medicationValidationProgress(record,currentData):null;
-  const validationsComplete=reviewTargets.filter(m=>validationProgressFor(m).complete).length;
+  const releaseReadyCount=reviewTargets.length-releaseBlockers.length;
   return (
     <div className="modal-backdrop admin-med-backdrop" onClick={closeAdmin}>
       <section
@@ -1139,7 +1139,7 @@ export default function AdminMedicationManager({
             <span>
               {selected
                 ? `DMP ${selected.protocol.id} • ${record?.protocolRevision || CURRENT_DMP_PROTOCOL_REVISION}`
-                : "Edit individual fields, add medications, retire medications and run six-month reviews"}
+                : `${reviewTargets.length} medications • ${releaseBlockers.length} need attention`}
             </span>
           </div>
           <button
@@ -1161,77 +1161,23 @@ export default function AdminMedicationManager({
             <div className="admin-med-summary">
               <div>
                 <b>
-                  {catalog.filter((m) => !m.retired).length} active medications
+                  Medications
                 </b>
-                <span>
-                  {catalog.filter((m) => m.retired).length} retired • two
-                  sequential signatures required
-                </span>
+                <span>{catalog.filter((m) => !m.retired).length} active</span>
               </div>
               <button className="admin-add-med" onClick={() => setAdding(true)}>
                 + Add medication
               </button>
             </div>
-            <section className="admin-workflow-guide">
-              <header>
-                <small>HOW CHANGES REACH THE FIELD</small>
-                <h3>One clear, controlled workflow</h3>
-              </header>
-              <ol>
-                <li>
-                  <i>1</i>
-                  <span>
-                    <b>Add or edit</b>
-                    <small>Enter the medication and dosing information.</small>
-                  </span>
-                </li>
-                <li>
-                  <i>2</i>
-                  <span>
-                    <b>Save draft</b>
-                    <small>The current field version stays unchanged.</small>
-                  </span>
-                </li>
-                <li>
-                  <i>3</i>
-                  <span>
-                    <b>Validate</b>
-                    <small>Pass all required clinical and calculation tests.</small>
-                  </span>
-                </li>
-                <li>
-                  <i>4</i>
-                  <span>
-                    <b>Get 2 approvals</b>
-                    <small>Each reviewer selects their professional title.</small>
-                  </span>
-                </li>
-                <li>
-                  <i>5</i>
-                  <span>
-                    <b>Make live</b>
-                    <small>Approved updates become available to phones.</small>
-                  </span>
-                </li>
-              </ol>
-            </section>
             <section className="admin-validation-dashboard" aria-labelledby="validation-dashboard-title">
               <header>
-                <div><small>FORMAL VALIDATION</small><h3 id="validation-dashboard-title">Medication test dashboard</h3><p>Every required check must pass for the current protocol and clinical revision before a release can go live.</p></div>
-                <b>{validationsComplete}/{reviewTargets.length} ready</b>
+                <div><small>TODAY</small><h3 id="validation-dashboard-title">Needs attention</h3><p>Open a medication to complete its validation and approvals.</p></div>
+                <b>{releaseBlockers.length}</b>
               </header>
-              <div className="admin-validation-legend"><span><i className="passed">✓</i> Passed</span><span><i className="pending">!</i> Required</span><span><i className="na">—</i> Not applicable</span></div>
-              <div className="admin-validation-table" role="table" aria-label="Medication validation status">
-                <div className="admin-validation-table-head" role="row"><span>Medication</span>{MEDICATION_VALIDATION_KEYS.map(key=><span key={key}>{MEDICATION_VALIDATION_LABELS[key].label.replace(" validated","").replace(" passed","")}</span>)}<span>Last validated</span></div>
-                {reviewTargets.map(m=>{
-                  const r=getRecord(state,m.id),data=clinicalDataFor(m),progress=medicationValidationProgress(r,data),required=new Set(progress.required),validation=progress.current?r.validation:undefined;
-                  const dates=Object.values(validation?.checks||{}).map(check=>check?.validatedAt||0).filter(Boolean),lastValidated=dates.length?Math.max(...dates):0,reviewerNames=validationReviewers(validation);
-                  return <button type="button" role="row" className={`admin-validation-row ${progress.complete?"complete":"incomplete"}`} key={m.id} onClick={()=>{setSelectedId(m.id);setEditing(false);setError("")}}>
-                    <span className="medication"><strong>{m.name}</strong><small>{progress.completed.length}/{progress.total} required checks</small></span>
-                    {MEDICATION_VALIDATION_KEYS.map(key=>{const applicable=required.has(key),check=validation?.checks[key];return <span key={key} className="check" aria-label={`${MEDICATION_VALIDATION_LABELS[key].label}: ${!applicable?"not applicable":check?"passed":"required"}`}><i className={!applicable?"na":check?"passed":"pending"}>{!applicable?"—":check?"✓":"!"}</i></span>})}
-                    <span className="validated"><b>{lastValidated?new Date(lastValidated).toLocaleDateString():"Not validated"}</b><small>{reviewerNames.length?reviewerNames.join(", "):"Open medication to complete"}</small></span>
-                  </button>;
-                })}
+              <div className="admin-attention-summary"><span><b>{releaseReadyCount}</b>Ready</span><span><b>{validationBlockers.length}</b>Need validation</span><span><b>{approvalBlockers.length}</b>Need approval</span></div>
+              <div className="admin-attention-list" aria-label="Medications needing attention">
+                {releaseBlockers.map(m=>{const r=getRecord(state,m.id),progress=validationProgressFor(m),approvals=Math.min(signatureCount(reviews[m.id]||{}),REQUIRED_REVIEW_SIGNATURES);return <button type="button" key={m.id} onClick={()=>{setSelectedId(m.id);setEditing(false);setError("")}}><span><strong>{m.name}</strong><small>DMP {m.protocol.id}</small></span><span><b>Validation {progress.completed.length}/{progress.total}</b><small>Approvals {approvals}/{REQUIRED_REVIEW_SIGNATURES}</small></span><i>Open</i></button>})}
+                {!releaseBlockers.length&&<div className="admin-attention-empty"><b>Everything is ready</b><span>You can make the next release live.</span></div>}
               </div>
             </section>
             <section
@@ -1246,13 +1192,8 @@ export default function AdminMedicationManager({
                 </h3>
                 <p>
                   {releaseBlockers.length
-                    ? `Complete validation and both approvals for ${releaseBlockers
-                        .slice(0, 3)
-                        .map((m) => m.name)
-                        .join(
-                          ", ",
-                        )}${releaseBlockers.length > 3 ? ` and ${releaseBlockers.length - 3} more` : ""}.`
-                    : "Make the approved library live when you are ready. User phones will download it and retain it for offline use."}
+                    ? `${validationBlockers.length} need validation • ${approvalBlockers.length} need approval`
+                    : "Ready to publish to field devices."}
                 </p>
                 <span>Current live release: {liveVersion || "None"}</span>
               </div>
@@ -1397,11 +1338,7 @@ export default function AdminMedicationManager({
               {filtered.map((m) => {
                 const r = getRecord(state, m.id),
                   s = reviews[m.id] || {},
-                  timing = reviewTiming(r),
-                  visible =
-                    typeof m.visible === "boolean"
-                      ? m.visible
-                      : DEFAULT_VISIBLE_IDS.includes(m.id);
+                  timing = reviewTiming(r);
                 return (
                   <article
                     key={m.id}
@@ -1429,18 +1366,8 @@ export default function AdminMedicationManager({
                         </em>
                       </span>
                       <span className="admin-med-review-dates">
-                        <b>{Math.min(signatureCount(s), REQUIRED_REVIEW_SIGNATURES)}/{REQUIRED_REVIEW_SIGNATURES} checks</b>
-                        <small>
-                          {visible && !m.retired && !m.pending
-                            ? "Field visible"
-                            : "Field hidden"}
-                        </small>
-                        <small>
-                          Next:{" "}
-                          {r.nextReviewAt
-                            ? formatReviewDate(r.nextReviewAt)
-                            : "Not scheduled"}
-                        </small>
+                        <b>Validation {validationProgressFor(m).completed.length}/{validationProgressFor(m).total}</b>
+                        <small>Approvals {Math.min(signatureCount(s), REQUIRED_REVIEW_SIGNATURES)}/{REQUIRED_REVIEW_SIGNATURES}</small>
                       </span>
                       <span className="admin-row-action">Open ›</span>
                     </button>
@@ -1706,10 +1633,6 @@ export default function AdminMedicationManager({
           </div>
         )}
         <footer className="admin-med-footer">
-          <span>
-            Changes and review records sync to the secure Neon workspace. Close
-            Admin after catalog changes to refresh the field medication list.
-          </span>
           <button onClick={closeAdmin}>Done</button>
         </footer>
       </section>

@@ -17,29 +17,27 @@
   .admin-med-modal.dashboard-view {
     display: grid !important;
     grid-template-columns: minmax(330px, 25%) minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
     grid-template-areas:
       "header header"
-      "summary workflow"
+      "summary publish"
       "search validation"
       "filters validation"
       "medications validation"
-      "medications publish"
       "footer footer";
   }
 
   .admin-med-modal.dashboard-view>.admin-med-header{grid-area:header}
   .admin-med-modal.dashboard-view>.admin-med-summary{grid-area:summary;border-right:1px solid #d3e0e7}
-  .admin-med-modal.dashboard-view>.admin-workflow-guide{grid-area:workflow;min-width:0;margin:10px 18px 0}
   .admin-med-modal.dashboard-view>.admin-validation-dashboard{grid-area:validation;min-width:0;min-height:0;margin:10px 18px;display:flex;flex-direction:column}
-  .admin-med-modal.dashboard-view>.admin-validation-dashboard .admin-validation-table{flex:1 1 auto;min-height:0;overflow:auto}
-  .admin-med-modal.dashboard-view>.admin-publish-panel{grid-area:publish;margin:0 18px 10px!important}
-  .admin-med-modal.dashboard-view>.admin-med-search{grid-area:search;border-right:1px solid #d3e0e7;background:#eef4f7}
-  .admin-med-modal.dashboard-view>.admin-med-filters{grid-area:filters;padding:8px 14px;border-right:1px solid #d3e0e7;background:#eef4f7;overflow-x:auto}
+  .admin-med-modal.dashboard-view>.admin-validation-dashboard .admin-attention-list{flex:1 1 auto;min-height:0;overflow:auto}
+  .admin-med-modal.dashboard-view>.admin-publish-panel{grid-area:publish;margin:10px 18px 0!important}
+  .admin-med-modal.dashboard-view>.admin-med-search{grid-area:search;align-items:stretch;flex-direction:column;padding:10px 14px;border-right:1px solid #d3e0e7;background:#eef4f7}
+  .admin-med-modal.dashboard-view>.admin-med-search input{width:100%;box-sizing:border-box}
+  .admin-med-modal.dashboard-view>.admin-med-filters{grid-area:filters;flex-wrap:wrap;padding:8px 14px;border-right:1px solid #d3e0e7;background:#eef4f7;overflow-x:visible}
   .admin-med-modal.dashboard-view>.admin-med-list{grid-area:medications;min-height:0;padding:10px 14px 16px!important;border-right:1px solid #d3e0e7;background:#eef4f7!important;overflow-y:auto!important}
   .admin-med-modal.dashboard-view>.admin-med-footer{grid-area:footer}
 
-  .admin-med-modal.dashboard-view.adding>.admin-workflow-guide,
   .admin-med-modal.dashboard-view.adding>.admin-validation-dashboard,
   .admin-med-modal.dashboard-view.adding>.admin-publish-panel{display:none}
   .admin-med-modal.dashboard-view.adding>.admin-new-med{grid-column:2;grid-row:2 / 7;min-height:0;margin:10px 18px;overflow:auto}
