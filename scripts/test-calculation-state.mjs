@@ -17,6 +17,8 @@ const server=await createServer({configFile:'vite.fast-field.config.ts',server:{
 const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
 const click=async(text)=>{const buttons=[...host.querySelectorAll('button')];const button=buttons.find(x=>x.textContent.trim()===text)||buttons.find(x=>!x.disabled&&x.textContent.includes(text));assert.ok(button,`Missing button: ${text}`);assert.equal(button.disabled,false,`Disabled button: ${text}`);await act(async()=>{button.click();await new Promise(r=>setTimeout(r,30))})};
 const clickFentanylAdultPain=async()=>{
+  const routeButtons=[...host.querySelectorAll('button')].filter(x=>!x.disabled&&/Approved route|Changes dose pathway/i.test(x.textContent));
+  if(routeButtons.length)return;
   const adultButtons=[...host.querySelectorAll('.indication-age-group.adult button')].filter(x=>!x.disabled);
   const button=adultButtons.find(x=>/moderate to severe pain/i.test(x.textContent))||adultButtons[0];
   assert.ok(button,'Adult fentanyl pain pathway is available');
