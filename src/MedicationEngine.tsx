@@ -13,7 +13,324 @@ import {commonEmsConcentrationsFor} from "./emsMedicationDefaults";
 import {loadClinicalOverrides} from "./adminMedicationStore";
 import "./genericMedication.css";
 
-// MedicationEngine implementation is generated/maintained as the shared workflow.
-// NOTE: concentration/formulation confirmation belongs only to the dedicated
-// `concentration` step. The later `safety` step must never render concentration
-// selection or confirmation controls.
+type LocalAdministration={dose:number;volume:number;time:number};
+export type GenericTreatmentContext={medication:string;indication:string;route:string;dose:string;volume:string;administration:string;repeat:string;monitoring:string[];protocolId:string;protocolName:string;protocolPage:number};
+type Props={medication:GenericMedication;activeHeader?:ReactNode;close:()=>void;record:(entry:RecordedAdministration)=>void;openProtocol:()=>void;onContextChange?:(context:GenericTreatmentContext|null)=>void;initialPatient?:EncounterPatient|null;initialMeasurements?:CalculationPatient|null;onPatientChange?:(patient:CalculationPatient)=>void};
+type AgeUnit="years"|"months"|"days";
+type Step="medication"|"concentration"|"indication"|"route"|"patient"|"safety"|"result";
+type FieldConcentration={label?:string;amount?:number;amountUnit?:string;volume?:number;volumeUnit?:string;concentration?:number;concentrationUnit?:string};
+
+export default function MedicationEngine({medication,activeHeader,close,record,openProtocol,onContextChange,initialPatient,initialMeasurements,onPatientChange}:Props){
+  const medicationAgents=useMemo(()=>Array.from(new Set(medication.paths.map(x=>x.agent))),[medication]),
+    [step,setStep]=useState<Step>(()=>medicationAgents.length===1?(medication.paths.some(pathUsesConcentration)?"concentration":"indication"):"medication"),[path,setPath]=useState<GenericDosePath|null>(null),[selectedAgent,setSelectedAgent]=useState(medicationAgents.length===1?medicationAgents[0]:""),
+    [age,setAge]=useState(initialMeasurements?.age??(initialPatient?.ageYears!==undefined?String(initialPatient.ageYears):"")),[ageUnit,setAgeUnit]=useState<AgeUnit>(initialMeasurements?.ageUnit??"years"),[weight,setWeight]=useState(initialMeasurements?.weight??(initialPatient?.weightKg!==undefined?String(initialPatient.weightKg):"")),[weightUnit,setWeightUnit]=useState<"kg"|"lb">(initialMeasurements?.weightUnit??"kg"),[weightSource,setWeightSource]=useState(initialMeasurements?.weightSource??(initialPatient?.weightKg?"reused patient weight":"")),
+    [route,setRoute]=useState(""),[medConfirmed]=useState(true),[concConfirmed,setConcConfirmed]=useState(false),[customConcentrationMode,setCustomConcentrationMode]=useState(false),[customConcentration,setCustomConcentration]=useState(""),
+    [contraChecks,setContraChecks]=useState<boolean[]>([]),[specialChecks,setSpecialChecks]=useState<boolean[]>([]),[basePhysician,setBasePhysician]=useState(""),[baseApproved,setBaseApproved]=useState(false),
+    [actual,setActual]=useState(""),[administrations,setAdministrations]=useState<LocalAdministration[]>([]),[readyForAnother,setReadyForAnother]=useState(false),[now,setNow]=useState(Date.now()),
+    [dopamineRate,setDopamineRate]=useState(5),[dropFactor,setDropFactor]=useState(60),[returnToResult,setReturnToResult]=useState(false),[editingFinalDose,setEditingFinalDose]=useState(false);
+  useEffect(()=>{onPatientChange?.({age,ageUnit,weight,weightUnit,weightSource})},[age,ageUnit,weight,weightUnit,weightSource,onPatientChange]);
+  useEffect(()=>{
+    const frame=requestAnimationFrame(()=>{
+      document.querySelector<HTMLElement>("#active-medication-screen-top .streamlined-choice-workspace")?.scrollTo({top:0,behavior:"auto"});
+      window.scrollTo({top:0,behavior:"auto"});
+    });
+    return()=>cancelAnimationFrame(frame);
+  },[step,medication.id]);
+  const fieldConcentration=useMemo(()=>fieldConcentrationFor(medication.id),[medication.id]);
+  const isDopamine=medication.id==="dopamine",
+    ageYears=ageUnit==="years"?Number(age):ageUnit==="months"?Number(age)/12:Number(age)/365.25,
+    kg=weightUnit==="kg"?Number(weight):Number(weight)/2.20462,
+    selectedAgentPaths=medication.paths.filter(x=>x.agent===selectedAgent),agentNeedsConcentration=selectedAgentPaths.some(pathUsesConcentration),agentHasConcentration=agentNeedsConcentration&&!!fieldConcentration,agentRequiresConcentration=selectedAgentPaths.length>0&&selectedAgentPaths.every(pathRequiresConcentration),
+    needsWeight=!!path&&(path.formula.kind==="perKg"||path.requiresWeight),ageChangesDose=!!path&&(path.formula.kind==="ageBands"||path.minAge!==undefined||path.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id)||(medication.id==="fentanyl"&&path.patient==="adult")),ageRequired=ageChangesDose,effectiveAgeYears=age!==""?ageYears:path?.patient==="adult"?40:ageYears,needsPatientInfo=needsWeight||ageRequired,routeSelections=path?routePathSelections(selectedAgentPaths,path):[],routeChoices=routeSelections.map(item=>item.route),selectedRoute=route,
+    needsConcentration=!!path&&path.formula.kind!=="instruction"&&path.formula.unit!=="mL"&&path.formula.unit!=="drops"&&path.formula.unit!=="sprays"&&path.formula.unit!=="device"&&(!!path.volumeRequired||!!path.suggestedConcentration)&&(!["ODT","PO","Sublingual","PO — chew"].includes(selectedRoute)||!!path.suggestedConcentration),
+    agentPaths=selectedAgentPaths,agentConcentrationPath=path&&path.formula.kind!=="instruction"&&!['mL','drops','sprays','device'].includes(path.formula.unit)?path:selectedAgentPaths.find(pathUsesConcentration)||null,
+    concentrationUnit=(agentConcentrationPath?.formula.kind!=="instruction"?agentConcentrationPath?.formula.unit:"mg")||"mg",
+    adminConc=fieldConcentration?concentrationInUnit(fieldConcentration,concentrationUnit):0,conc=customConcentrationMode?Number(customConcentration):adminConc,defaultConcentrationText=agentNeedsConcentration&&adminConc>0?`${fmt(adminConc)} ${concentrationUnit}/mL`:"Not configured",usedConcentrationText=agentNeedsConcentration&&conc>0?`${fmt(conc)} ${concentrationUnit}/mL`:"Not required",concentrationChanged=agentNeedsConcentration&&adminConc>0&&conc>0&&Math.abs(conc-adminConc)>.000001,eligibilityAge=ageRequired?effectiveAgeYears:path?.patient==="pediatric"?8:40,eligibility=path&&needsPatientInfo?genericEligibilityReason(path,eligibilityAge,kg):"",
+    result=useMemo(()=>path?calculateGenericDose(path,effectiveAgeYears,kg,medication.id):null,[path,effectiveAgeYears,kg,medication.id]),volume=result&&needsConcentration&&conc>0?result.dose/conc:result?.unit==="mL"?result.dose:0,
+    patientText=ageChangesDose&&age!==""?`${age} ${ageUnit}${needsWeight&&kg>0?` • ${fmt(kg)} kg${weightSource?` • ${weightSource}`:""}`:""}`:needsWeight&&kg>0?`${fmt(kg)} kg${weightSource?` • ${weightSource}`:""}`:path?path.patient==="adult"?"Adult pathway":path.patient==="pediatric"?"Pediatric pathway":"All ages":"",contraindications=path?applicableContraindications(medication,path):[],specialChecksText=applicableSpecialChecks(path),
+    safetyListConfirmed=contraindications.every((_,i)=>contraChecks[i])&&specialChecksText.every((_,i)=>specialChecks[i]),safetyComplete=safetyListConfirmed&&(!path?.baseContact||(baseApproved&&!!basePhysician.trim())),
+    actualDose=Number(actual),doseMaximum=nextDoseMaximum(path,result,kg,administrations),actualOk=!!result&&result.numeric&&actualDose>0&&actualDose<=doseMaximum,
+    belowProtocolMin=!!result&&result.numeric&&!!result.minDose&&actualDose>0&&actualDose<result.minDose,actualVolume=actualOk?(result?.unit==="mL"?actualDose:needsConcentration?actualDose/conc:0):0,
+    totalDose=administrations.reduce((n,x)=>n+x.dose,0),totalVolume=administrations.reduce((n,x)=>n+x.volume,0),maxAdministrations=path?.openEndedRepeats?Number.MAX_SAFE_INTEGER:path?.linkedDose?2:path?.maxAdministrations||1,
+    repeatRemaining=Math.max(0,maxAdministrations-administrations.length),lastAdministration=administrations.at(-1),repeatTimerMinutes=path?.linkedDose?.afterMinutes||path?.titrationStepMinutes||path?.repeatAfterMinutes,secondsLeft=repeatTimerMinutes&&lastAdministration?Math.max(0,Math.ceil((lastAdministration.time+repeatTimerMinutes*60000-now)/1000)):0,
+    repeatAllowed=!!path&&repeatRemaining>0&&administrations.length>0&&doseMaximum>0,monitoring=useMemo(()=>path?monitoringFor(medication.id,path):[],[medication.id,path]),
+    protocolMaxTotal=path&&result?path.maxCumulative??(path.maxCumulativePerKg!==undefined?Math.min(path.maxCumulativePerKg*kg,path.absoluteCumulativeMax??Infinity):(path.openEndedRepeats?result.dose:result.dose*maxAdministrations)):0,
+    additionalAdjustment=(medication.id==="diazepam"||medication.id==="lorazepam")&&path?.patient==="adult"&&(effectiveAgeYears>65||kg<50)?"DMP 9070 half-dose applied for age over 65 or adult weight under 50 kg":(medication.id==="antipsychotics"||medication.id==="haloperidol")&&effectiveAgeYears>=65?"DMP 9045 elderly dose reduced by one-half":medication.id==="diltiazem"&&effectiveAgeYears>65?"DMP 9095 over-65 dose reduced by one-half":"",
+    linkedDose=path?.linkedDose,linkedAmount=linkedDose?Math.min(linkedDose.max??Infinity,(linkedDose.amount??kg*(linkedDose.perKg||0))*(medication.id==="diltiazem"&&effectiveAgeYears>65?.5:1)):0,
+    dopamineTotal=kg*dopamineRate,dopamineMlMin=conc>0?dopamineTotal/conc:0,dopamineMlHr=dopamineMlMin*60,dopamineGttMin=Math.round(dopamineMlMin*dropFactor),lastDopamineRate=lastAdministration&&kg>0?lastAdministration.dose/kg:0,dopamineIncreaseWaiting=administrations.length>0&&dopamineRate>lastDopamineRate&&!!secondsLeft,dopamineRateUnchanged=administrations.length>0&&Math.abs(dopamineRate-lastDopamineRate)<.001,
+    showingLinkedDose=!!linkedDose&&administrations.length===1,finalGiveText=isDopamine?`${dopamineRate} mcg/kg/min • ${fmt(dopamineTotal)} mcg/min`:showingLinkedDose?`${fmt(linkedAmount)} ${linkedDose?.unit}`:result?.numeric?result.text:result?.text||"Treatment",
+    finalVolumeText=isDopamine?`${fmt(dopamineMlHr)} mL/hr`:showingLinkedDose&&needsConcentration?`${fmt(linkedAmount/conc)} mL`:result?.unit==="mL"?`${fmt(result.dose)} mL`:needsConcentration&&result?`${fmt(result.dose/conc)} mL`:"No volume calculation required",needsConcentrationStep=needsConcentration&&!concConfirmed,
+    infusionLike=!!path&&(isDopamine||/infusion|drip/i.test(`${selectedRoute} ${path.administration}`)),
+    finalResultUnit=result?.numeric?result.unit:"",infusionAdministration=path?.administration||"",
+    repeatActionForFinal=result?.numeric&&!isDopamine&&!linkedDose&&administrations.length>0&&repeatRemaining>0&&doseMaximum>0?{enabled:secondsLeft===0,label:secondsLeft?"REASSESS / WAIT":"GIVE NEXT DOSE",text:secondsLeft?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`:`${fmt(doseMaximum)} ${finalResultUnit}${needsConcentration?` • ${fmt(doseMaximum/conc)} mL`:""}`,detail:secondsLeft?"Repeat button unlocks when the medication-specific interval is complete.":"Tap to record the next dose using the current medication-specific limit.",onGive:()=>recordAmount(doseMaximum)}:null;
+
+  useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);
+  useEffect(()=>{
+    if(!result?.numeric)return;
+    setActual(String(result.minDose||result.dose));
+    setEditingFinalDose(false);
+  },[path?.id,result?.dose,result?.minDose]);
+  useEffect(()=>{
+    if(step!=="result")return;
+    const resetFinalTop=()=>{
+      if("scrollRestoration" in history)history.scrollRestoration="manual";
+      const doc=document.scrollingElement;
+      if(doc)doc.scrollTop=0;
+      document.documentElement.scrollTop=0;
+      document.body.scrollTop=0;
+      const host=document.querySelector(".generic-calculator-host");
+      if(host instanceof HTMLElement)host.scrollTop=0;
+      const shell=document.getElementById("active-medication-screen-top");
+      if(shell instanceof HTMLElement){
+        shell.scrollTop=0;
+        shell.scrollTo({top:0,left:0,behavior:"auto"});
+      }
+    };
+    resetFinalTop();
+    const frame=window.requestAnimationFrame(resetFinalTop);
+    const shortTimer=window.setTimeout(resetFinalTop,60);
+    const safariTimer=window.setTimeout(resetFinalTop,260);
+    return()=>{window.cancelAnimationFrame(frame);window.clearTimeout(shortTimer);window.clearTimeout(safariTimer)};
+  },[step]);
+  useEffect(()=>{if(!onContextChange)return;if(!path||!result){onContextChange(null);return}onContextChange({medication:path.agent,indication:path.label,route:selectedRoute,dose:ageRequired&&age===""?"Age required":needsWeight&&!(kg>0)?"Weight required":finalGiveText,volume:needsConcentration&&!(conc>0)?"Concentration required":finalVolumeText,administration:path.administration,repeat:path.repeat,monitoring,protocolId:medication.protocolId,protocolName:path.protocol,protocolPage:medication.page})},[onContextChange,path,result,selectedRoute,ageChangesDose,age,needsWeight,kg,needsConcentration,conc,finalGiveText,finalVolumeText,medication,monitoring]);
+  useEffect(()=>()=>onContextChange?.(null),[onContextChange]);
+  const choosePath=(next:GenericDosePath)=>{
+    setPath(next);setRoute("");setContraChecks([]);setSpecialChecks([]);setBaseApproved(false);setBasePhysician("");setAdministrations([]);setReadyForAnother(false);setDopamineRate(next.titrationRates?.[0]||5);
+    // Route is always an explicit quick-pick step. Do not auto-select even a single approved route.
+    setStep("route");
+  };
+  const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}};
+  const showResult=()=>{if(result){setActual(String(nextDoseMaximum(path,result,kg,administrations)||result.minDose||result.dose));setStep("result")}};
+  const selectRoute=(nextRoute:string)=>{
+    if(!path)return;
+    const nextPath=routeSelections.find(item=>item.route===nextRoute)?.path||path;
+    const nextResult=calculateGenericDose(nextPath,effectiveAgeYears,kg,medication.id);
+    const nextNeedsWeight=nextPath.formula.kind==="perKg"||!!nextPath.requiresWeight;
+    const nextAgeRequired=nextPath.formula.kind==="ageBands"||nextPath.minAge!==undefined||nextPath.maxAge!==undefined||["antipsychotics","haloperidol","diazepam","lorazepam","diltiazem"].includes(medication.id)||(medication.id==="fentanyl"&&nextPath.patient==="adult");
+    const safetyChanged=nextPath.id!==path.id&&(nextPath.baseContact!==path.baseContact||JSON.stringify(nextPath.special||[])!==JSON.stringify(path.special||[]));
+    setPath(nextPath);setRoute(nextRoute);setActual(String(nextResult.numeric?(nextResult.minDose||nextResult.dose):1));setReadyForAnother(false);
+    if(safetyChanged){setContraChecks([]);setSpecialChecks([]);setBaseApproved(false);setBasePhysician("");setReturnToResult(false)}
+    if((nextNeedsWeight&&!(kg>0))||(nextAgeRequired&&age===""))setStep("patient");
+    else if(returnToResult&&safetyComplete&&!safetyChanged){setReturnToResult(false);setStep("result")}
+    else if(safetyChanged||contraindications.length||applicableSpecialChecks(nextPath).length||nextPath.baseContact)setStep("safety");
+    else{setReturnToResult(false);setStep("result")}
+  };
+  const reportDetails=(administration=path?.administration)=>({
+    concentrationRequired:needsConcentration,
+    defaultConcentration:needsConcentration?defaultConcentrationText:undefined,
+    concentrationOverride:needsConcentration?concentrationChanged:undefined,
+    safety:contraindications.length||specialChecksText.length||path?.baseContact||needsConcentration?"All required safety checks confirmed":"No additional safety confirmation required",
+    administration,
+    repeat:path?.repeat,
+    protocol:path?`Medication ${medication.protocolId} — ${path.protocol}`:undefined,
+    monitoring,
+    adjustment:additionalAdjustment||undefined,
+  });
+  const doseMath=(amount:number,unit:string,entryVolume:number,linked=false)=>{
+    if(!path||!result)return[];
+    const lines:string[]=[];
+    if(linked&&linkedDose){
+      if(linkedDose.perKg)lines.push(`${fmt(kg)} kg × ${fmt(linkedDose.perKg)} ${unit}/kg = ${fmt(kg*linkedDose.perKg)} ${unit}`);
+      else lines.push(`Protocol linked dose = ${fmt(linkedDose.amount||amount)} ${unit}`);
+      if(Math.abs((linkedDose.perKg?kg*linkedDose.perKg:(linkedDose.amount||amount))-amount)>.0001)lines.push(`Protocol limit or adjustment applied = ${fmt(amount)} ${unit}`);
+    }else if(path.formula.kind==="fixed")lines.push(`Protocol fixed dose = ${fmt(path.formula.amount)} ${unit}`);
+    else if(path.formula.kind==="range")lines.push(`Protocol range = ${fmt(path.formula.min)}–${fmt(path.formula.max)} ${unit}`);
+    else if(path.formula.kind==="perKg"){
+      const raw=kg*path.formula.amount;
+      lines.push(`${fmt(kg)} kg × ${fmt(path.formula.amount)} ${unit}/kg = ${fmt(raw)} ${unit}`);
+      if(Math.abs(raw-result.dose)>.0001)lines.push(`Protocol minimum, maximum, or patient adjustment applied = ${fmt(result.dose)} ${unit}`);
+    }else if(path.formula.kind==="ageBands"){
+      const band=path.formula.bands.find(x=>effectiveAgeYears>=x.min&&effectiveAgeYears<x.max);
+      lines.push(`${band?.label||`${fmt(effectiveAgeYears)} years`} age band = ${fmt(result.dose)} ${unit}`);
+    }else lines.push(`Protocol instruction: ${path.formula.text}`);
+    if(result.numeric&&Math.abs(amount-result.dose)>.0001)lines.push(`Recorded dose selected = ${fmt(amount)} ${unit}`);
+    if(needsConcentration)lines.push(`${fmt(amount)} ${unit} ÷ ${fmt(conc)} ${unit}/mL = ${fmt(entryVolume)} mL`);
+    else if(unit==="mL")lines.push(`Protocol dose is the administered volume = ${fmt(entryVolume)} mL`);
+    return lines;
+  };
+  const recordAmount=(requested:number)=>{if(!path||!result||administrations.length>=maxAdministrations)return;const amount=result.numeric?requested:1;if(result.numeric&&(!(amount>0)||amount>doseMaximum))return;const expectedAmount=result.numeric?(administrations.length>0?doseMaximum:(result.minDose||result.dose)):undefined,entryVolume=result.unit==="mL"?amount:needsConcentration?amount/conc:0,time=Date.now();record({drug:path.agent,reason:path.label,route:selectedRoute,dose:amount,unit:result.numeric?result.unit:"treatment",volume:entryVolume,volumeUnit:"mL",time,concentration:needsConcentration?usedConcentrationText:"Not required",calculatedDose:expectedAmount,doseOverride:expectedAmount!==undefined?Math.abs(amount-expectedAmount)>.0001:undefined,patient:patientText,calculationMath:doseMath(amount,result.numeric?result.unit:"treatment",entryVolume),...reportDetails(),baseAuthorization:path.baseContact?{physician:basePhysician,time,reason:path.baseContact}:undefined});setAdministrations(x=>[...x,{dose:amount,volume:entryVolume,time}]);setReadyForAnother(false);setNow(time)};
+  const recordDopamine=()=>{if(!path||!conc||!kg)return;const time=Date.now();record({drug:path.agent,reason:path.label,route:selectedRoute,dose:dopamineTotal,unit:"mcg/min",volume:dopamineMlHr,volumeUnit:"mL/hr",time,concentration:`${fmt(conc)} mcg/mL`,calculatedDose:kg*(path.titrationRates?.[0]||5),doseOverride:Math.abs(dopamineRate-(path.titrationRates?.[0]||5))>.001,patient:patientText,calculationMath:[`${fmt(kg)} kg × ${dopamineRate} mcg/kg/min = ${fmt(dopamineTotal)} mcg/min`,`${fmt(dopamineTotal)} mcg/min ÷ ${fmt(conc)} mcg/mL = ${fmt(dopamineMlMin)} mL/min`,`${fmt(dopamineMlMin)} mL/min × 60 = ${fmt(dopamineMlHr)} mL/hr`,`${fmt(dopamineMlMin)} mL/min × ${dropFactor} gtt/mL = ${fmt(dopamineGttMin)} gtt/min`],...reportDetails()});setAdministrations(x=>[...x,{dose:dopamineTotal,volume:dopamineMlHr,time}]);setNow(time)};
+  const recordLinked=()=>{if(!path||!linkedDose||!linkedAmount||administrations.length!==1)return;const time=Date.now(),linkedVolume=needsConcentration?linkedAmount/conc:0;record({drug:path.agent,reason:`${path.label} — ${linkedDose.label}`,route:selectedRoute,dose:linkedAmount,unit:linkedDose.unit,volume:linkedVolume,volumeUnit:"mL",time,concentration:needsConcentration?`${fmt(conc)} ${linkedDose.unit}/mL`:"Not required",calculatedDose:linkedAmount,doseOverride:false,patient:patientText,calculationMath:doseMath(linkedAmount,linkedDose.unit,linkedVolume,true),...reportDetails(linkedDose.administration),baseAuthorization:path.baseContact?{physician:basePhysician,time,reason:path.baseContact}:undefined});setAdministrations(x=>[...x,{dose:linkedAmount,volume:linkedVolume,time}]);setNow(time)};
+  const recordNow=()=>recordAmount(actualDose);
+  const prepareRepeat=()=>{if(!path||!result||!repeatAllowed||secondsLeft)return;setActual(String(doseMaximum));setReadyForAnother(true)};
+  const visibleSteps:Step[]=[...(medicationAgents.length>1?["medication" as Step]:[]),...(agentNeedsConcentration?["concentration" as Step]:[]),"indication","route",...(needsPatientInfo?["patient" as Step]:[]),"safety","result"],stepNumber=Math.max(1,visibleSteps.indexOf(step)+1),totalSteps=visibleSteps.length;
+  const back=()=>{const index=visibleSteps.indexOf(step);setStep(visibleSteps[Math.max(0,index-1)])};
+
+  const patientComplete=!!path&&(!needsPatientInfo||((!ageRequired||age!=="")&&(!needsWeight||kg>0)&&!eligibility));
+  return <MedicationBuilderShell medication={{name:selectedAgent||medication.name,subtitle:medication.name,protocolId:medication.protocolId}} boxes={[
+      {id:"medication",label:"MEDICATION",value:selectedAgent||medication.name,detail:selectedAgent?"Selected from medication list":"Select medication agent",complete:!!selectedAgent,active:step==="medication",available:true,onClick:()=>medicationAgents.length>1&&setStep("medication")},
+      {id:"concentration",label:"CONCENTRATION",value:conc>0?(customConcentrationMode?`${fmt(conc)} ${concentrationUnit}/mL • Custom`:fieldConcentration?.label||`${fmt(conc)} ${concentrationUnit}/mL`):"",detail:concConfirmed?(customConcentrationMode?"Custom label confirmed":"Admin concentration selected"):"Select concentration",complete:agentNeedsConcentration&&conc>0&&concConfirmed,notRequired:!agentNeedsConcentration,active:step==="concentration",available:!!selectedAgent,onClick:()=>agentNeedsConcentration&&setStep("concentration")},
+      {id:"indication",label:"INDICATION",value:path?.label||"",detail:path?"DMP pathway selected":"Select reason for use",complete:!!path,active:step==="indication",available:medConfirmed&&(!agentNeedsConcentration||(conc>0&&concConfirmed)),onClick:()=>setStep("indication")},
+      {id:"route",label:"ROUTE",value:selectedRoute,detail:selectedRoute?"Route selected":"Select route",complete:!!path&&!!selectedRoute,active:step==="route",available:!!path,onClick:()=>{setReturnToResult(step==="result");setStep("route")}},
+      {id:"patient",label:"PATIENT",value:patientText,detail:needsPatientInfo?"Dose-changing information":"No patient entry changes dose",complete:needsPatientInfo&&patientComplete,notRequired:!!path&&!needsPatientInfo,active:step==="patient",available:!!path&&!!selectedRoute,onClick:()=>needsPatientInfo&&setStep("patient")},
+      {id:"safety",label:"SAFETY",value:"All checks confirmed",detail:safetyComplete?"One confirmation":"Review complete safety list",complete:(contraindications.length>0||specialChecksText.length>0||!!path?.baseContact)&&safetyComplete,notRequired:!!path&&contraindications.length===0&&specialChecksText.length===0&&!path.baseContact,active:step==="safety",available:patientComplete&&(!agentNeedsConcentration||concConfirmed),onClick:()=>setStep("safety")},
+      {id:"result",label:"FINAL DOSE",value:result?`${finalGiveText} • ${finalVolumeText}`:"",detail:safetyComplete?selectedRoute:"Complete required checks",complete:step==="result"&&safetyComplete,active:step==="result",available:safetyComplete&&(!agentNeedsConcentration||concConfirmed),onClick:()=>setStep("result")},
+    ]} activeHeader={activeHeader} close={close} reset={close} calculationComplete={step==="result"&&safetyComplete&&(!agentNeedsConcentration||concConfirmed)}>
+    <div className="builder-stage-form generic-body">
+      {step==="medication"&&<><small className="eyebrow">MEDICATION</small><h1>Select medication agent</h1><div className="builder-options">{medicationAgents.map(x=><button key={x} className={selectedAgent===x?"selected":""} onClick={()=>{setSelectedAgent(x);setPath(null);setConcConfirmed(false);setCustomConcentrationMode(false);setCustomConcentration("");const paths=medication.paths.filter(p=>p.agent===x);if(paths.some(pathUsesConcentration))setStep("concentration");else if(paths.length===1)choosePath(paths[0]);else setStep("indication")}}><b>{x}</b><span>DMP {medication.protocolId}</span></button>)}</div></>}
+
+      {step==="indication"&&<><small className="eyebrow">INDICATION</small><h1>Why is {selectedAgent} being given?</h1><div className="indication-age-groups">{(["adult","pediatric","all"] as const).map(group=>{const options=agentPaths.filter(x=>x.patient===group);if(!options.length)return null;return <section key={group} className={`indication-age-group ${group}`}><header><b>{group==="adult"?"ADULT":group==="pediatric"?"PEDIATRIC":"ALL AGES"}</b></header><div className="builder-options">{options.map(x=><button className={path?.id===x.id?"selected":""} key={x.id} onClick={()=>choosePath(x)}><b>{cleanIndicationLabel(x.label)}</b><span>{x.protocol}</span></button>)}</div></section>})}</div></>}
+
+      {step==="route"&&path&&<><small className="eyebrow">ROUTE</small><h1>Select route</h1><div className="route-quick-pick-label">ROUTE QUICK PICK</div><div className="builder-options route-options">{routeChoices.map(x=><button key={x} className={selectedRoute===x?"selected":""} onClick={()=>selectRoute(x)}><b>{x}</b><span>{routeSelections.find(item=>item.route===x)?.path.id===path.id?"Approved route":"Changes dose pathway"}</span></button>)}</div></>}
+
+      {step==="patient"&&path&&<><small className="eyebrow">PATIENT INFORMATION</small><h1>Enter only what affects this dose</h1>{ageRequired&&<><label className="giant-input"><span>Patient age</span><input autoFocus inputMode="decimal" value={age} onChange={e=>setAge(e.target.value)} placeholder="0"/></label><div className="age-unit-toggle">{(["years","months","days"] as AgeUnit[]).map(x=><button key={x} className={ageUnit===x?"selected":""} onClick={()=>setAgeUnit(x)}>{x}</button>)}</div></>}{needsWeight&&<WeightQuickSelect kind={path.patient==="pediatric"?"pediatric":"adult"} valueKg={kg>0?kg:0} onSelect={(nextKg,source)=>{setWeightUnit("kg");setWeight(String(nextKg));setWeightSource(source);setContraChecks([]);setSpecialChecks([]);const nextEligibility=path?genericEligibilityReason(path,ageRequired?effectiveAgeYears:path.patient==="pediatric"?8:40,nextKg):"";if((!ageRequired||age!=="")&&!nextEligibility){if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}}}/>}{ageRequired&&age!==""&&<div className="classification"><span>DMP classification</span><b>{path.patient==="adult"?"Adult":path.patient==="pediatric"?"Pediatric":"All ages"}</b></div>}{eligibility&&(ageRequired?age!=="":weight!=="")&&<div className="hard-stop" role="alert"><b>THIS PATHWAY DOES NOT APPLY</b><span>{eligibility}</span><button className="hard-stop-recovery" onClick={()=>{setPath(null);setAge("");setWeight("");setWeightSource("");setStep("indication")}}>Choose the correct pathway →</button></div>}<button className="continue" disabled={(ageRequired&&!age)||(needsWeight&&!(kg>0))||!!eligibility} onClick={finishPatient}>Continue to {needsConcentrationStep?"concentration":"safety checks"} <span>→</span></button></>}
+
+      {step==="concentration"&&<><small className="eyebrow">CONCENTRATION</small><h1>Select concentration</h1><div className="builder-options concentration-options fentanyl-concentration-options">{fieldConcentration&&<button type="button" className={!customConcentrationMode&&concConfirmed?"selected":""} onClick={()=>{setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")}}><b>{fieldConcentration.label||`${fmt(adminConc)} ${concentrationUnit}/mL`}</b><span>{fmt(adminConc)} {concentrationUnit}/mL • DEFAULT / DEPARTMENT</span></button>}<button type="button" className={customConcentrationMode?"selected":""} onClick={()=>{setCustomConcentrationMode(true);setCustomConcentration("");setConcConfirmed(false)}}><b>Different concentration</b><span>Use only when the physical medication label differs</span></button></div>{customConcentrationMode&&<div className="builder-custom"><label>Concentration<input autoFocus inputMode="decimal" value={customConcentration} onChange={e=>{setCustomConcentration(e.target.value);setConcConfirmed(false)}} placeholder="0"/><b>{concentrationUnit}/mL</b></label>{Number(customConcentration)>0&&<strong>{fmt(Number(customConcentration))} {concentrationUnit}/mL</strong>}<label className={concConfirmed?"builder-confirm checked":"builder-confirm"}><input type="checkbox" disabled={!(Number(customConcentration)>0)} checked={concConfirmed} onChange={e=>{const checked=e.target.checked;setConcConfirmed(checked);if(checked&&Number(customConcentration)>0){if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")}}}/><span><b>Different concentration matches physical label</b>{Number(customConcentration)>0?`${fmt(Number(customConcentration))} ${concentrationUnit}/mL`:"Enter the label concentration"}</span></label></div>}{!fieldConcentration&&!customConcentrationMode&&<div className="input-guidance"><b>No department concentration configured</b><span>Choose Custom for this calculation, then have Admin set the department default.</span></div>}</>}
+
+      {step==="safety"&&path&&result&&<><small className="eyebrow">SAFETY CHECK</small><h1>Review medication safety</h1><div className="safety-med-summary"><b>{path.agent}</b><span>{result.text} • {selectedRoute}</span></div>{agentNeedsConcentration&&<div className="safety-concentration-check"><b>CONCENTRATION CHECK</b><span>Default: {defaultConcentrationText} • In hand: {usedConcentrationText}</span>{concentrationChanged&&<strong role="alert">NON-DEFAULT CONCENTRATION — verify the physical medication label before administration.</strong>}</div>}<div className="safety-review-list">{contraindications.map((x,i)=><div key={x}><b>{i+1}</b><span>{x}</span></div>)}{specialChecksText.map((x,i)=><div key={x}><b>{contraindications.length+i+1}</b><span>{x}</span></div>)}</div><label className={safetyListConfirmed?"safety-master-confirm checked":"safety-master-confirm"}><input type="checkbox" checked={safetyListConfirmed} onChange={e=>{const confirmed=e.target.checked;setContraChecks(Array(contraindications.length).fill(confirmed));setSpecialChecks(Array(specialChecksText.length).fill(confirmed));if(confirmed&&!path.baseContact){setReturnToResult(false);showResult()}}}/><span><b>Confirm all safety checks</b>I reviewed every item above. No listed contraindication is present, and all required conditions are met.</span></label>{path.baseContact&&<div className="generic-base"><b>BASE CONTACT REQUIRED</b><span>{path.baseContact}</span><input placeholder="Approving physician name" value={basePhysician} onChange={e=>{setBasePhysician(e.target.value);setBaseApproved(false)}}/><label><input type="checkbox" checked={baseApproved} onChange={e=>{const checked=e.target.checked;setBaseApproved(checked);if(checked&&basePhysician.trim()){setReturnToResult(false);showResult()}}}/><span>Direct verbal order received and read back</span></label></div>}<div className={safetyComplete?"generic-check-progress complete":"generic-check-progress"}><b>{safetyListConfirmed?"Contraindications confirmed":"Confirmation required"}</b><span>{safetyComplete?"Safety checklist complete.":path.baseContact&&safetyListConfirmed?"Complete the Base-contact authorization to continue.":"Review the list and confirm once to continue."}</span></div></>}
+
+      {step==="result"&&path&&result&&<>
+        <section className="entered-summary final-selection-review final-edit-grid"><header><small>SELECTIONS</small><b>Tap any box to edit</b></header><div>
+          <button onClick={()=>medicationAgents.length>1?setStep("medication"):close()}><small>MEDICATION</small><b>{path.agent}</b><span>{medicationAgents.length>1?"EDIT →":"CHANGE →"}</span></button>
+          {agentNeedsConcentration&&<button onClick={()=>{setReturnToResult(true);setStep("concentration")}}><small>CONCENTRATION</small><b>{customConcentrationMode?`${fmt(conc)} ${concentrationUnit}/mL • Custom`:fieldConcentration?.label||`${fmt(conc)} ${concentrationUnit}/mL`}</b><span>EDIT →</span></button>}
+          <button className="summary-indication" onClick={()=>{setReturnToResult(true);setStep("indication")}}><small>INDICATION</small><b>{cleanIndicationLabel(path.label)}</b><span>{path.patient==="adult"?"ADULT • EDIT →":path.patient==="pediatric"?"PEDS • EDIT →":"EDIT →"}</span></button>
+          <button onClick={()=>{setReturnToResult(true);setStep("route")}}><small>ROUTE</small><b>{selectedRoute}</b><span>EDIT →</span></button>
+          {needsPatientInfo&&<button onClick={()=>{setReturnToResult(true);setStep("patient")}}><small>PATIENT</small><b>{path.patient==="adult"?"Adult":path.patient==="pediatric"?"Pediatric":"All ages"} • {patientText}</b><span>{needsWeight?`${fmt(kg)} kg • EDIT →`:"EDIT →"}</span></button>}
+          {(contraindications.length>0||specialChecksText.length>0||!!path.baseContact)&&<button onClick={()=>{setReturnToResult(true);setStep("safety")}}><small>SAFETY</small><b>{safetyComplete?"Confirmed":"Review required"}</b><span>EDIT →</span></button>}
+        </div></section>
+
+        <details className="final-all-details"><summary>MORE DETAILS</summary><div className="final-all-details-body">
+          {medication.clinicalOverview?.length&&<div className="monitoring-cautions"><small>CLINICAL OVERVIEW</small><ul>{medication.clinicalOverview.map(x=><li key={x}>{x}</li>)}</ul></div>}
+          {result.numeric&&<section className="final-math-line"><small>DOSE MATH</small><strong>{isDopamine?`${fmt(kg)} kg × ${dopamineRate} mcg/kg/min = ${fmt(dopamineTotal)} mcg/min → ${fmt(dopamineMlHr)} mL/hr`:path.formula.kind==="perKg"?weightBasedMath(path,kg,result.dose,actualDose>0?actualDose:result.dose,result.unit,needsConcentration?conc:0):needsConcentration?`${fmt(actualDose>0?actualDose:result.dose)} ${result.unit} ÷ ${fmt(conc)} ${result.unit}/mL = ${fmt((actualDose>0?actualDose:result.dose)/conc)} mL`:needsWeight?`${fmt(kg)} kg → ${fmt(actualDose>0?actualDose:result.dose)} ${result.unit}`:`Protocol dose = ${fmt(actualDose>0?actualDose:result.dose)} ${result.unit}`}</strong></section>}
+          {!isDopamine&&needsConcentration&&result.numeric&&<DoseSyringe volume={(actualDose>0?actualDose:result.dose)/conc}/>}
+          <section className="administration-special"><small>ADMINISTRATION</small><div><span><b>Route</b>{selectedRoute}</span><span className="wide"><b>How to give</b>{path.administration}</span><span className="wide"><b>Repeat / reassess</b>{path.repeat}</span></div></section>
+          {administrations.length>0&&<div className="dashboard-recorded"><b>✓ {administrations.length} dose{administrations.length===1?"":"s"} recorded</b><span>{fmt(totalDose)} {result.numeric?result.unit:"treatments"} recorded</span></div>}
+          {additionalAdjustment&&<div className="generic-dose-adjustment"><b>MEDICATION-SPECIFIC ADJUSTMENT</b><span>{additionalAdjustment}</span></div>}
+          <div className="monitoring-cautions"><small>MONITORING</small><ul>{monitoring.map(x=><li key={x}>{x}</li>)}</ul></div>
+          <button className="generic-protocol-link" onClick={openProtocol}>Medication {medication.protocolId} ↗</button>
+          {result.numeric&&<details className="calculation-details" open><summary>Show calculation details</summary><div className="generic-calculation">{isDopamine?<><p><span>Weight-based rate</span><b>{fmt(kg)} kg × {dopamineRate} mcg/kg/min = {fmt(dopamineTotal)} mcg/min</b></p><p><span>Volume per minute</span><b>{fmt(dopamineTotal)} mcg/min ÷ {fmt(conc)} mcg/mL = {fmt(dopamineMlMin)} mL/min</b></p><p><span>Pump conversion</span><b>{fmt(dopamineMlMin)} mL/min × 60 = {fmt(dopamineMlHr)} mL/hr</b></p></>:<><p><span>Protocol dose</span><b>{result.text}</b></p>{path.formula.kind==="perKg"&&<p><span>Weight-based dose equation</span><b>{fmt(kg)} kg × {fmt(path.formula.amount)} {result.unit}/kg = {fmt(kg*path.formula.amount)} {result.unit}</b></p>}{path.formula.kind==="perKg"&&Math.abs(kg*path.formula.amount-result.dose)>.0001&&<p><span>Protocol limit / adjustment</span><b>{fmt(kg*path.formula.amount)} {result.unit} → {fmt(result.dose)} {result.unit}</b></p>}{result.numeric&&actualDose>0&&Math.abs(actualDose-result.dose)>.0001&&<p><span>Selected final dose</span><b>{fmt(actualDose)} {result.unit}</b></p>}{needsWeight&&<p><span>Calculation weight</span><b>{fmt(kg)} kg</b></p>}{needsConcentration&&<><p><span>Confirmed concentration</span><b>{fmt(conc)} {result.unit}/mL</b></p><p><span>Volume equation</span><b>{fmt(actualDose>0?actualDose:result.dose)} {result.unit} ÷ {fmt(conc)} {result.unit}/mL = {fmt((actualDose>0?actualDose:result.dose)/conc)} mL</b></p></>}</>}</div></details>}
+        </div></details>
+        
+        <FentanylDoseDashboard
+          medication={path.agent}
+          route={selectedRoute}
+          ready={safetyComplete}
+          previewReady={!!result}
+          dose={!isDopamine&&!linkedDose&&result.numeric&&actualDose>0?`${fmt(actualDose)} ${result.unit}`:finalGiveText}
+          volume={!isDopamine&&!linkedDose&&result.numeric&&actualDose>0?(needsConcentration?`${fmt(actualDose/conc)} mL`:result.unit==="mL"?`${fmt(actualDose)} mL`:finalVolumeText):finalVolumeText}
+          doseDetail={undefined}
+          math={result.numeric?(isDopamine?`${fmt(kg)} kg × ${dopamineRate} mcg/kg/min = ${fmt(dopamineTotal)} mcg/min`:`Protocol dose ${result.text}${needsConcentration?` • ${fmt(result.dose)} ${result.unit} ÷ ${fmt(conc)} ${result.unit}/mL = ${fmt(result.dose/conc)} mL`:""}`):undefined}
+          showMath={false}
+          setShowMath={()=>{}}
+          syringeVolume={!isDopamine&&needsConcentration&&result.numeric?result.dose/conc:undefined}
+          instructions={[{label:"Route",value:selectedRoute},{label:"How to give",value:path.administration,wide:true},{label:"Repeat",value:path.repeat,wide:true}]}
+          giveLabel="GIVE NOW"
+          showGiveAction={!administrations.length&&!isDopamine&&!linkedDose&&result.numeric}
+          giveText={!isDopamine&&!linkedDose&&result.numeric&&actualDose>0?`${fmt(actualDose)} ${result.unit}${needsConcentration?` • ${fmt(actualDose/conc)} mL`:""}`:`${finalGiveText}${finalVolumeText?` • ${finalVolumeText}`:""}`}
+          giveDetail="Records administration using the medication-specific rule set"
+          giveDisabled={!safetyComplete||!result||isDopamine||!!linkedDose||(result.numeric&&(!actualDose||actualDose>doseMaximum))}
+          onGive={()=>result&&result.numeric&&recordAmount(actualDose>0?actualDose:result.dose)}
+          repeat={{label:"REPEAT / REASSESS",value:secondsLeft?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`:repeatRemaining>0&&administrations.length?"AVAILABLE NOW":administrations.length?"LIMIT":"AFTER FIRST DOSE",detail:path.repeat,nextDose:repeatRemaining>0&&doseMaximum>0?`Up to ${fmt(doseMaximum)} ${result.unit}`:undefined,state:secondsLeft?"running":repeatRemaining===0&&administrations.length?"unavailable":"ready"}}
+          recorded={administrations.length?{count:administrations.length,detail:`${fmt(totalDose)} ${result.numeric?result.unit:"treatments"} recorded`}:null}
+          repeatAction={repeatActionForFinal}
+          infusionContent={infusionLike?<GravityDripCalculator administration={infusionAdministration} route={selectedRoute} calculatedMlHr={isDopamine?dopamineMlHr:undefined} primary/>:null}
+        />
+        <section className="final-primary-administration-actions" aria-label="Medication administration actions">
+        {result.numeric?(isDopamine?<div className="generic-summary dopamine-infusion"><p><span>SELECT TITRATION RATE</span><b>{path.titrationRates?.map(rate=><button key={rate} className={dopamineRate===rate?"selected":""} onClick={()=>setDopamineRate(rate)}>{rate}</button>)} mcg/kg/min</b></p><p><span>Total drug rate</span><b>{fmt(dopamineTotal)} mcg/min</b></p><p><span>Pump rate</span><b>{fmt(dopamineMlHr)} mL/hr</b></p><p><span>Equivalent</span><b>{fmt(dopamineMlMin)} mL/min</b></p><p><span>Gravity tubing</span><b><select value={dropFactor} onChange={e=>setDropFactor(Number(e.target.value))}>{[60,10,15].map(x=><option key={x} value={x}>{x} gtt/mL</option>)}</select> = {fmt(dopamineGttMin)} gtt/min</b></p>{administrations.length>0&&<p><span>Next upward titration reassessment</span><b>{secondsLeft?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`:"Due now"}</b></p>}<button className="initial-record-dose" disabled={dopamineIncreaseWaiting||dopamineRateUnchanged} onClick={recordDopamine}><span><small>{administrations.length?"RATE CHANGE":"START INFUSION"}</small><b>{dopamineRate} mcg/kg/min</b></span><strong>{fmt(dopamineMlHr)} mL/hr</strong><em>{dopamineIncreaseWaiting?"Reassess before increasing":dopamineRateUnchanged?"Select a different rate":"Tap to record"}</em></button></div>:linkedDose?<div className="generic-summary linked-dose-sequence">{administrations.length===0?<button className="initial-record-dose" onClick={()=>recordAmount(result.dose)}><span><small>INITIAL DOSE</small><b>{selectedRoute}</b></span><strong>{fmt(result.dose)} {result.unit} • {fmt(result.dose/conc)} mL</strong><em>Tap to record and start linked-dose timer</em></button>:<><p><span>Initial dose recorded</span><b>{fmt(administrations[0].dose)} {result.unit} at {new Date(administrations[0].time).toLocaleTimeString()}</b></p><p><span>{linkedDose.label}</span><b>{fmt(linkedAmount)} {linkedDose.unit} • {fmt(linkedAmount/conc)} mL</b></p><p><span>Earliest linked dose</span><b>{secondsLeft?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`:"Eligible now after reassessment"}</b></p>{linkedDose.windowMinutes&&<p><span>Protocol timing</span><b>{linkedDose.afterMinutes}–{linkedDose.windowMinutes} minutes; only if shock-refractory or recurrent VF/VT</b></p>}<button className="initial-record-dose" disabled={administrations.length!==1||!!secondsLeft} onClick={recordLinked}><span><small>LINKED SECOND DOSE</small><b>{selectedRoute}</b></span><strong>{fmt(linkedAmount)} {linkedDose.unit} • {fmt(linkedAmount/conc)} mL</strong><em>{administrations.length>1?"Recorded":secondsLeft?"Timer active":"Tap to record after reassessment"}</em></button></>}</div>:null):<button className="initial-record-dose" onClick={recordNow}><span><small>TREATMENT</small><b>{selectedRoute}</b></span><strong>{result.text}</strong><em>Tap to record completed</em></button>}
+        </section>
+        {result.numeric&&!isDopamine&&!linkedDose&&(administrations.length===0||repeatRemaining>0)&&<div className="final-action-row single">
+          <button type="button" className={editingFinalDose?"active":""} onClick={()=>setEditingFinalDose(x=>!x)}><small>CHANGE DOSE</small><strong>{editingFinalDose?"CLOSE EDITOR":"CHANGE AMOUNT"}</strong></button>
+        </div>}
+        {editingFinalDose&&result.numeric&&!isDopamine&&!linkedDose&&(administrations.length===0||repeatRemaining>0)&&<div className="final-dose-editor"><label><span>Amount to give</span><div><input autoFocus inputMode="decimal" value={actual} onChange={e=>setActual(e.target.value)} /><b>{result.unit}</b></div></label><button type="button" onClick={()=>{setActual(String(result.minDose||result.dose));setEditingFinalDose(false)}}>Use calculated dose</button>{actualDose>0&&actualDose<=doseMaximum?<strong>{needsConcentration?`Draw ${fmt(actualDose/conc)} mL`:`Give ${fmt(actualDose)} ${result.unit}`}</strong>:<em>Enter more than 0 and no more than {fmt(doseMaximum)} {result.unit}.</em>}</div>}
+        <button className="new-calc" onClick={close}>{administrations.length?"Return to medication list":"Close without recording"}</button>
+      </>}
+    </div>
+  </MedicationBuilderShell>;
+}
+
+export function calculateGenericDose(path:GenericDosePath,age:number,weight:number,medicationId:string){
+  const f=path.formula;if(f.kind==="instruction")return{numeric:false,dose:0,minDose:0,unit:f.unit,text:f.text};let dose=0,minDose=0,unit=f.unit;
+  if(f.kind==="fixed")dose=f.amount;if(f.kind==="range"){dose=f.max;minDose=f.min}if(f.kind==="perKg")dose=Math.min(f.max??Infinity,Math.max(f.min??0,weight*f.amount));if(f.kind==="ageBands")dose=f.bands.find(x=>age>=x.min&&age<x.max)?.amount||0;
+  if(medicationId==="fentanyl"&&path.patient==="adult")dose=Math.min(dose,age>65?50:100);if(medicationId==="diltiazem"&&age>65){dose*=.5;dose=Math.min(dose,10)}if((medicationId==="antipsychotics"||medicationId==="haloperidol")&&age>=65)dose*=.5;if((medicationId==="diazepam"||medicationId==="lorazepam")&&path.patient==="adult"&&(age>65||weight<50)){dose*=.5;minDose*=.5}
+  const rate=medicationId==="dopamine"?"/min":"";return{numeric:true,dose,minDose,unit,text:f.kind==="range"?`${fmt(minDose)}–${fmt(dose)} ${unit}`:`${fmt(dose)} ${unit}${rate}`};
+}
+
+export function genericEligibilityReason(path:GenericDosePath,age:number,weight:number){
+  if(!Number.isFinite(age)||age<0||age>=130)return"Enter a valid patient age.";if(path.patient==="adult"&&age<12)return"This is an adult pathway. Choose the pediatric pathway when one is listed.";if(path.patient==="pediatric"&&age>=12)return"This is a pediatric pathway for patients under 12 years.";
+  if(path.minAge!==undefined&&age<path.minAge)return`DMP ${path.label} begins at ${ageLabel(path.minAge)}.`;if(path.maxAge!==undefined&&age>=path.maxAge)return`This pathway applies below ${ageLabel(path.maxAge)}.`;if(path.id==="ped-hypo-small"&&weight>=25)return"This Glucagon pathway is for patients under 25 kg.";if(path.id==="ped-hypo-large"&&weight>0&&weight<25)return"This Glucagon pathway is for patients 25 kg or greater.";if(path.id==="poison-adult"&&weight>0&&weight<40)return"The adult organophosphate pathway requires a weight of 40 kg or greater. Choose the under-40 kg pathway.";return"";
+}
+
+function applicableContraindications(medication:GenericMedication,path:GenericDosePath){
+  if(medication.id==="antiemetics"){if(path.agent.includes("Promethazine"))return["Respiratory or CNS depression","Sulfite allergy","Patient is under 2 years"];if(path.agent.includes("Metoclopramide"))return["Suspected bowel obstruction","Patient is under 8 years"];if(path.agent.includes("Droperidol"))return["Suspected acute myocardial infarction or acute coronary syndrome","Systolic BP under 100 mmHg or no palpable radial pulse","Respiratory depression","Known QTc prolongation","Pregnancy"];return["First-trimester pregnancy without severe dehydration and intractable vomiting"]}
+  if(medication.id==="atropine")return path.id.startsWith("brady")?medication.contraindications:medication.contraindications.filter(x=>!x.includes("stable bradycardia"));if((medication.id==="morphine"||medication.id==="hydromorphone")&&path.patient==="adult")return medication.contraindications.filter(x=>!x.includes("pediatric"));return medication.contraindications.filter(x=>!/^Not indicated for pediatric/i.test(x));
+}
+
+function applicableSpecialChecks(path:GenericDosePath|null){return(path?.special||[]).filter(x=>!x.includes("Under 6 months requires Base")&&!x.includes("Select the medication-specific over-65 adjustment"))}
+
+function pathUsesConcentration(path:GenericDosePath){return path.formula.kind!=="instruction"&&!['mL','drops','sprays','device'].includes(path.formula.unit)&&(!!path.volumeRequired||!!path.suggestedConcentration)}
+function pathRequiresConcentration(path:GenericDosePath){return pathUsesConcentration(path)&&(!!path.suggestedConcentration||routesFor(path.route).every(route=>!["ODT","PO","Sublingual","PO — chew"].includes(route)))}
+
+function monitoringFor(id:string,path:GenericDosePath){
+  if(path.monitoring?.length)return path.monitoring;const first=path.administration;
+  if(id==="amiodarone"||id==="diltiazem"||id==="dopamine")return[first,"Continuous ECG and frequent blood-pressure/perfusion reassessment.","Stop and reassess for hypotension, bradycardia or worsening dysrhythmia."];
+  if(id==="antipsychotics"||id==="haloperidol"||id==="diazepam"||id==="lorazepam")return[first,"Continuous ECG, SpO₂ and ventilation monitoring; waveform capnography when available.","Reassess sedation score, airway, respiratory rate and blood pressure before any additional dose."];
+  if(id==="morphine"||id==="hydromorphone")return[first,"Continuous pulse oximetry; monitor ventilation, blood pressure and analgesic response.","Keep airway equipment and naloxone immediately available; reassess before every additional dose."];
+  if(id==="naloxone")return[first,"Titrate to adequate ventilation rather than full arousal when possible.","Monitor for recurrent respiratory depression, withdrawal, vomiting and pulmonary edema."];
+  if(id==="nitroglycerin")return[first,"Reassess blood pressure, perfusion and symptoms before every dose.","Stop if hypotension develops or protocol prerequisites are no longer met."];
+  if(id==="dextrose"||id==="glucagon"||id==="oral-glucose")return[first,"Recheck glucose and neurologic status after treatment.","Continue airway and aspiration precautions until mental status normalizes."];
+  if(id==="ipratropium"||id==="racemic-epinephrine")return[first,"Monitor work of breathing, breath sounds, SpO₂ and heart rate.","Reassess for improvement or worsening respiratory fatigue during transport."];
+  return[first,"Reassess indication-specific vital signs and clinical response after administration.","Document the dose, route, time, response and any adverse effect in the ePCR."];
+}
+
+function nextDoseMaximum(path:GenericDosePath|null,result:ReturnType<typeof calculateGenericDose>|null,weight:number,entries:LocalAdministration[]){
+  if(!path||!result||!result.numeric)return 0;const total=entries.reduce((n,x)=>n+x.dose,0);let ceiling=Infinity;if(path.maxCumulative!==undefined)ceiling=path.maxCumulative;if(path.maxCumulativePerKg!==undefined)ceiling=Math.min(ceiling,path.maxCumulativePerKg*weight);if(path.absoluteCumulativeMax!==undefined)ceiling=Math.min(ceiling,path.absoluteCumulativeMax);return Math.max(0,Math.min(result.dose,ceiling-total));
+}
+
+function fieldConcentrationFor(id:string):FieldConcentration|null{
+  try{
+    const overrides=loadClinicalOverrides() as Record<string,{concentrations?:FieldConcentration[]}>;
+    const admin=overrides[id]?.concentrations?.find(item=>Number(item?.concentration)>0);
+    if(admin)return admin;
+  }catch{}
+  return commonEmsConcentrationsFor(id).find(item=>Number(item?.concentration)>0)||null;
+}
+function concentrationInUnit(item:FieldConcentration,target:string){
+  const value=Number(item.concentration||0);if(!(value>0))return 0;
+  const source=String(item.concentrationUnit||item.amountUnit||target).split('/')[0];
+  if(source===target)return value;
+  const toMg:Record<string,number>={mcg:.001,mg:1,g:1000};
+  if(toMg[source]&&toMg[target])return value*toMg[source]/toMg[target];
+  return value;
+}
+
+function cleanIndicationLabel(label:string){
+  let text=String(label||"").trim();
+  // Route now has its own quick-pick step, so remove route/patient qualifiers from the indication display only.
+  text=text.replace(/\s*[—-]\s*(adult|pediatric|peds?)\s*(iv\/io drip|iv\/io|iv|io|im\/in|im|in|po|odt|nebulized|sublingual)?\s*$/i,"");
+  text=text.replace(/\s*[—-]\s*(iv\/io drip|iv\/io|iv|io|im\/in|im|in|po|odt|nebulized|sublingual|auto-injector)\s*$/i,"");
+  text=text.replace(/\s*[—-]\s*(adult|pediatric|peds?)\s*$/i,"");
+  return text.trim();
+}
+
+function weightBasedMath(path:GenericDosePath,weight:number,protocolDose:number,selectedDose:number,unit:string,concentration:number){
+  if(path.formula.kind!=="perKg")return`Protocol dose = ${fmt(selectedDose)} ${unit}`;
+  const calculated=weight*path.formula.amount;
+  let text=`${fmt(weight)} kg × ${fmt(path.formula.amount)} ${unit}/kg = ${fmt(calculated)} ${unit}`;
+  if(Math.abs(calculated-protocolDose)>.0001)text+=` → protocol limit/adjustment ${fmt(protocolDose)} ${unit}`;
+  if(Math.abs(selectedDose-protocolDose)>.0001)text+=` → selected ${fmt(selectedDose)} ${unit}`;
+  if(concentration>0)text+=` → ${fmt(selectedDose)} ${unit} ÷ ${fmt(concentration)} ${unit}/mL = ${fmt(selectedDose/concentration)} mL`;
+  return text;
+}
+
+function routePathSelections(paths:GenericDosePath[],current:GenericDosePath){
+  const indication=routeReasonKey(current);
+  const currentFormula=formulaSignature(current);
+  const siblings=paths.filter(candidate=>candidate.patient===current.patient&&candidate.protocol===current.protocol&&routeReasonKey(candidate)===indication&&!/-half$/.test(candidate.id)).sort((a,b)=>Number(b.id===current.id)-Number(a.id===current.id)||Number(formulaSignature(b)===currentFormula)-Number(formulaSignature(a)===currentFormula));
+  const selections:{route:string;path:GenericDosePath}[]=[];
+  for(const candidate of siblings.length?siblings:[current])for(const route of routesFor(candidate.route))if(!selections.some(item=>item.route===route))selections.push({route,path:candidate});
+  return selections;
+}
+
+function formulaSignature(path:GenericDosePath){return JSON.stringify(path.formula)}
+
+function routeReasonKey(path:GenericDosePath){
+  let label=String(path.label||"");
+  label=label.replace(/\s*[—-]\s*(?:½|1\/2|half)\s*dose option.*$/i,"");
+  label=label.replace(/\s*[—-]\s*\d+(?:\.\d+)?\s*(?:mg|mcg|g|mEq)(?:\/kg)?\s*(?:upper-end|lower-dose)?\s*option.*$/i,"");
+  label=label.replace(/\s*[—-]\s*(?:(?:adult|pediatric|peds?)(?:\s+\d+(?:\.\d+)?(?:\s*[–-]\s*\d+(?:\.\d+)?)?\s*(?:years?|months?|days?)?)?\s*)?(?:IV\/IO|IV|IO|IM\/IN|IM|IN|PO|ODT|SL|sublingual|nebulized|neb)(?:\s+route)?\s*$/i,"");
+  return cleanIndicationLabel(label).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+}
+
+function routesFor(route:string){const map:Record<string,string[]>={"IV/IM/PO/ODT":["IV","IM","PO","ODT"],"IV/PO/ODT":["IV","PO","ODT"],"IV/IO/IM/IN":["IV/IO","IM","IN"],"IV/IO/IM":["IV/IO","IM"],"IM/IN":["IM","IN"],"IV/IM":["IV","IM"],"Slow IV/IM":["IV","IM"],"IM or ODT":["IM","ODT"]};return map[route]||[route]}
+function ageLabel(years:number){return years<1?`${Math.round(years*12)} months`:`${fmt(years)} years`}
+function fmt(n:number){const d=Math.abs(n)>0&&Math.abs(n)<1?3:2;return Number.isFinite(n)?Number(n.toFixed(d)).toString():"—"}
