@@ -15,10 +15,6 @@ const fastFieldWorkflow:Plugin={
       if(code.includes('sessionStorage.getItem("mmd-patient")'))throw new Error("MedicationEngine must not carry patient data between calculations");
 
       // Age is safety-critical whenever it changes dose or pathway eligibility.
-      // Adult pathways must not skip an elderly/restricted age band (for example
-      // Diphenhydramine >65), and a carried pediatric age must never reach an adult result.
-      // This guard is intentionally idempotent because an earlier pre-transform may
-      // already have applied the safety-correct signature before this plugin runs.
       const ageRequiredOld='ageRequired=ageChangesDose&&path?.patient!=="adult"';
       const ageRequiredNew='ageRequired=ageChangesDose';
       if(code.includes(ageRequiredOld))code=code.replace(ageRequiredOld,ageRequiredNew);
@@ -26,15 +22,12 @@ const fastFieldWorkflow:Plugin={
 
       // If a pediatric age-based weight estimate is chosen, that tap supplies both
       // a calculation weight and the age-band information needed for eligibility.
-      // Use those new values immediately instead of waiting for React state to rerender.
       const weightHandlerOld='onSelect={(nextKg,source)=>{setWeightUnit("kg");setWeight(String(nextKg));setWeightSource(source);setContraChecks([]);setSpecialChecks([]);const nextEligibility=path?genericEligibilityReason(path,ageRequired?effectiveAgeYears:path.patient==="pediatric"?8:40,nextKg):"";if((!ageRequired||age!=="")&&!nextEligibility){';
       const weightHandlerNew='onSelect={(nextKg,source,estimatedAge)=>{if(estimatedAge!==undefined&&age===""){setAgeUnit("years");setAge(String(estimatedAge))}setWeightUnit("kg");setWeight(String(nextKg));setWeightSource(source);setContraChecks([]);setSpecialChecks([]);const nextAge=estimatedAge??effectiveAgeYears;const nextEligibility=path?genericEligibilityReason(path,ageRequired?nextAge:path.patient==="pediatric"?8:40,nextKg):"";if((!ageRequired||age!==""||estimatedAge!==undefined)&&!nextEligibility){';
       if(!code.includes(weightHandlerOld))throw new Error("MedicationEngine weight quick-select handler changed");
       code=code.replace(weightHandlerOld,weightHandlerNew);
 
-      // Linked follow-up doses (for example Amiodarone 150 mg after the initial
-      // 300 mg arrest dose) must display the actual next linked amount rather than
-      // the generic remaining-dose ceiling.
+      // Linked follow-up doses must display the actual next linked amount.
       const linkedDisplayOld='nextDose:repeatRemaining>0&&doseMaximum>0?`Up to ${fmt(doseMaximum)} ${result.unit}`:undefined';
       const linkedDisplayNew='nextDose:showingLinkedDose?`${fmt(linkedAmount)} ${linkedDose?.unit}`:repeatRemaining>0&&doseMaximum>0?`Up to ${fmt(doseMaximum)} ${result.unit}`:undefined';
       if(!code.includes(linkedDisplayOld))throw new Error("MedicationEngine next-dose display signature changed");
@@ -43,7 +36,8 @@ const fastFieldWorkflow:Plugin={
       const effectAnchor='  useEffect(()=>{if(!secondsLeft)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[secondsLeft]);';
       const fastEffects=`  // Experienced-user fast path: if the selected reason leaves only one
   // protocol-approved route, run the existing route button handler automatically.
-  // This preserves all pathway matching and safety logic while removing a redundant tap.
+  // Concentration is intentionally excluded from fast-path behavior: the medic must
+  // explicitly select/confirm the concentration for every medication calculation.
   useEffect(()=>{
     if(step!=="route"||!path||route)return;
     const choices=Array.from(new Set(standardizedRoutePaths(agentPaths,path,medication.id,conc).flatMap(p=>routesFor(p.route))));
@@ -54,20 +48,6 @@ const fastFieldWorkflow:Plugin={
     },0);
     return()=>window.clearTimeout(timer);
   },[step,path,route,agentPaths,medication.id,conc]);
-
-  // For medications with one stable field concentration, accept the standard
-  // concentration on the initial pass. Epinephrine and other concentration-sensitive
-  // medications remain explicit, and editing concentration from the final screen never auto-confirms.
-  useEffect(()=>{
-    if(step!=="concentration"||returnToResult||concConfirmed||customConcentrationMode||!fieldConcentration)return;
-    const fastStandard=new Set(["adenosine","fentanyl","ondansetron","midazolam","naloxone","ketorolac","diphenhydramine"]);
-    if(!fastStandard.has(medication.id))return;
-    const timer=window.setTimeout(()=>{
-      const button=document.querySelector("#active-medication-screen-top .concentration-options button") as HTMLButtonElement|null;
-      if(button&&!button.disabled)button.click();
-    },0);
-    return()=>window.clearTimeout(timer);
-  },[step,returnToResult,concConfirmed,customConcentrationMode,fieldConcentration,medication.id]);
 
 ${effectAnchor}`;
       if(!code.includes(effectAnchor))throw new Error("MedicationEngine fast-effect anchor changed");
