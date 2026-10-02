@@ -365,7 +365,7 @@
 }
 .admin-med-status-card {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
 }
 .admin-med-status-card > div,
@@ -453,6 +453,17 @@
   flex-wrap: wrap;
   gap: 8px;
   margin: 14px 0;
+}
+.admin-reviewer-blocked {
+  max-width: 430px;
+  margin-left: auto;
+  padding: 9px 11px;
+  border: 1px solid #d6b56a;
+  border-radius: 8px;
+  background: #fff8e8;
+  color: #76530b;
+  font-size: .78rem;
+  font-weight: 800;
 }
 .admin-med-actions button:disabled,
 .admin-field-control button:disabled {
