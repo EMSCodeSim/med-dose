@@ -11,6 +11,10 @@ export type RecordedAdministration={
   time:number;
   concentration:string;
   concentrationRequired?:boolean;
+  defaultConcentration?:string;
+  concentrationOverride?:boolean;
+  calculatedDose?:number;
+  doseOverride?:boolean;
   patient?:string;
   safety?:string;
   administration?:string;
