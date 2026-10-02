@@ -7,6 +7,7 @@ import FentanylDoseDashboard from "./FentanylDoseDashboard";
 import DoseSyringe from "./DoseSyringe";
 import GravityDripCalculator from "./GravityDripCalculator";
 import type {EncounterPatient,RecordedAdministration} from "./encounterTypes";
+import type {CalculationPatient} from "./calculationPatient";
 import WeightQuickSelect from "./WeightQuickSelect";
 import {commonEmsConcentrationsFor} from "./emsMedicationDefaults";
 import {loadClinicalOverrides} from "./adminMedicationStore";
@@ -14,19 +15,20 @@ import "./genericMedication.css";
 
 type LocalAdministration={dose:number;volume:number;time:number};
 export type GenericTreatmentContext={medication:string;indication:string;route:string;dose:string;volume:string;administration:string;repeat:string;monitoring:string[];protocolId:string;protocolName:string;protocolPage:number};
-type Props={medication:GenericMedication;activeHeader?:ReactNode;close:()=>void;record:(entry:RecordedAdministration)=>void;openProtocol:()=>void;onContextChange?:(context:GenericTreatmentContext|null)=>void;initialPatient?:EncounterPatient|null};
+type Props={medication:GenericMedication;activeHeader?:ReactNode;close:()=>void;record:(entry:RecordedAdministration)=>void;openProtocol:()=>void;onContextChange?:(context:GenericTreatmentContext|null)=>void;initialPatient?:EncounterPatient|null;initialMeasurements?:CalculationPatient|null;onPatientChange?:(patient:CalculationPatient)=>void};
 type AgeUnit="years"|"months"|"days";
 type Step="medication"|"concentration"|"indication"|"route"|"patient"|"safety"|"result";
 type FieldConcentration={label?:string;amount?:number;amountUnit?:string;volume?:number;volumeUnit?:string;concentration?:number;concentrationUnit?:string};
 
-export default function MedicationEngine({medication,activeHeader,close,record,openProtocol,onContextChange,initialPatient}:Props){
+export default function MedicationEngine({medication,activeHeader,close,record,openProtocol,onContextChange,initialPatient,initialMeasurements,onPatientChange}:Props){
   const medicationAgents=useMemo(()=>Array.from(new Set(medication.paths.map(x=>x.agent))),[medication]),
     [step,setStep]=useState<Step>(()=>medicationAgents.length===1?(medication.paths.some(pathUsesConcentration)?"concentration":"indication"):"medication"),[path,setPath]=useState<GenericDosePath|null>(null),[selectedAgent,setSelectedAgent]=useState(medicationAgents.length===1?medicationAgents[0]:""),
-    [age,setAge]=useState(initialPatient?.ageYears!==undefined?String(initialPatient.ageYears):""),[ageUnit,setAgeUnit]=useState<AgeUnit>("years"),[weight,setWeight]=useState(initialPatient?.weightKg!==undefined?String(initialPatient.weightKg):""),[weightUnit,setWeightUnit]=useState<"kg"|"lb">("kg"),[weightSource,setWeightSource]=useState(initialPatient?.weightKg?"carried from current patient":""),
+    [age,setAge]=useState(initialMeasurements?.age??(initialPatient?.ageYears!==undefined?String(initialPatient.ageYears):"")),[ageUnit,setAgeUnit]=useState<AgeUnit>(initialMeasurements?.ageUnit??"years"),[weight,setWeight]=useState(initialMeasurements?.weight??(initialPatient?.weightKg!==undefined?String(initialPatient.weightKg):"")),[weightUnit,setWeightUnit]=useState<"kg"|"lb">(initialMeasurements?.weightUnit??"kg"),[weightSource,setWeightSource]=useState(initialMeasurements?.weightSource??(initialPatient?.weightKg?"reused patient weight":"")),
     [route,setRoute]=useState(""),[medConfirmed]=useState(true),[concConfirmed,setConcConfirmed]=useState(false),[customConcentrationMode,setCustomConcentrationMode]=useState(false),[customConcentration,setCustomConcentration]=useState(""),
     [contraChecks,setContraChecks]=useState<boolean[]>([]),[specialChecks,setSpecialChecks]=useState<boolean[]>([]),[basePhysician,setBasePhysician]=useState(""),[baseApproved,setBaseApproved]=useState(false),
     [actual,setActual]=useState(""),[administrations,setAdministrations]=useState<LocalAdministration[]>([]),[readyForAnother,setReadyForAnother]=useState(false),[now,setNow]=useState(Date.now()),
     [dopamineRate,setDopamineRate]=useState(5),[dropFactor,setDropFactor]=useState(60),[returnToResult,setReturnToResult]=useState(false),[editingFinalDose,setEditingFinalDose]=useState(false);
+  useEffect(()=>{onPatientChange?.({age,ageUnit,weight,weightUnit,weightSource})},[age,ageUnit,weight,weightUnit,weightSource,onPatientChange]);
   useEffect(()=>{
     const frame=requestAnimationFrame(()=>{
       document.querySelector<HTMLElement>("#active-medication-screen-top .streamlined-choice-workspace")?.scrollTo({top:0,behavior:"auto"});
