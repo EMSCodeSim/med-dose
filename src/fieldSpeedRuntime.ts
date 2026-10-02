@@ -9,7 +9,7 @@ function ensureNextMedicationAction(){
   const button=document.createElement("button");
   button.type="button";
   button.className="speed-next-medication";
-  button.innerHTML='<b>NEXT MEDICATION</b><span>Same patient • keep current report</span>';
+  button.innerHTML='<b>NEXT MEDICATION</b><span>Fresh patient • start a new calculation</span>';
   button.addEventListener("click",()=>{
     const back=shell.querySelector(".drug-back-button") as HTMLButtonElement|null;
     back?.click();
