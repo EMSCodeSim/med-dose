@@ -18,10 +18,21 @@ const host=document.createElement('div');document.body.append(host);const root=c
 const click=async(text)=>{const buttons=[...host.querySelectorAll('button')];const button=buttons.find(x=>x.textContent.trim()===text)||buttons.find(x=>!x.disabled&&x.textContent.includes(text));assert.ok(button,`Missing button: ${text}`);assert.equal(button.disabled,false,`Disabled button: ${text}`);await act(async()=>{button.click();await new Promise(r=>setTimeout(r,30))})};
 const confirmConcentration=async()=>{
   assert.ok(host.textContent.includes('Confirm medication concentration')||host.textContent.includes('Select concentration'),'Dedicated concentration screen is rendered');
-  const buttons=[...host.querySelectorAll('.concentration-options button')];
-  const concentrationButton=buttons.find(x=>!x.disabled&&!x.textContent.includes('Different concentration'))||buttons.find(x=>!x.disabled);
-  assert.ok(concentrationButton,'Dedicated concentration confirmation is available');
-  await act(async()=>{concentrationButton.click();await new Promise(r=>setTimeout(r,30))});
+  const buttons=[...host.querySelectorAll('button')];
+  const different=buttons.find(x=>!x.disabled&&x.textContent.includes('Different concentration'));
+  const defaultButton=buttons.find(x=>!x.disabled&&x!==different&&(x.closest('.concentration-options')||/DEFAULT|DEPARTMENT|mcg|mg|mEq|g\s*\/|% solution/i.test(x.textContent)));
+  if(defaultButton){
+    await act(async()=>{defaultButton.click();await new Promise(r=>setTimeout(r,30))});
+    return;
+  }
+  assert.ok(different,'Dedicated concentration confirmation offers a default or different concentration');
+  await act(async()=>{different.click();await new Promise(r=>setTimeout(r,30))});
+  const input=host.querySelector('.builder-custom input[inputmode="decimal"]');
+  assert.ok(input,'Custom concentration input is available');
+  await act(async()=>{const setter=Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype,'value')?.set;setter?.call(input,'50');input.dispatchEvent(new win.Event('input',{bubbles:true}));input.dispatchEvent(new win.Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,30))});
+  const confirm=[...host.querySelectorAll('.builder-custom input[type=checkbox]')].find(x=>!x.disabled);
+  assert.ok(confirm,'Custom concentration can be explicitly confirmed');
+  await act(async()=>{confirm.click();await new Promise(r=>setTimeout(r,30))});
 };
 const confirmSafety=async()=>{
   assert.equal(host.querySelector('.safety-concentration-check'),null,'Concentration is not repeated on the safety screen');
