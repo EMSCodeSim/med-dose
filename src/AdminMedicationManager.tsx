@@ -1132,7 +1132,6 @@ export default function AdminMedicationManager({
       : DEFAULT_VISIBLE_IDS.includes(selected.id)
     : false;
   const selectedValidation=selected&&record&&currentData?medicationValidationProgress(record,currentData):null;
-  const selectedApprovalCount=selected?Math.min(signatureCount(reviews[selected.id]||{}),REQUIRED_REVIEW_SIGNATURES):0;
   return (
     <div className="modal-backdrop admin-med-backdrop" onClick={closeAdmin}>
       <section
@@ -1337,30 +1336,6 @@ export default function AdminMedicationManager({
         )}
         {selected && record && currentData && (
           <div className="admin-med-detail">
-            <section className="admin-med-status-card">
-              <div>
-                <small>1 • MEDICATION DETAILS</small>
-                <b>
-                  {editing ? "Editing draft" : record.draft ? "Draft saved" : "Record available"}
-                </b>
-                <span>Clinical revision {record.clinicalRevision}</span>
-              </div>
-              <div>
-                <small>2 • VALIDATION</small>
-                <b>{selectedValidation?.completed.length || 0}/{selectedValidation?.total || 0} passed</b>
-                <span>{record.reviewStartedAt ? selectedValidation?.complete ? "Complete" : "Complete required checks" : "Start review first"}</span>
-              </div>
-              <div>
-                <small>3 • APPROVALS</small>
-                <b>{selectedApprovalCount}/{REQUIRED_REVIEW_SIGNATURES} approved</b>
-                <span>{selectedValidation?.complete ? selectedApprovalCount===REQUIRED_REVIEW_SIGNATURES?"Complete":"Next reviewer may approve":"Complete validation first"}</span>
-              </div>
-              <div>
-                <small>4 • FIELD RELEASE</small>
-                <b>{selectedValidation?.complete&&selectedApprovalCount===REQUIRED_REVIEW_SIGNATURES?"Ready":"Waiting"}</b>
-                <span>{selected.pending ? "Hidden until released" : statusLabel(record, reviews[selected.id] || {})}</span>
-              </div>
-            </section>
             {!!record.draft && (
               <div className="admin-med-draft-warning">
                 <b>Clinical changes are pending review.</b>
@@ -1664,29 +1639,17 @@ function StructuredMedicationEditor({
           </button>
         </div>
       </div>
-      <nav
-        className="admin-editor-steps"
-        aria-label="Medication editor sections"
-      >
-        {steps.map((step, index) => (
-          <button
-            key={step.id}
-            className={activeStep === step.id ? "active" : ""}
-            onClick={() => goTo(index)}
+      <div className="admin-editor-section-picker">
+        <label>
+          <span>Edit section</span>
+          <select
+            value={activeStep}
+            onChange={(event) => goTo(steps.findIndex((step) => step.id === event.target.value))}
           >
-            <i>{index + 1}</i>
-            <span>
-              <b>{step.label}</b>
-              <small>{step.hint}</small>
-            </span>
-          </button>
-        ))}
-      </nav>
-      <div className="admin-editor-progress">
-        <span>
-          Section {currentIndex + 1} of {steps.length}
-        </span>
-        <b>{steps[currentIndex].label}</b>
+            {steps.map((step) => <option key={step.id} value={step.id}>{step.label}</option>)}
+          </select>
+        </label>
+        <small>{steps[currentIndex].hint}</small>
       </div>
       {activeStep === "identity" && (
         <EditorSection

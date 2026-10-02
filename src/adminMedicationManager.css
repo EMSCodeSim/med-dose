@@ -108,53 +108,28 @@
   border-radius: 12px;
   color: #526676;
 }
-.admin-editor-steps {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-.admin-editor-steps button {
+.admin-editor-section-picker {
   display: flex;
   align-items: center;
-  gap: 9px;
-  text-align: left;
-  border: 1px solid #cbd9e0;
-  background: #fff;
-  border-radius: 11px;
-  padding: 10px;
-  color: #344f5e;
-}
-.admin-editor-steps button i {
-  width: 27px;
-  height: 27px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #e7eef2;
-  font-style: normal;
-  font-weight: 900;
-}
-.admin-editor-steps button span {
-  display: flex;
-  flex-direction: column;
-}
-.admin-editor-steps button small {
-  color: #677b87;
-}
-.admin-editor-steps button.active {
-  border-color: #2a779a;
-  background: #eaf4f8;
-  box-shadow: inset 0 0 0 1px #2a779a;
-}
-.admin-editor-steps button.active i {
-  background: #173e52;
-  color: #fff;
-}
-.admin-editor-progress {
-  display: flex;
-  justify-content: space-between;
+  gap: 10px;
   color: #536a77;
   font-size: 0.84rem;
+}
+.admin-editor-section-picker label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 900;
+}
+.admin-editor-section-picker select {
+  min-width: 220px;
+  padding: 8px 32px 8px 10px;
+  border: 1px solid #9fb4c0;
+  border-radius: 8px;
+  background: #fff;
+  color: #173346;
+  font: inherit;
+  font-weight: 800;
 }
 .admin-section-callout {
   display: flex;
@@ -198,11 +173,16 @@
   .admin-row-action {
     display: none;
   }
-  .admin-editor-steps {
-    grid-template-columns: 1fr 1fr;
+  .admin-editor-section-picker {
+    align-items: stretch;
+    flex-direction: column;
   }
-  .admin-editor-steps button small {
-    display: none;
+  .admin-editor-section-picker label {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-editor-section-picker select {
+    width: 100%;
   }
   .admin-editor-bottom {
     bottom: -12px;
@@ -363,12 +343,6 @@
   overflow: auto;
   padding: 18px 22px 28px;
 }
-.admin-med-status-card {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-.admin-med-status-card > div,
 .admin-field-control {
   background: #fff;
   border: 1px solid #d9e4e9;
@@ -378,16 +352,13 @@
   flex-direction: column;
   gap: 3px;
 }
-.admin-med-status-card small,
 .admin-field-control small {
   font-weight: 900;
   color: #687d8b;
 }
-.admin-med-status-card b,
 .admin-field-control b {
   font-size: 1.05rem;
 }
-.admin-med-status-card span,
 .admin-field-control span {
   font-size: 0.82rem;
   color: #607380;
@@ -797,7 +768,6 @@
     height: 100dvh;
     border-radius: 0;
   }
-  .admin-med-status-card,
   .admin-form-grid,
   .admin-form-grid.compact {
     grid-template-columns: 1fr;
