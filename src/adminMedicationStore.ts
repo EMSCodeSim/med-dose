@@ -15,6 +15,13 @@ export type MedicationValidationState = {
   clinicalRevision:number;
   checks:Partial<Record<MedicationValidationKey,MedicationValidationCheck>>;
 };
+export type ValidationResetHistoryEntry = {
+  id:string;
+  clearedAt:number;
+  reason:string;
+  changeSummary:string[];
+  previousValidation:MedicationValidationState;
+};
 export type ReviewHistoryEntry = {
   id:string;
   startedAt:number;
@@ -38,6 +45,7 @@ export type MedicationAdminRecord = {
   draftCreatedAt?:number;
   history:ReviewHistoryEntry[];
   validation?:MedicationValidationState;
+  validationResetHistory?:ValidationResetHistoryEntry[];
 };
 export type MedicationAdminState = Record<string,MedicationAdminRecord>;
 export type ClinicalOverrideState = Record<string,unknown>;
@@ -65,7 +73,7 @@ export const addMonths=(timestamp:number,months:number)=>{
   target.setDate(Math.min(day,lastDay));
   return target.getTime();
 };
-export const initialAdminRecord=(medicationId:string):MedicationAdminRecord=>({medicationId,clinicalRevision:1,protocolRevision:PROTOCOL_REVISION_DEFAULT,history:[]});
+export const initialAdminRecord=(medicationId:string):MedicationAdminRecord=>({medicationId,clinicalRevision:1,protocolRevision:PROTOCOL_REVISION_DEFAULT,history:[],validationResetHistory:[]});
 export const signatureCount=(signatures:ReviewSignatures|undefined)=>["owner","lineSafety","medicalDirector"].filter(stage=>!!signatures?.[stage as keyof ReviewSignatures]?.approvedAt).length;
 export const hasRequiredSignatures=(signatures:ReviewSignatures|undefined)=>signatureCount(signatures)>=REQUIRED_REVIEW_SIGNATURES;
 export const reviewTiming=(record:MedicationAdminRecord|undefined,now=Date.now())=>{
