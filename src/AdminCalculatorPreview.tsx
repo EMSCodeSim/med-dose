@@ -13,6 +13,8 @@ export default function AdminCalculatorPreview({data,close}:{data:JsonObject;clo
       name:String(data.name||"Medication preview"),
       protocolId:String(data.protocolId||"PREVIEW"),
       page:Number(data.page||0),
+      contraindications:Array.isArray(data.contraindications)?data.contraindications.map(String):[],
+      clinicalOverview:Array.isArray(data.notes)?data.notes.map(String):undefined,
       paths:data.paths,
     } as GenericMedication;
   },[data]);
