@@ -1657,6 +1657,11 @@ function StructuredMedicationEditor({
           note="Fields marked with * are required. These labels help administrators identify the record; they do not alter dose math."
           onSave={saveSection}
         >
+          <MedicationPhotoEditor
+            value={typeof data.photoDataUrl === "string" ? data.photoDataUrl : ""}
+            medicationName={catalog.name || "Medication"}
+            onChange={(value) => set("photoDataUrl", value || undefined)}
+          />
           <div className="admin-form-grid">
             <Field label="Medication name *">
               <input
@@ -1925,6 +1930,85 @@ function EditorSection({
     </section>
   );
 }
+async function resizeMedicationPhoto(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("Choose an image file.");
+  if (file.size > 8 * 1024 * 1024) throw new Error("Photo must be 8 MB or smaller.");
+  const source = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Unable to read this photo."));
+    reader.readAsDataURL(file);
+  });
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Unable to open this photo."));
+    img.src = source;
+  });
+  const maxSide = 480;
+  const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Photo processing is unavailable on this device.");
+  context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", 0.76);
+}
+
+function MedicationPhotoEditor({
+  value,
+  medicationName,
+  onChange,
+}: {
+  value: string;
+  medicationName: string;
+  onChange: (value: string) => void;
+}) {
+  const [photoError, setPhotoError] = useState("");
+  const [processing, setProcessing] = useState(false);
+  const choosePhoto = async (file?: File) => {
+    if (!file) return;
+    setProcessing(true);
+    setPhotoError("");
+    try {
+      onChange(await resizeMedicationPhoto(file));
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "Unable to process this photo.");
+    } finally {
+      setProcessing(false);
+    }
+  };
+  return (
+    <div className="admin-med-photo-editor">
+      <div className="admin-med-photo-preview">
+        {value ? <img src={value} alt={`${medicationName} medication`} /> : <span>DRUG<br/>PHOTO</span>}
+      </div>
+      <div className="admin-med-photo-controls">
+        <b>Medication photo</b>
+        <span>Upload a clear photo of the vial, syringe, package, or device used by your department. The image is resized before it is saved.</span>
+        <label className="admin-med-photo-upload">
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            disabled={processing}
+            onChange={(event) => {
+              void choosePhoto(event.currentTarget.files?.[0]);
+              event.currentTarget.value = "";
+            }}
+          />
+          {processing ? "Processing photo…" : value ? "Replace photo" : "Upload photo"}
+        </label>
+        {value && <button type="button" className="danger" onClick={() => onChange("")}>Remove photo</button>}
+        {photoError && <em role="alert">{photoError}</em>}
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="admin-field">
@@ -2615,7 +2699,8 @@ function formulaSummary(formula: DoseFormula | undefined) {
   return formula.kind;
 }
 function ClinicalRecord({ data }: { data: JsonObject }) {
-  const hidden = new Set(["id"]),
+  const photoDataUrl = typeof data.photoDataUrl === "string" ? data.photoDataUrl : "";
+  const hidden = new Set(["id", "photoDataUrl"]),
     entries = Object.entries(data).filter(
       ([key]) => !key.startsWith("_") && !hidden.has(key),
     );
@@ -2629,6 +2714,7 @@ function ClinicalRecord({ data }: { data: JsonObject }) {
           intentionally avoids raw JSON/code.
         </span>
       </div>
+      {photoDataUrl && <div className="admin-clinical-photo"><img src={photoDataUrl} alt={`${String(data.name || "Medication")} medication`} /></div>}
       {entries.map(([key, value]) => {
         const title = key
           .replace(/([A-Z])/g, " $1")
