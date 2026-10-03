@@ -6,6 +6,32 @@ const fastFieldWorkflow:Plugin={
   name:"paramedic-fast-field-workflow",
   enforce:"pre",
   transform(code,id){
+    if(id.endsWith("/src/AdminMedicationManager.tsx")){
+      const importAnchor='import type { ReleasePayload } from "./medicationRelease";';
+      if(!code.includes('AdminCalculatorPreview')){
+        if(!code.includes(importAnchor))throw new Error("Admin medication calculator preview import anchor changed");
+        code=code.replace(importAnchor,`${importAnchor}\nimport AdminCalculatorPreview from "./AdminCalculatorPreview";`);
+      }
+      const stateAnchor='  const [accountBusy,setAccountBusy]=useState(false);';
+      // AdminMedicationManager does not own accountBusy; use its stable catalogDirty state instead.
+      const managerStateAnchor='  const [catalogDirty, setCatalogDirty] = useState(false);';
+      if(!code.includes('calculatorPreviewOpen')){
+        if(!code.includes(managerStateAnchor))throw new Error("Admin medication calculator preview state anchor changed");
+        code=code.replace(managerStateAnchor,`${managerStateAnchor}\n  const [calculatorPreviewOpen, setCalculatorPreviewOpen] = useState(false);`);
+      }
+      const actionsAnchor='              {!editing && (\n                <button onClick={beginEdit}>Edit medication fields</button>\n              )}';
+      if(!code.includes('Test calculator')){
+        if(!code.includes(actionsAnchor))throw new Error("Admin medication calculator preview action anchor changed");
+        code=code.replace(actionsAnchor,`${actionsAnchor}\n              {!editing && Array.isArray(currentData.paths) && (\n                <button className="primary" type="button" onClick={()=>setCalculatorPreviewOpen(true)}>Test calculator</button>\n              )}`);
+      }
+      const recordAnchor='            {selectedValidation&&<section id="medication-validation"';
+      if(!code.includes('admin-calculator-summary')){
+        if(!code.includes(recordAnchor))throw new Error("Admin medication calculator summary anchor changed");
+        const summary=`            {!editing && Array.isArray(currentData.paths) && <section className="admin-calculator-summary"><header><div><small>CALCULATOR</small><h3>Field dose calculator</h3><p>{currentData.paths.length} treatment path{currentData.paths.length===1?"":"s"} saved for this medication. Test the same workflow field users will see before approval.</p></div><button type="button" className="primary" onClick={()=>setCalculatorPreviewOpen(true)}>Test calculator</button></header><div className="admin-calculator-paths">{currentData.paths.slice(0,8).map((path:any,index:number)=><div key={path.id||index}><b>{path.label||"Untitled pathway"}</b><span>{path.patient||"all"} • {path.route||"route not set"}</span><span>{formulaSummary(path.formula)}</span></div>)}</div></section>}\n            {calculatorPreviewOpen&&<AdminCalculatorPreview data={currentData} close={()=>setCalculatorPreviewOpen(false)}/>}\n`;
+        code=code.replace(recordAnchor,summary+recordAnchor);
+      }
+      return {code,map:null};
+    }
     if(id.endsWith("/src/FieldApp.tsx"))return null;
     if(!id.endsWith("/src/MedicationEngine.tsx"))return null;
     if(code.includes('sessionStorage.getItem("mmd-patient")'))throw new Error("MedicationEngine must not carry patient data between calculations");
@@ -17,8 +43,6 @@ const fastFieldWorkflow:Plugin={
     replaceIfPresent('<small className="eyebrow">CONCENTRATION</small><h1>Select concentration</h1>','<small className="eyebrow">CONCENTRATION CHECK</small><h1>Confirm medication concentration</h1>');
     replaceIfPresent('ageRequired=ageChangesDose&&path?.patient!=="adult"','ageRequired=ageChangesDose');
 
-    // Concentration has already been explicitly confirmed on its own screen.
-    // Do not repeat it inside the contraindication/safety checklist.
     const passiveSafetyConcentration='{agentNeedsConcentration&&<div className="safety-concentration-check"><b>CONCENTRATION CHECK</b><span>Default: {defaultConcentrationText} • In hand: {usedConcentrationText}</span>{concentrationChanged&&<strong role="alert">NON-DEFAULT CONCENTRATION — verify the physical medication label before administration.</strong>}</div>}';
     replaceIfPresent(passiveSafetyConcentration,'');
 
