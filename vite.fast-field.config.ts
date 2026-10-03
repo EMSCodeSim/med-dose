@@ -12,8 +12,10 @@ const fastFieldWorkflow:Plugin={
         if(!code.includes(importAnchor))throw new Error("Admin medication calculator preview import anchor changed");
         code=code.replace(importAnchor,`${importAnchor}\nimport AdminCalculatorPreview from "./AdminCalculatorPreview";`);
       }
-      const stateAnchor='  const [accountBusy,setAccountBusy]=useState(false);';
-      // AdminMedicationManager does not own accountBusy; use its stable catalogDirty state instead.
+      if(!code.includes('AdminMedicationSafetyPanel')){
+        if(!code.includes(importAnchor))throw new Error("Admin medication safety panel import anchor changed");
+        code=code.replace(importAnchor,`${importAnchor}\nimport AdminMedicationSafetyPanel,{calculatorTestCurrent,clearCalculatorTest} from "./AdminMedicationSafetyPanel";`);
+      }
       const managerStateAnchor='  const [catalogDirty, setCatalogDirty] = useState(false);';
       if(!code.includes('calculatorPreviewOpen')){
         if(!code.includes(managerStateAnchor))throw new Error("Admin medication calculator preview state anchor changed");
@@ -29,6 +31,21 @@ const fastFieldWorkflow:Plugin={
         if(!code.includes(recordAnchor))throw new Error("Admin medication calculator summary anchor changed");
         const summary=`            {!editing && Array.isArray(currentData.paths) && <section className="admin-calculator-summary"><header><div><small>CALCULATOR</small><h3>Field dose calculator</h3><p>{currentData.paths.length} treatment path{currentData.paths.length===1?"":"s"} saved for this medication. Test the same workflow field users will see before approval.</p></div><button type="button" className="primary" onClick={()=>setCalculatorPreviewOpen(true)}>Test calculator</button></header><div className="admin-calculator-paths">{currentData.paths.slice(0,8).map((path:any,index:number)=><div key={path.id||index}><b>{path.label||"Untitled pathway"}</b><span>{path.patient||"all"} • {path.route||"route not set"}</span><span>{formulaSummary(path.formula)}</span></div>)}</div></section>}\n            {calculatorPreviewOpen&&<AdminCalculatorPreview data={currentData} close={()=>setCalculatorPreviewOpen(false)}/>}\n`;
         code=code.replace(recordAnchor,summary+recordAnchor);
+      }
+      if(!code.includes('admin-review-readiness-panel')){
+        if(!code.includes(recordAnchor))throw new Error("Admin review readiness panel anchor changed");
+        const readiness=`            {!editing&&selected&&currentData&&<div className="admin-review-readiness-panel"><AdminMedicationSafetyPanel medicationId={selected.id} currentData={currentData} publishedData={(loadClinicalOverrides()[selected.id] as JsonObject|undefined)||baseData(selected)} validationComplete={Boolean(selectedValidation?.complete)} approvals={signatureCount(reviews[selected.id]||{})} onTest={()=>setCalculatorPreviewOpen(true)}/></div>}\n`;
+        code=code.replace(recordAnchor,readiness+recordAnchor);
+      }
+      const approvalAnchor='    if(!validationProgress.complete){\n      setError(`Complete all ${validationProgress.total} required validation checks before recording medication approval.`);\n      return;\n    }';
+      if(!code.includes('Calculator test must be completed for the current')){
+        if(!code.includes(approvalAnchor))throw new Error("Admin approval safety gate anchor changed");
+        code=code.replace(approvalAnchor,`${approvalAnchor}\n    if(!calculatorTestCurrent(selected.id,currentData||{})){\n      setError("Calculator test must be completed for the current dose pathways and concentration before recording medication approval.");\n      return;\n    }`);
+      }
+      const resetAnchor='      resetSignatures(selected.id);\n      setSavedMessage(';
+      if(!code.includes('clearCalculatorTest(selected.id)')){
+        if(!code.includes(resetAnchor))throw new Error("Admin calculator test invalidation anchor changed");
+        code=code.replace(resetAnchor,`      resetSignatures(selected.id);\n      clearCalculatorTest(selected.id);\n      setSavedMessage(`);
       }
       return {code,map:null};
     }
