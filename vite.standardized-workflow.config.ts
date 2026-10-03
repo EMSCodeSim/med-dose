@@ -58,26 +58,8 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
     if(code.includes(ageRequiredOld))code=code.replace(ageRequiredOld,ageRequiredNew);
     else if(!code.includes(ageRequiredNew))throw new Error("MedicationEngine age-required signature changed");
 
-    // Field-first sequence. Epinephrine remains concentration-first until its
-    // concentration-specific pathway data is normalized independently.
-    const initialStepOld='[step,setStep]=useState<Step>(()=>medicationAgents.length===1?(medication.paths.some(pathUsesConcentration)?"concentration":"indication"):"medication")';
-    const initialStepNew='[step,setStep]=useState<Step>(()=>medicationAgents.length===1?(medication.id==="epinephrine"&&medication.paths.some(pathUsesConcentration)?"concentration":"indication"):"medication")';
-    if(!code.includes(initialStepOld))throw new Error("MedicationEngine initial-step signature changed");
-    code=code.replace(initialStepOld,initialStepNew);
-
-    const visibleStepsOld='const visibleSteps:Step[]=[...(medicationAgents.length>1?["medication" as Step]:[]),...(agentNeedsConcentration?["concentration" as Step]:[]),"indication","route",...(needsPatientInfo?["patient" as Step]:[]),"safety","result"]';
-    const visibleStepsNew='const visibleSteps:Step[]=[...(medicationAgents.length>1?["medication" as Step]:[]),...(medication.id==="epinephrine"&&agentNeedsConcentration?["concentration" as Step]:[]),"indication","route",...(needsPatientInfo?["patient" as Step]:[]),...(medication.id!=="epinephrine"&&agentNeedsConcentration?["concentration" as Step]:[]),"safety","result"]';
-    if(!code.includes(visibleStepsOld))throw new Error("MedicationEngine visible-step signature changed");
-    code=code.replace(visibleStepsOld,visibleStepsNew);
-
-    const finishPatientOld='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else setStep("safety")}};';
-    const finishPatientNew='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(medication.id!=="epinephrine"&&needsConcentration&&!concConfirmed)setStep("concentration");else setStep("safety")}};';
-    if(!code.includes(finishPatientOld))throw new Error("MedicationEngine patient-next-step signature changed");
-    code=code.replace(finishPatientOld,finishPatientNew);
-
-    const concentrationForwardOld='if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")';
-    const concentrationForwardNew='if(returnToResult&&path){setReturnToResult(false);setStep("safety")}else if(path){setStep("safety")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")';
-    if(code.includes(concentrationForwardOld))code=code.split(concentrationForwardOld).join(concentrationForwardNew);
+    const requiredSequence='const visibleSteps:Step[]=[...(medicationAgents.length>1?["medication" as Step]:[]),"indication","route",...(needsPatientInfo?["patient" as Step]:[]),"concentration","safety","result"]';
+    if(!code.includes(requiredSequence))throw new Error("MedicationEngine dedicated concentration/safety sequence changed");
 
     return {code,map:null};
   },
