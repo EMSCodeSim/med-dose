@@ -44,7 +44,7 @@ const confirmConcentration=async()=>{
 };
 const confirmSafety=async()=>{
   assert.equal(host.querySelector('.safety-concentration-check'),null,'Concentration is not repeated on the safety screen');
-  assert.ok(host.textContent.includes('Confirm the physical medication label matches'),'Concentration is a required item in the safety checklist');
+  assert.ok(host.textContent.includes('REQUIRED CONCENTRATION CHECK'),'Concentration is explicitly labeled as a required safety item');
   const safetyCheckbox=[...host.querySelectorAll('input[type=checkbox]')].find(x=>!x.disabled);
   assert.ok(safetyCheckbox,'Safety confirmation is available');
   await act(async()=>{safetyCheckbox.click();await new Promise(r=>setTimeout(r,30))});
