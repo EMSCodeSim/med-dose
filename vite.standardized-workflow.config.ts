@@ -70,13 +70,13 @@ function standardizedRoutePaths(paths:GenericDosePath[],selected:GenericDosePath
     if(!code.includes(visibleStepsOld))throw new Error("MedicationEngine visible-step signature changed");
     code=code.replace(visibleStepsOld,visibleStepsNew);
 
-    const finishPatientOld='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(agentNeedsConcentration||contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}};';
-    const finishPatientNew='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(medication.id!=="epinephrine"&&needsConcentration&&!concConfirmed)setStep("concentration");else if(agentNeedsConcentration||contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else{setReturnToResult(false);setStep("result")}}};';
+    const finishPatientOld='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else setStep("safety")}};';
+    const finishPatientNew='const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));if(returnToResult&&safetyComplete){setReturnToResult(false);setStep("result")}else if(medication.id!=="epinephrine"&&needsConcentration&&!concConfirmed)setStep("concentration");else setStep("safety")}};';
     if(!code.includes(finishPatientOld))throw new Error("MedicationEngine patient-next-step signature changed");
     code=code.replace(finishPatientOld,finishPatientNew);
 
     const concentrationForwardOld='if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")';
-    const concentrationForwardNew='if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(path){if(agentNeedsConcentration||contraindications.length||specialChecksText.length||path.baseContact)setStep("safety");else setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")';
+    const concentrationForwardNew='if(returnToResult&&path){setReturnToResult(false);setStep("safety")}else if(path){setStep("safety")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")';
     if(code.includes(concentrationForwardOld))code=code.split(concentrationForwardOld).join(concentrationForwardNew);
 
     return {code,map:null};
