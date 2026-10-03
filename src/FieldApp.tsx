@@ -4,6 +4,7 @@ import EncounterReport from "./EncounterReport";
 import {fieldMedicationDefinition} from "./expandedFieldMedicationDefinitions";
 import {DEFAULT_FIELD_MEDICATION_IDS,CURRENT_DMP_PROTOCOL_REVISION} from "./medicationReleaseConfig";
 import {medicationApprovalStatus} from "./medicationApprovalStatus";
+import {loadClinicalOverrides} from "./adminMedicationStore";
 import {loadMedicationCatalogState} from "./medicationCatalogStore";
 import {downloadLatestMedicationRelease,readFieldVisibility,readReleaseMeta,type ReleaseMeta} from "./medicationRelease";
 import type {RecordedAdministration} from "./encounterTypes";
@@ -117,8 +118,10 @@ export default function FieldApp(){
         const indications=Array.from(new Set(def.paths.map(p=>p.label.replace(/\s*[—-]\s*(adult|pediatric|peds?).*$/i,"").trim())));
         const reviewed=formatReviewedDate(status.completedAt);
         const protocolLabel=id==="txa"?`Department ${def.protocolId}`:`Metro DMP ${def.protocolId}`;
+        const override=loadClinicalOverrides()[id] as {photoDataUrl?:string}|undefined;
+        const photoSrc=override?.photoDataUrl||(id==="adenosine"?"/medications/adenosine-vial.webp":"");
         return <article className="field-med-card" key={id} onClick={()=>openMed(id)}>
-          <div className={`vial-art ${id==="adenosine"?"has-photo":""}`} aria-hidden="true">{id==="adenosine"?<img src="/medications/adenosine-vial.webp" alt=""/>:<><span></span><b>{def.name.slice(0,3).toUpperCase()}</b></>}</div>
+          <div className={`vial-art ${photoSrc?"has-photo":""}`} aria-hidden="true">{photoSrc?<img src={photoSrc} alt=""/>:<><span></span><b>{def.name.slice(0,3).toUpperCase()}</b></>}</div>
           <div className="med-card-copy"><div className="med-title"><strong>{def.name.toUpperCase()}</strong><button aria-label={`Favorite ${def.name}`} onClick={e=>{e.stopPropagation();toggleFav(id)}}>{favorites.includes(id)?"♥":"♡"}</button></div><small>{brandNames[id]||"Generic"}</small><p>{indications[0]||def.paths[0]?.protocol}</p>{indications.length>1&&<span className="more-indications">+{indications.length-1} other {indications.length===2?"use":"uses"}</span>}<div className="med-meta"><em className={status.state==="approved"?"reviewed":"in-review"}>{status.state==="approved"?"Reviewed":"In review"}</em><span>{protocolLabel} • {status.state==="approved"?`Reviewed ${reviewed}`:"Review pending"}</span></div></div>
         </article>})}</section>}
       {approvedMeds.length>0&&visible.length===0&&<div className="empty-search"><b>No medication found.</b><span>Try the generic name, brand name, indication, or protocol.</span></div>}
