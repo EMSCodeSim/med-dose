@@ -140,11 +140,11 @@ function epinephrinePathMatchesConcentration(path:GenericDosePath,stockConcentra
     );
     code=code.replace(
       'onClick={()=>{setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);',
-      'onClick={()=>{setFieldConcentrationIndex(0);setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);if(medication.id==="epinephrine"){setPath(null);setRoute("");setStep("indication");return;}'
+      'onClick={()=>{setFieldConcentrationIndex(0);setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);'
     );
 
     const customButton='<button type="button" className={customConcentrationMode?"selected":""} onClick={()=>{setCustomConcentrationMode(true);setCustomConcentration("");setConcConfirmed(false)}}><b>Different concentration</b><span>Use only when the physical medication label differs</span></button>';
-    const extraButtons='{fieldConcentrations.slice(1).map((item,index)=><button type="button" key={`${item.label||item.concentration}-${index}`} className={!customConcentrationMode&&concConfirmed&&fieldConcentrationIndex===index+1?"selected":""} onClick={()=>{setFieldConcentrationIndex(index+1);setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);if(medication.id==="epinephrine"){setPath(null);setRoute("");setStep("indication");return;}if(returnToResult&&path){setReturnToResult(false);setStep("result")}else if(agentPaths.length===1)choosePath(agentPaths[0]);else setStep("indication")}}><b>{item.label||`${fmt(Number(item.concentration))} ${concentrationUnit}/mL`}</b><span>{fmt(Number(item.concentration))} {concentrationUnit}/mL • DEFAULT / DEPARTMENT</span></button>)}';
+    const extraButtons='{fieldConcentrations.slice(1).map((item,index)=><button type="button" key={`${item.label||item.concentration}-${index}`} className={!customConcentrationMode&&concConfirmed&&fieldConcentrationIndex===index+1?"selected":""} onClick={()=>{setFieldConcentrationIndex(index+1);setCustomConcentrationMode(false);setCustomConcentration("");setConcConfirmed(true);setConcentrationSafetyConfirmed(false);setReturnToResult(false);setStep("safety")}}><b>{item.label||`${fmt(Number(item.concentration))} ${concentrationUnit}/mL`}</b><span>{fmt(Number(item.concentration))} {concentrationUnit}/mL • DEFAULT / DEPARTMENT</span></button>)}';
     if(!code.includes(customButton))throw new Error("MedicationEngine custom concentration button signature changed");
     code=code.replace(customButton,extraButtons+customButton);
 

@@ -26,9 +26,9 @@ const clickFentanylAdultPain=async()=>{
 };
 const confirmConcentration=async()=>{
   assert.ok(host.textContent.includes('Confirm medication concentration')||host.textContent.includes('Select concentration'),'Dedicated concentration screen is rendered');
-  const buttons=[...host.querySelectorAll('button')];
+  const buttons=[...host.querySelectorAll('.concentration-options button')];
   const different=buttons.find(x=>!x.disabled&&x.textContent.includes('Different concentration'));
-  const defaultButton=buttons.find(x=>!x.disabled&&x!==different&&(x.closest('.concentration-options')||/DEFAULT|DEPARTMENT|mcg|mg|mEq|g\s*\/|% solution/i.test(x.textContent)));
+  const defaultButton=buttons.find(x=>!x.disabled&&x!==different);
   if(defaultButton){
     await act(async()=>{defaultButton.click();await new Promise(r=>setTimeout(r,30))});
     return;
@@ -44,7 +44,8 @@ const confirmConcentration=async()=>{
 };
 const confirmSafety=async()=>{
   assert.equal(host.querySelector('.safety-concentration-check'),null,'Concentration is not repeated on the safety screen');
-  assert.ok(host.textContent.includes('REQUIRED CONCENTRATION CHECK'),'Concentration is explicitly labeled as a required safety item');
+  assert.equal(host.querySelector('.required-concentration-safety-check'),null,'Concentration is not an item in the contraindication checklist');
+  assert.ok(host.textContent.includes('Review contraindications and safety'),`Contraindication review is a separate screen: ${host.textContent.slice(-1200)}`);
   const safetyCheckbox=[...host.querySelectorAll('input[type=checkbox]')].find(x=>!x.disabled);
   assert.ok(safetyCheckbox,'Safety confirmation is available');
   await act(async()=>{safetyCheckbox.click();await new Promise(r=>setTimeout(r,30))});
@@ -54,7 +55,6 @@ try{
   await act(async()=>{root.render(React.createElement(FieldApp));await new Promise(r=>setTimeout(r,30))});
   assert.equal(host.querySelectorAll('.field-med-card').length,23);
   await act(async()=>{[...host.querySelectorAll('.field-med-card')].find(x=>x.textContent.includes('FENTANYL')).click();await new Promise(r=>setTimeout(r,30))});
-  await confirmConcentration();
   await clickFentanylAdultPain();
   await click('IV/IOApproved route');
   await click('Adult 12–65');
@@ -70,7 +70,6 @@ try{
   await click('New Calculation');
   const openMedication=async(name)=>{await act(async()=>{const card=[...host.querySelectorAll('.field-med-card')].find(x=>x.textContent.includes(name));assert.ok(card);card.click();await new Promise(r=>setTimeout(r,30))})};
   await openMedication('FENTANYL');
-  await confirmConcentration();
   assert.equal(host.querySelector('.final-dose-display'),null);
   assert.ok(!host.textContent.includes('GIVE 100 mcg'),'Previous result is gone');
   assert.ok(!host.textContent.includes('DOSE 1 GIVEN'),'Previous repeat history is gone');
@@ -91,7 +90,6 @@ try{
   assert.ok(!host.textContent.includes('70 kg'),'Medication B starts with no inherited patient');
   await click('New Calculation');
   await openMedication('FENTANYL');
-  await confirmConcentration();
   await clickFentanylAdultPain();
   await click('IV/IOApproved route');
   assert.ok(host.textContent.includes('Select patient age group'),'Fresh-patient rule remains active for later calculations');
