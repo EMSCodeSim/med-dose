@@ -9,6 +9,7 @@
     "test:clinical": "node scripts/validate-released-medications.mjs",
     "release:check": "npm run build",
     "db:generate": "drizzle-kit generate",
+    "prebuild": "python scripts/apply-validation-audit-trail.py",
     "build": "npm test && tsc -b && vite build --config vite.fast-field.config.ts",
     "preview": "vite preview",
     "test:state": "node scripts/test-calculation-state.mjs",
