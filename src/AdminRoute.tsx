@@ -128,7 +128,7 @@ function AuthPanel(){
       {notice&&<div className="neon-admin-notice" role="status">{notice}</div>}
       <button className="primary" disabled={busy}>{busy?"Please wait…":mode==="signin"?"Sign in":mode==="signup"?"Create administrator account":mode==="forgot"?"Send password reset":"Reset password"}</button>
     </form>
-    {mode==="signin"&&<><button className="neon-admin-mode" onClick={()=>{setMode("forgot");setError("");setNotice("")}}>Forgot password?</button><button className="neon-admin-mode" onClick={()=>{setMode("signup");setError("");setNotice("")}}>First visit? Create the approved account</button></>}
+    {mode==="signin"&&<><button className="neon-admin-mode" onClick={()=>{setMode("forgot");setError("");setNotice("")}}>Forgot password?</button><button className="neon-admin-mode" onClick={()=>{setMode("reset");setError("");setNotice("Enter the reset code sent by an administrator or the forgot-password flow.")}}>Have a reset code?</button><button className="neon-admin-mode" onClick={()=>{setMode("signup");setError("");setNotice("")}}>First visit? Create the approved account</button></>}
     {mode==="signup"&&<button className="neon-admin-mode" onClick={()=>{setMode("signin");setError("");setNotice("")}}>Already created the account? Sign in</button>}
     {(mode==="forgot"||mode==="reset")&&!resetToken&&<button className="neon-admin-mode" onClick={()=>{setMode("signin");setError("");setNotice("")}}>← Back to sign in</button>}
     <a href="/">← Return to field calculator</a>
