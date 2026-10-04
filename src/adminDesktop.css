@@ -159,7 +159,9 @@
   .admin-med-modal.detail-view .admin-med-detail>*{margin-top:0;margin-bottom:0}
   .admin-med-modal.detail-view .admin-med-validation{margin-right:0;margin-left:0}
   .admin-med-modal.detail-view .admin-field-control{margin:0}
-  .admin-med-modal.detail-view .admin-med-actions{position:sticky;top:92px;z-index:3;padding:10px;border:1px solid #d4e0e6;border-radius:10px;background:#f7fafcf2;backdrop-filter:blur(8px)}
+  /* Keep medication actions in normal document flow. A sticky action bar used to
+     float over the clinical record while scrolling, obscuring drug information. */
+  .admin-med-modal.detail-view .admin-med-actions{position:static;z-index:auto;padding:0;border:0;border-radius:0;background:transparent;backdrop-filter:none}
 
   .admin-structured-editor {
     max-width: 1480px;
