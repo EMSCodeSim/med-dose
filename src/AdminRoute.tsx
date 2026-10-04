@@ -12,6 +12,45 @@ import "./adminAccount.css";
 const REVIEW_KEY="metro-med-dose-medication-reviews-v1";
 const ADMIN_LOAD_TIMEOUT_MS=12000;
 type AdminAllowlistRow={email:string;role:"admin"|"reviewer";title:string;active:boolean;created_at:string};
+type PasswordResetMethod="otp"|"link";
+
+function authError(result:unknown,fallback:string){
+  if(result&&typeof result==="object"&&"error" in result&&(result as {error?:unknown}).error)throw new Error(errorMessage((result as {error:unknown}).error,fallback));
+}
+async function requestPasswordReset(email:string):Promise<PasswordResetMethod>{
+  const auth=neonAdminClient.auth as unknown as {
+    forgetPassword?:{emailOtp?:(input:{email:string})=>Promise<unknown>};
+    requestPasswordReset?:(input:{email:string;redirectTo?:string})=>Promise<unknown>;
+  };
+  if(auth.forgetPassword?.emailOtp){
+    const result=await auth.forgetPassword.emailOtp({email});
+    authError(result,"Unable to send the password reset code.");
+    return "otp";
+  }
+  if(auth.requestPasswordReset){
+    const result=await auth.requestPasswordReset({email,redirectTo:`${window.location.origin}/admin`});
+    authError(result,"Unable to send the password reset link.");
+    return "link";
+  }
+  throw new Error("Password reset is not enabled for this Neon Auth configuration.");
+}
+async function completePasswordReset(input:{email:string;otp?:string;token?:string;newPassword:string}){
+  const auth=neonAdminClient.auth as unknown as {
+    emailOtp?:{resetPassword?:(input:{email:string;otp:string;password:string})=>Promise<unknown>};
+    resetPassword?:(input:{newPassword:string;token:string})=>Promise<unknown>;
+  };
+  if(input.token&&auth.resetPassword){
+    const result=await auth.resetPassword({newPassword:input.newPassword,token:input.token});
+    authError(result,"Unable to reset the password.");
+    return;
+  }
+  if(input.otp&&auth.emailOtp?.resetPassword){
+    const result=await auth.emailOtp.resetPassword({email:input.email,otp:input.otp,password:input.newPassword});
+    authError(result,"Unable to reset the password.");
+    return;
+  }
+  throw new Error("The password reset method returned by Neon Auth is unavailable.");
+}
 
 function withTimeout<T>(request:PromiseLike<T>,milliseconds=ADMIN_LOAD_TIMEOUT_MS):Promise<T>{
   return new Promise((resolve,reject)=>{
@@ -39,32 +78,59 @@ function readLocalWorkspace():AdminWorkspacePayload{
 const hasWorkspaceData=(payload:AdminWorkspacePayload)=>Object.values(payload).some(value=>Object.keys(value).length>0);
 
 function AuthPanel(){
-  const [mode,setMode]=useState<"signin"|"signup">("signin");
+  const resetToken=new URLSearchParams(window.location.search).get("token")||"";
+  const [mode,setMode]=useState<"signin"|"signup"|"forgot"|"reset">(resetToken?"reset":"signin");
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
+  const [resetOtp,setResetOtp]=useState("");
+  const [resetPassword,setResetPassword]=useState("");
+  const [confirmResetPassword,setConfirmResetPassword]=useState("");
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const [notice,setNotice]=useState("");
   const submit=async(event:FormEvent)=>{
-    event.preventDefault();setBusy(true);setError("");
+    event.preventDefault();setBusy(true);setError("");setNotice("");
     try{
+      if(mode==="forgot"){
+        const method=await requestPasswordReset(email.trim().toLowerCase());
+        if(method==="otp"){setMode("reset");setNotice("A password reset code was sent. Enter it below with a new password.");}
+        else{setNotice("A password reset link was sent. Open the link in the email to choose a new password.");setMode("signin");}
+        return;
+      }
+      if(mode==="reset"){
+        if(resetPassword.length<8)throw new Error("The new password must be at least 8 characters.");
+        if(resetPassword!==confirmResetPassword)throw new Error("The new passwords do not match.");
+        if(!resetToken&&!resetOtp.trim())throw new Error("Enter the reset code from your email.");
+        await completePasswordReset({email:email.trim().toLowerCase(),otp:resetOtp.trim()||undefined,token:resetToken||undefined,newPassword:resetPassword});
+        setPassword("");setResetOtp("");setResetPassword("");setConfirmResetPassword("");
+        setNotice("Password reset complete. Sign in with the new password.");
+        setMode("signin");
+        if(resetToken)window.history.replaceState({},document.title,"/admin");
+        return;
+      }
       const result=mode==="signin"
         ?await neonAdminClient.auth.signIn.email({email:email.trim(),password})
         :await neonAdminClient.auth.signUp.email({email:email.trim(),password,name:"MyMedDose Administrator"});
-      if(result&&typeof result==="object"&&"error" in result&&(result as {error?:unknown}).error)throw (result as {error:unknown}).error;
+      authError(result,"Unable to authenticate");
       window.location.reload();
-    }catch(err){setError(errorMessage(err,"Unable to authenticate"))}
+    }catch(err){setError(errorMessage(err,mode==="reset"?"Unable to reset the password":"Unable to authenticate"))}
     finally{setBusy(false)}
   };
   return <main className="neon-admin-gate"><section className="neon-admin-card">
     <small>MYMEDDOSE • SECURE ADMIN</small><h1>Medication governance</h1>
-    <p>Sign in to manage medication records, field visibility and clinical review history. Access is restricted to approved administrators.</p>
+    <p>{mode==="forgot"?"Enter the administrator email address to send a secure password reset.":mode==="reset"?"Enter the reset code from the email and choose a new password.":"Sign in to manage medication records, field visibility and clinical review history. Access is restricted to approved administrators."}</p>
     <form onSubmit={submit}>
-      <label>Email<input type="email" autoComplete="email" required value={email} onChange={event=>setEmail(event.target.value)}/></label>
-      <label>Password<input type="password" autoComplete={mode==="signin"?"current-password":"new-password"} minLength={8} required value={password} onChange={event=>setPassword(event.target.value)}/></label>
+      {!resetToken&&<label>Email<input type="email" autoComplete="email" required value={email} onChange={event=>setEmail(event.target.value)}/></label>}
+      {(mode==="signin"||mode==="signup")&&<label>Password<input type="password" autoComplete={mode==="signin"?"current-password":"new-password"} minLength={8} required value={password} onChange={event=>setPassword(event.target.value)}/></label>}
+      {mode==="reset"&&!resetToken&&<label>Reset code<input inputMode="numeric" autoComplete="one-time-code" required value={resetOtp} onChange={event=>setResetOtp(event.target.value)} placeholder="Code from email"/></label>}
+      {mode==="reset"&&<><label>New password<input type="password" autoComplete="new-password" minLength={8} required value={resetPassword} onChange={event=>setResetPassword(event.target.value)}/></label><label>Confirm new password<input type="password" autoComplete="new-password" minLength={8} required value={confirmResetPassword} onChange={event=>setConfirmResetPassword(event.target.value)}/></label></>}
       {error&&<div className="neon-admin-error" role="alert">{error}</div>}
-      <button className="primary" disabled={busy}>{busy?"Please wait…":mode==="signin"?"Sign in":"Create administrator account"}</button>
+      {notice&&<div className="neon-admin-notice" role="status">{notice}</div>}
+      <button className="primary" disabled={busy}>{busy?"Please wait…":mode==="signin"?"Sign in":mode==="signup"?"Create administrator account":mode==="forgot"?"Send password reset":"Reset password"}</button>
     </form>
-    <button className="neon-admin-mode" onClick={()=>{setMode(value=>value==="signin"?"signup":"signin");setError("")}}>{mode==="signin"?"First visit? Create the approved account":"Already created the account? Sign in"}</button>
+    {mode==="signin"&&<><button className="neon-admin-mode" onClick={()=>{setMode("forgot");setError("");setNotice("")}}>Forgot password?</button><button className="neon-admin-mode" onClick={()=>{setMode("signup");setError("");setNotice("")}}>First visit? Create the approved account</button></>}
+    {mode==="signup"&&<button className="neon-admin-mode" onClick={()=>{setMode("signin");setError("");setNotice("")}}>Already created the account? Sign in</button>}
+    {(mode==="forgot"||mode==="reset")&&!resetToken&&<button className="neon-admin-mode" onClick={()=>{setMode("signin");setError("");setNotice("")}}>← Back to sign in</button>}
     <a href="/">← Return to field calculator</a>
   </section></main>;
 }
@@ -183,6 +249,15 @@ export default function AdminRoute(){
     }catch(err){setMessage(errorMessage(err,"Unable to change the password"))}
     finally{setAccountBusy(false)}
   };
+  const sendReviewerPasswordReset=async(email:string)=>{
+    setMessage("");setAccountBusy(true);
+    try{
+      const method=await requestPasswordReset(email);
+      setMessage(method==="otp"?`Password reset code sent to ${email}.`:`Password reset link sent to ${email}.`);
+      await neonAdminClient.from("admin_audit_log").insert({action:"account.password_reset_requested",details:{email}});
+    }catch(err){setMessage(errorMessage(err,"Unable to send the password reset"))}
+    finally{setAccountBusy(false)}
+  };
   const inviteAdmin=async(event:FormEvent)=>{
     event.preventDefault();setMessage("");
     const email=inviteEmail.trim().toLowerCase();
@@ -216,7 +291,7 @@ export default function AdminRoute(){
         <button className="primary" disabled={accountBusy}>Change password</button>
       </form>
       <section className="admin-reviewer-access"><h3>Authorized reviewers</h3><p>Up to three administrators can access the dashboard. Only two signatures are required to approve each medication.</p>
-        <div className="admin-reviewer-list">{admins.map(admin=><article key={admin.email}><span><b>{admin.email}</b><small>{admin.title||"Administrator"}</small></span><i>{admin.active?"Active":"Inactive"}</i></article>)}</div>
+        <div className="admin-reviewer-list">{admins.map(admin=><article key={admin.email}><span><b>{admin.email}</b><small>{admin.title||"Administrator"}</small></span><div className="admin-reviewer-actions"><i>{admin.active?"Active":"Inactive"}</i>{admin.active&&<button type="button" disabled={accountBusy} onClick={()=>void sendReviewerPasswordReset(admin.email)}>Reset password</button>}</div></article>)}</div>
         {admins.filter(item=>item.active).length<3?<form onSubmit={inviteAdmin}><h3>Invite another administrator</h3><label>Email<input type="email" autoComplete="email" required value={inviteEmail} onChange={event=>setInviteEmail(event.target.value)} placeholder="reviewer@example.com"/></label><label>Title<select value={inviteTitle} onChange={event=>setInviteTitle(event.target.value)}>{REVIEWER_TITLES.filter(title=>title!=="Other").map(title=><option key={title}>{title}</option>)}</select></label><button className="primary" disabled={accountBusy}>Authorize reviewer</button><small>After authorization, send the reviewer the admin link. They can use “Create administrator account” with this email.</small></form>:<div className="neon-admin-notice">Three reviewer accounts are active.</div>}
       </section>
     </section></div>}
