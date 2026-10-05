@@ -8,6 +8,7 @@ export type DoseFormula=
 export type GenericDosePath={
   id:string;label:string;agent:string;patient:"adult"|"pediatric"|"all";minAge?:number;maxAge?:number;
   route:string;formula:DoseFormula;repeat:string;administration:string;protocol:string;
+  editableDoseRangePerKg?:{min:number;max:number};
   baseContact?:string;volumeRequired?:boolean;suggestedConcentration?:number;concentrationUnit?:string;
   monitoring?:string[];special?:string[];requiresWeight?:boolean;
   repeatAfterMinutes?:number;maxAdministrations?:number;maxCumulative?:number;maxCumulativePerKg?:number;absoluteCumulativeMax?:number;openEndedRepeats?:boolean;

@@ -126,8 +126,8 @@ function fentanylProtocolRange(base:GenericMedication):GenericMedication{
   });
   const ivio=paths.find(path=>path.id==="ped-ivio");
   const im=paths.find(path=>path.id==="ped-im");
-  if(ivio)paths.push({...ivio,id:"ped-ivio-low",label:"Moderate to severe pain — pediatric 1–12 years IV/IO — 1 mcg/kg option",formula:{kind:"perKg" as const,amount:1,unit:"mcg" as const}});
-  if(im)paths.push({...im,id:"ped-im-low",label:"Moderate to severe pain — pediatric 1–12 years IM — 1 mcg/kg option",formula:{kind:"perKg" as const,amount:1,unit:"mcg" as const}});
+  if(ivio)paths.push({...ivio,id:"ped-ivio-low",label:"Moderate to severe pain — pediatric 1–12 years IV/IO — 1 mcg/kg option",formula:{kind:"perKg" as const,amount:1,unit:"mcg" as const},editableDoseRangePerKg:{min:1,max:2}});
+  if(im)paths.push({...im,id:"ped-im-low",label:"Moderate to severe pain — pediatric 1–12 years IM — 1 mcg/kg option",formula:{kind:"perKg" as const,amount:1,unit:"mcg" as const},editableDoseRangePerKg:{min:1,max:2}});
   return {...base,paths};
 }
 

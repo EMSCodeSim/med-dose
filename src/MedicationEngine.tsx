@@ -49,7 +49,7 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
     result=useMemo(()=>path?calculateGenericDose(path,effectiveAgeYears,kg,medication.id):null,[path,effectiveAgeYears,kg,medication.id]),volume=result&&needsConcentration&&conc>0?result.dose/conc:result?.unit==="mL"?result.dose:0,
     patientText=ageChangesDose&&age!==""?`${age} ${ageUnit}${needsWeight&&kg>0?` • ${fmt(kg)} kg${weightSource?` • ${weightSource}`:""}`:""}`:needsWeight&&kg>0?`${fmt(kg)} kg${weightSource?` • ${weightSource}`:""}`:path?path.patient==="adult"?"Adult pathway":path.patient==="pediatric"?"Pediatric pathway":"All ages":"",contraindications=path?applicableContraindications(medication,path):[],specialChecksText=applicableSpecialChecks(path),
     safetyListConfirmed=!!path&&concentrationSafetyConfirmed&&contraindications.every((_,i)=>contraChecks[i])&&specialChecksText.every((_,i)=>specialChecks[i]),safetyComplete=safetyListConfirmed&&(!path?.baseContact||(baseApproved&&!!basePhysician.trim())),
-    actualDose=Number(actual),doseMaximum=nextDoseMaximum(path,result,kg,administrations),actualOk=!!result&&result.numeric&&actualDose>0&&actualDose<=doseMaximum,
+    actualDose=Number(actual),doseMaximum=nextDoseMaximum(path,result,kg,administrations,effectiveAgeYears,selectedRoute,conc),actualOk=!!result&&result.numeric&&actualDose>0&&actualDose<=doseMaximum,
     belowProtocolMin=!!result&&result.numeric&&!!result.minDose&&actualDose>0&&actualDose<result.minDose,actualVolume=actualOk?(result?.unit==="mL"?actualDose:needsConcentration?actualDose/conc:0):0,
     totalDose=administrations.reduce((n,x)=>n+x.dose,0),totalVolume=administrations.reduce((n,x)=>n+x.volume,0),maxAdministrations=path?.openEndedRepeats?Number.MAX_SAFE_INTEGER:path?.linkedDose?2:path?.maxAdministrations||1,
     repeatRemaining=Math.max(0,maxAdministrations-administrations.length),lastAdministration=administrations.at(-1),repeatTimerMinutes=path?.linkedDose?.afterMinutes||path?.titrationStepMinutes||path?.repeatAfterMinutes,secondsLeft=repeatTimerMinutes&&lastAdministration?Math.max(0,Math.ceil((lastAdministration.time+repeatTimerMinutes*60000-now)/1000)):0,
@@ -100,7 +100,7 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
     setStep("route");
   };
   const finishPatient=()=>{if(path&&!eligibility&&(!ageRequired||age!=="")&&(!needsWeight||kg>0)){if(result)setActual(String(result.minDose||result.dose));setConcConfirmed(false);setConcentrationSafetyConfirmed(false);setReturnToResult(false);setStep("concentration")}};
-  const showResult=()=>{if(result){setActual(String(nextDoseMaximum(path,result,kg,administrations)||result.minDose||result.dose));setStep("result")}};
+  const showResult=()=>{if(result){const recommendedDose=administrations.length?nextDoseMaximum(path,result,kg,administrations,effectiveAgeYears,selectedRoute,conc):(result.minDose||result.dose);setActual(String(recommendedDose));setStep("result")}};
   const selectRoute=(nextRoute:string)=>{
     if(!path)return;
     const nextPath=routeSelections.find(item=>item.route===nextRoute)?.path||path;
@@ -145,7 +145,7 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
     else if(unit==="mL")lines.push(`Protocol dose is the administered volume = ${fmt(entryVolume)} mL`);
     return lines;
   };
-  const recordAmount=(requested:number)=>{if(!path||!result||administrations.length>=maxAdministrations)return;const amount=result.numeric?requested:1;if(result.numeric&&(!(amount>0)||amount>doseMaximum))return;const expectedAmount=result.numeric?(administrations.length>0?doseMaximum:(result.minDose||result.dose)):undefined,entryVolume=result.unit==="mL"?amount:needsConcentration?amount/conc:0,time=Date.now();record({drug:path.agent,reason:path.label,route:selectedRoute,dose:amount,unit:result.numeric?result.unit:"treatment",volume:entryVolume,volumeUnit:"mL",time,concentration:needsConcentration?usedConcentrationText:"Not required",calculatedDose:expectedAmount,doseOverride:expectedAmount!==undefined?Math.abs(amount-expectedAmount)>.0001:undefined,patient:patientText,calculationMath:doseMath(amount,result.numeric?result.unit:"treatment",entryVolume),...reportDetails(),baseAuthorization:path.baseContact?{physician:basePhysician,time,reason:path.baseContact}:undefined});setAdministrations(x=>[...x,{dose:amount,volume:entryVolume,time}]);setReadyForAnother(false);setNow(time)};
+  const recordAmount=(requested:number)=>{if(!path||!result||administrations.length>=maxAdministrations||(administrations.length>0&&secondsLeft>0))return;const amount=result.numeric?requested:1;if(result.numeric&&(!(amount>0)||amount>doseMaximum))return;const expectedAmount=result.numeric?(administrations.length>0?doseMaximum:(result.minDose||result.dose)):undefined,entryVolume=result.unit==="mL"?amount:needsConcentration?amount/conc:0,time=Date.now();record({drug:path.agent,reason:path.label,route:selectedRoute,dose:amount,unit:result.numeric?result.unit:"treatment",volume:entryVolume,volumeUnit:"mL",time,concentration:needsConcentration?usedConcentrationText:"Not required",calculatedDose:expectedAmount,doseOverride:expectedAmount!==undefined?Math.abs(amount-expectedAmount)>.0001:undefined,patient:patientText,calculationMath:doseMath(amount,result.numeric?result.unit:"treatment",entryVolume),...reportDetails(),baseAuthorization:path.baseContact?{physician:basePhysician,time,reason:path.baseContact}:undefined});setAdministrations(x=>[...x,{dose:amount,volume:entryVolume,time}]);setReadyForAnother(false);setNow(time)};
   const recordDopamine=()=>{if(!path||!conc||!kg)return;const time=Date.now();record({drug:path.agent,reason:path.label,route:selectedRoute,dose:dopamineTotal,unit:"mcg/min",volume:dopamineMlHr,volumeUnit:"mL/hr",time,concentration:`${fmt(conc)} mcg/mL`,calculatedDose:kg*(path.titrationRates?.[0]||5),doseOverride:Math.abs(dopamineRate-(path.titrationRates?.[0]||5))>.001,patient:patientText,calculationMath:[`${fmt(kg)} kg × ${dopamineRate} mcg/kg/min = ${fmt(dopamineTotal)} mcg/min`,`${fmt(dopamineTotal)} mcg/min ÷ ${fmt(conc)} mcg/mL = ${fmt(dopamineMlMin)} mL/min`,`${fmt(dopamineMlMin)} mL/min × 60 = ${fmt(dopamineMlHr)} mL/hr`,`${fmt(dopamineMlMin)} mL/min × ${dropFactor} gtt/mL = ${fmt(dopamineGttMin)} gtt/min`],...reportDetails()});setAdministrations(x=>[...x,{dose:dopamineTotal,volume:dopamineMlHr,time}]);setNow(time)};
   const recordLinked=()=>{if(!path||!linkedDose||!linkedAmount||administrations.length!==1)return;const time=Date.now(),linkedVolume=needsConcentration?linkedAmount/conc:0;record({drug:path.agent,reason:`${path.label} — ${linkedDose.label}`,route:selectedRoute,dose:linkedAmount,unit:linkedDose.unit,volume:linkedVolume,volumeUnit:"mL",time,concentration:needsConcentration?`${fmt(conc)} ${linkedDose.unit}/mL`:"Not required",calculatedDose:linkedAmount,doseOverride:false,patient:patientText,calculationMath:doseMath(linkedAmount,linkedDose.unit,linkedVolume,true),...reportDetails(linkedDose.administration),baseAuthorization:path.baseContact?{physician:basePhysician,time,reason:path.baseContact}:undefined});setAdministrations(x=>[...x,{dose:linkedAmount,volume:linkedVolume,time}]);setNow(time)};
   const recordNow=()=>recordAmount(actualDose);
@@ -225,10 +225,11 @@ export default function MedicationEngine({medication,activeHeader,close,record,o
         <section className="final-primary-administration-actions" aria-label="Medication administration actions">
         {result.numeric?(isDopamine?<div className="generic-summary dopamine-infusion"><p><span>SELECT TITRATION RATE</span><b>{path.titrationRates?.map(rate=><button key={rate} className={dopamineRate===rate?"selected":""} onClick={()=>setDopamineRate(rate)}>{rate}</button>)} mcg/kg/min</b></p><p><span>Total drug rate</span><b>{fmt(dopamineTotal)} mcg/min</b></p><p><span>Pump rate</span><b>{fmt(dopamineMlHr)} mL/hr</b></p><p><span>Equivalent</span><b>{fmt(dopamineMlMin)} mL/min</b></p><p><span>Gravity tubing</span><b><select value={dropFactor} onChange={e=>setDropFactor(Number(e.target.value))}>{[60,10,15].map(x=><option key={x} value={x}>{x} gtt/mL</option>)}</select> = {fmt(dopamineGttMin)} gtt/min</b></p>{administrations.length>0&&<p><span>Next upward titration reassessment</span><b>{secondsLeft?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`:"Due now"}</b></p>}<button className="initial-record-dose" disabled={dopamineIncreaseWaiting||dopamineRateUnchanged} onClick={recordDopamine}><span><small>{administrations.length?"RATE CHANGE":"START INFUSION"}</small><b>{dopamineRate} mcg/kg/min</b></span><strong>{fmt(dopamineMlHr)} mL/hr</strong><em>{dopamineIncreaseWaiting?"Reassess before increasing":dopamineRateUnchanged?"Select a different rate":"Tap to record"}</em></button></div>:linkedDose?<div className="generic-summary linked-dose-sequence">{administrations.length===0?<button className="initial-record-dose" onClick={()=>recordAmount(result.dose)}><span><small>INITIAL DOSE</small><b>{selectedRoute}</b></span><strong>{fmt(result.dose)} {result.unit} • {fmt(result.dose/conc)} mL</strong><em>Tap to record and start linked-dose timer</em></button>:<><p><span>Initial dose recorded</span><b>{fmt(administrations[0].dose)} {result.unit} at {new Date(administrations[0].time).toLocaleTimeString()}</b></p><p><span>{linkedDose.label}</span><b>{fmt(linkedAmount)} {linkedDose.unit} • {fmt(linkedAmount/conc)} mL</b></p><p><span>Earliest linked dose</span><b>{secondsLeft?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,"0")}`:"Eligible now after reassessment"}</b></p>{linkedDose.windowMinutes&&<p><span>Protocol timing</span><b>{linkedDose.afterMinutes}–{linkedDose.windowMinutes} minutes; only if shock-refractory or recurrent VF/VT</b></p>}<button className="initial-record-dose" disabled={administrations.length!==1||!!secondsLeft} onClick={recordLinked}><span><small>LINKED SECOND DOSE</small><b>{selectedRoute}</b></span><strong>{fmt(linkedAmount)} {linkedDose.unit} • {fmt(linkedAmount/conc)} mL</strong><em>{administrations.length>1?"Recorded":secondsLeft?"Timer active":"Tap to record after reassessment"}</em></button></>}</div>:null):<button className="initial-record-dose" onClick={recordNow}><span><small>TREATMENT</small><b>{selectedRoute}</b></span><strong>{result.text}</strong><em>Tap to record completed</em></button>}
         </section>
+        {result.numeric&&!editingFinalDose&&!administrations.length&&actualDose>doseMaximum&&<p className="final-dose-limit-error" role="alert">{doseLimitMessage(path,result,kg,effectiveAgeYears,selectedRoute,conc,administrations,doseMaximum,actualDose)}</p>}
         {result.numeric&&!isDopamine&&!linkedDose&&(administrations.length===0||repeatRemaining>0)&&<div className="final-action-row single">
           <button type="button" className={editingFinalDose?"active":""} onClick={()=>setEditingFinalDose(x=>!x)}><small>CHANGE DOSE</small><strong>{editingFinalDose?"CLOSE EDITOR":"CHANGE AMOUNT"}</strong></button>
         </div>}
-        {editingFinalDose&&result.numeric&&!isDopamine&&!linkedDose&&(administrations.length===0||repeatRemaining>0)&&<div className="final-dose-editor"><label><span>Amount to give</span><div><input autoFocus inputMode="decimal" value={actual} onChange={e=>setActual(e.target.value)} /><b>{result.unit}</b></div></label><button type="button" onClick={()=>{setActual(String(result.minDose||result.dose));setEditingFinalDose(false)}}>Use calculated dose</button>{actualDose>0&&actualDose<=doseMaximum?<strong>{needsConcentration?`Draw ${fmt(actualDose/conc)} mL`:`Give ${fmt(actualDose)} ${result.unit}`}</strong>:<em>Enter more than 0 and no more than {fmt(doseMaximum)} {result.unit}.</em>}</div>}
+        {editingFinalDose&&result.numeric&&!isDopamine&&!linkedDose&&(administrations.length===0||repeatRemaining>0)&&<div className="final-dose-editor"><label><span>Amount to give</span><div><input autoFocus inputMode="decimal" value={formatEditableDose(actual)} onChange={e=>setActual(formatEditableDose(e.target.value))} aria-invalid={actual!==""&&!(actualDose>0&&actualDose<=doseMaximum)} aria-describedby="dose-editor-limit" /><b>{result.unit}</b></div></label><button type="button" onClick={()=>{setActual(String(result.minDose||result.dose));setEditingFinalDose(false)}}>Use calculated dose</button>{actualDose>0&&actualDose<=doseMaximum?<strong>{needsConcentration?`Draw ${fmt(actualDose/conc)} mL`:`Give ${fmt(actualDose)} ${result.unit}`}</strong>:<em id="dose-editor-limit" role="alert">{doseLimitMessage(path,result,kg,effectiveAgeYears,selectedRoute,conc,administrations,doseMaximum,actualDose)}</em>}</div>}
         <button className="new-calc" onClick={close}>{administrations.length?"Return to medication list":"Close without recording"}</button>
       </>}
     </div>
@@ -269,8 +270,39 @@ function monitoringFor(id:string,path:GenericDosePath){
   return[first,"Reassess indication-specific vital signs and clinical response after administration.","Document the dose, route, time, response and any adverse effect in the ePCR."];
 }
 
-function nextDoseMaximum(path:GenericDosePath|null,result:ReturnType<typeof calculateGenericDose>|null,weight:number,entries:LocalAdministration[]){
-  if(!path||!result||!result.numeric)return 0;const total=entries.reduce((n,x)=>n+x.dose,0);let ceiling=Infinity;if(path.maxCumulative!==undefined)ceiling=path.maxCumulative;if(path.maxCumulativePerKg!==undefined)ceiling=Math.min(ceiling,path.maxCumulativePerKg*weight);if(path.absoluteCumulativeMax!==undefined)ceiling=Math.min(ceiling,path.absoluteCumulativeMax);return Math.max(0,Math.min(result.dose,ceiling-total));
+export function nextDoseMaximum(path:GenericDosePath|null,result:ReturnType<typeof calculateGenericDose>|null,weight:number,entries:LocalAdministration[],age:number,route:string,concentration:number){
+  if(!path||!result||!result.numeric)return 0;
+  const total=entries.reduce((n,x)=>n+x.dose,0);
+  let singleDoseMaximum=result.dose;
+  if(path.editableDoseRangePerKg&&path.formula.kind==="perKg")singleDoseMaximum=weight*path.editableDoseRangePerKg.max;
+  if(path.formula.kind==="perKg"&&path.formula.max!==undefined)singleDoseMaximum=Math.min(singleDoseMaximum,path.formula.max);
+  if(path.agent.toLowerCase()==="fentanyl"&&path.patient==="adult")singleDoseMaximum=Math.min(singleDoseMaximum,age>65?50:100);
+  if(path.agent.toLowerCase()==="fentanyl"&&route==="IN"&&concentration>0)singleDoseMaximum=Math.min(singleDoseMaximum,concentration*2);
+  let cumulativeMaximum=Infinity;
+  if(path.maxCumulative!==undefined)cumulativeMaximum=path.maxCumulative;
+  if(path.maxCumulativePerKg!==undefined)cumulativeMaximum=Math.min(cumulativeMaximum,path.maxCumulativePerKg*weight);
+  if(path.absoluteCumulativeMax!==undefined)cumulativeMaximum=Math.min(cumulativeMaximum,path.absoluteCumulativeMax);
+  return Math.max(0,Math.min(singleDoseMaximum,cumulativeMaximum-total));
+}
+
+export function doseLimitMessage(path:GenericDosePath|null,result:ReturnType<typeof calculateGenericDose>|null,weight:number,age:number,route:string,concentration:number,entries:LocalAdministration[],maximum:number,requested:number){
+  const unit=result?.unit||"dose";
+  if(!(requested>0))return `Enter a dose greater than 0 ${unit}. The permitted maximum is ${fmt(maximum)} ${unit}.`;
+  const limits:{value:number;reason:string}[]=[];
+  if(path?.editableDoseRangePerKg)limits.push({value:weight*path.editableDoseRangePerKg.max,reason:`the ${fmt(path.editableDoseRangePerKg.max)} ${unit}/kg upper range for ${fmt(weight)} kg`});
+  else if(result?.numeric)limits.push({value:result.dose,reason:"the selected pathway dose"});
+  if(path?.formula.kind==="perKg"&&path.formula.max!==undefined)limits.push({value:path.formula.max,reason:`the ${fmt(path.formula.max)} ${unit} single-dose limit`});
+  if(path?.agent.toLowerCase()==="fentanyl"&&path.patient==="adult")limits.push({value:age>65?50:100,reason:`the ${age>65?"50":"100"} ${unit} adult single-dose cap`});
+  if(path?.agent.toLowerCase()==="fentanyl"&&route==="IN"&&concentration>0)limits.push({value:concentration*2,reason:`the 1 mL-per-nostril IN volume limit at ${fmt(concentration)} ${unit}/mL`});
+  if(path&&(path.maxCumulative!==undefined||path.maxCumulativePerKg!==undefined||path.absoluteCumulativeMax!==undefined)){
+    let cumulative=path.maxCumulative??Infinity;
+    if(path.maxCumulativePerKg!==undefined)cumulative=Math.min(cumulative,path.maxCumulativePerKg*weight);
+    if(path.absoluteCumulativeMax!==undefined)cumulative=Math.min(cumulative,path.absoluteCumulativeMax);
+    limits.push({value:Math.max(0,cumulative-entries.reduce((total,entry)=>total+entry.dose,0)),reason:"the remaining cumulative-dose limit"});
+  }
+  const reasons=limits.filter(limit=>Math.abs(limit.value-maximum)<.0001).map(limit=>limit.reason);
+  const limitDetail=reasons.length?` because of ${reasons.join(" and ")}`:" under the applicable medication limits";
+  return `Dose exceeds the permitted maximum of ${fmt(maximum)} ${unit}${limitDetail}. Enter a dose at or below the displayed maximum.`;
 }
 
 function fieldConcentrationFor(id:string):FieldConcentration|null{
@@ -330,4 +362,9 @@ function routeReasonKey(path:GenericDosePath){
 
 function routesFor(route:string){const map:Record<string,string[]>={"IV/IM/PO/ODT":["IV","IM","PO","ODT"],"IV/PO/ODT":["IV","PO","ODT"],"IV/IO/IM/IN":["IV/IO","IM","IN"],"IV/IO/IM":["IV/IO","IM"],"IM/IN":["IM","IN"],"IV/IM":["IV","IM"],"Slow IV/IM":["IV","IM"],"IM or ODT":["IM","ODT"]};return map[route]||[route]}
 function ageLabel(years:number){return years<1?`${Math.round(years*12)} months`:`${fmt(years)} years`}
-function fmt(n:number){const d=Math.abs(n)>0&&Math.abs(n)<1?3:2;return Number.isFinite(n)?Number(n.toFixed(d)).toString():"—"}
+export function fmt(n:number){const d=Math.abs(n)>0&&Math.abs(n)<1?3:2;return Number.isFinite(n)?Number(n.toFixed(d)).toString():"—"}
+export function formatEditableDose(value:string){
+  if(value===""||value==="-"||value.endsWith("."))return value;
+  const numeric=Number(value);
+  return Number.isFinite(numeric)?fmt(numeric):value;
+}

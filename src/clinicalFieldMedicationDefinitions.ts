@@ -32,9 +32,9 @@ function patchFentanyl(base:GenericMedication):GenericMedication{
   }
   const byId=(id:string)=>paths.find(path=>path.id===id)!;
   paths.push(
-    {...byId("adult-ivio"),id:"adult-ivio-low",label:"Moderate to severe pain — adult IV/IO — 1 mcg/kg lower-dose option",formula:kg(1,"mcg")},
-    {...byId("adult-im"),id:"adult-im-low",label:"Moderate to severe pain — adult IM — 1 mcg/kg lower-dose option",formula:kg(1,"mcg")},
-    {...byId("adult-in"),id:"adult-in-low",label:"Moderate to severe pain — adult IN — 1 mcg/kg lower-dose option",formula:kg(1,"mcg")},
+    {...byId("adult-ivio"),id:"adult-ivio-low",label:"Moderate to severe pain — adult IV/IO — 1 mcg/kg lower-dose option",formula:kg(1,"mcg"),editableDoseRangePerKg:{min:1,max:2}},
+    {...byId("adult-im"),id:"adult-im-low",label:"Moderate to severe pain — adult IM — 1 mcg/kg lower-dose option",formula:kg(1,"mcg"),editableDoseRangePerKg:{min:1,max:2}},
+    {...byId("adult-in"),id:"adult-in-low",label:"Moderate to severe pain — adult IN — 1 mcg/kg lower-dose option",formula:kg(1,"mcg"),editableDoseRangePerKg:{min:1,max:2}},
     {id:"ped-under1-base",label:"Pediatric under 1 year — BASE CONTACT",agent:"Fentanyl",patient:"pediatric",maxAge:1,route:"IV/IO/IM/IN",formula:instruction("BASE CONTACT REQUIRED — obtain a direct physician order before fentanyl administration."),repeat:"Further dosing per direct physician order.",administration:"Do not calculate or administer a standing fentanyl dose for a patient under 1 year without Base contact.",protocol:"Pain Management",baseContact:"Pediatric patient under 1 year requires Base contact before fentanyl dosing.",special:["DMP 9230: Pediatric <1 year — BASE CONTACT."]},
   );
   return {...base,contraindications:[...base.contraindications,"Pediatric patient under 1 year requires Base contact"],paths};

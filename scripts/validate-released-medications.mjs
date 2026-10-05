@@ -79,6 +79,8 @@ try{
       if(f.kind==="fixed"&&!(Number(f.amount)>0))failures.push(`${med.id}/${path.id}: invalid fixed dose`);
       if(f.kind==="range"&&(!(Number(f.min)>0)||!(Number(f.max)>=Number(f.min))))failures.push(`${med.id}/${path.id}: invalid dose range`);
       if(f.kind==="perKg"&&!(Number(f.amount)>0))failures.push(`${med.id}/${path.id}: invalid weight-based dose`);
+      if(path.editableDoseRangePerKg&&(!(Number(path.editableDoseRangePerKg.min)>0)||!(Number(path.editableDoseRangePerKg.max)>=Number(path.editableDoseRangePerKg.min))))failures.push(`${med.id}/${path.id}: invalid editable weight-based range`);
+      if(path.editableDoseRangePerKg&&med.id!=="fentanyl")failures.push(`${med.id}/${path.id}: editable range exception is restricted to the Fentanyl pathway`);
       if(f.kind==="ageBands"&&(!Array.isArray(f.bands)||!f.bands.length))failures.push(`${med.id}/${path.id}: age bands missing`);
       if(f.kind==="instruction"&&!String(f.text||"").trim())failures.push(`${med.id}/${path.id}: instruction text missing`);
       const hasCumulativeRepeatCeiling=path.maxCumulative!==undefined||path.maxCumulativePerKg!==undefined||path.absoluteCumulativeMax!==undefined;
@@ -103,18 +105,43 @@ try{
   const fentanyl=meds.find(m=>m.id==="fentanyl");
   const adultHigh=fentanyl?.paths.find(path=>path.id==="adult-ivio");
   const adultLow=fentanyl?.paths.find(path=>path.id==="adult-ivio-low");
+  const adultInLow=fentanyl?.paths.find(path=>path.id==="adult-in-low");
   const pediatric=fentanyl?.paths.find(path=>path.id==="ped-ivio");
-  if(!adultHigh||!adultLow||!pediatric)failures.push("fentanyl: cap regression pathways are missing");
+  const pediatricLow=fentanyl?.paths.find(path=>path.id==="ped-ivio-low");
+  if(!adultHigh||!adultLow||!adultInLow||!pediatric||!pediatricLow)failures.push("fentanyl: cap regression pathways are missing");
   else{
     const standardAdult=engine.calculateGenericDose(adultHigh,65,80,"fentanyl");
     const olderAdult=engine.calculateGenericDose(adultHigh,66,80,"fentanyl");
     const olderAdultLow=engine.calculateGenericDose(adultLow,66,80,"fentanyl");
     const pediatricDose=engine.calculateGenericDose(pediatric,10,40,"fentanyl");
+    const adultLowAtNinety=engine.calculateGenericDose(adultLow,40,90,"fentanyl");
+    const adultHighAtNinety=engine.calculateGenericDose(adultHigh,40,90,"fentanyl");
+    const initialEntries=[];
     if(!approx(standardAdult.dose,100))failures.push(`fentanyl: 80 kg adult cap expected 100 mcg, received ${standardAdult.dose}`);
     if(!approx(olderAdult.dose,50))failures.push(`fentanyl: 80 kg adult over 65 cap expected 50 mcg, received ${olderAdult.dose}`);
     if(!approx(olderAdultLow.dose,50))failures.push(`fentanyl: lower-dose adult over 65 cap expected 50 mcg, received ${olderAdultLow.dose}`);
     if(!approx(pediatricDose.dose,80))failures.push(`fentanyl: pediatric pathway must remain uncapped at 80 mcg, received ${pediatricDose.dose}`);
+    if(!approx(adultLowAtNinety.dose,90))failures.push(`fentanyl: 90 kg adult at 1 mcg/kg should initially calculate 90 mcg, received ${adultLowAtNinety.dose}`);
+    if(!approx(adultHighAtNinety.dose,100))failures.push(`fentanyl: 90 kg adult at 2 mcg/kg should remain capped at 100 mcg, received ${adultHighAtNinety.dose}`);
+    const adjustableMaximum=engine.nextDoseMaximum(adultLow,adultLowAtNinety,90,initialEntries,40,"IV/IO",50);
+    if(!approx(adjustableMaximum,100))failures.push(`fentanyl: 90 kg 1 mcg/kg pathway should permit 100 mcg, received ${adjustableMaximum}`);
+    const invalidAmountMessage=engine.doseLimitMessage(adultLow,adultLowAtNinety,90,40,"IV/IO",50,initialEntries,adjustableMaximum,101);
+    if(!invalidAmountMessage.includes("100 mcg")||!invalidAmountMessage.includes("adult single-dose cap"))failures.push(`fentanyl: invalid amount explanation should identify the 100 mcg adult cap, received "${invalidAmountMessage}"`);
+    if(!engine.doseLimitMessage(adultLow,adultLowAtNinety,90,40,"IV/IO",50,initialEntries,adjustableMaximum,0).includes("greater than 0 mcg"))failures.push("dose editor must explain that zero is not a valid dose");
+    if(!approx(engine.nextDoseMaximum(adultLow,adultLowAtNinety,90,initialEntries,66,"IV/IO",50),50))failures.push("fentanyl: age-over-65 50 mcg cap must constrain the editable maximum");
+    const intranasalMaximum=engine.nextDoseMaximum(adultInLow,adultLowAtNinety,90,initialEntries,40,"IN",40);
+    if(!approx(intranasalMaximum,80))failures.push("fentanyl: IN 1 mL per nostril limit must cap a 40 mcg/mL concentration at 80 mcg");
+    const intranasalLimitMessage=engine.doseLimitMessage(adultInLow,adultLowAtNinety,90,40,"IN",40,initialEntries,intranasalMaximum,90);
+    if(!intranasalLimitMessage.includes("1 mL-per-nostril IN volume limit"))failures.push("fentanyl: an invalid IN dose should identify the per-nostril volume limit");
+    const lowWeightPath={...adultLow,maxCumulativePerKg:3};
+    if(!approx(engine.nextDoseMaximum(lowWeightPath,adultLowAtNinety,20,[{dose:55,volume:1,time:1}],40,"IV/IO",50),5))failures.push("fentanyl: cumulative limit must constrain the next editable dose after prior administration");
+    const nonFentanyl=meds.find(m=>m.id==="dextrose")?.paths.find(path=>path.id==="ped-d10");
+    if(nonFentanyl){const nonFentanylResult=engine.calculateGenericDose(nonFentanyl,8,20,"dextrose");if(!approx(engine.nextDoseMaximum(nonFentanyl,nonFentanylResult,20,[],8,"IV/IO",100),nonFentanylResult.dose))failures.push("non-Fentanyl editable maximum changed from the calculated medication-specific dose");}
   }
+
+  const displayCases=[[2,"2"],[1.5,"1.5"],[1.6666667,"1.67"],[1.6666666666667,"1.67"],[0.3333333,"0.333"]];
+  for(const [value,expected] of displayCases)if(engine.fmt(value)!==expected||engine.formatEditableDose(String(value))!==expected)failures.push(`dose display precision: ${value} should render as ${expected}`);
+  if(engine.formatEditableDose("2.")!=="2."||engine.formatEditableDose("")!=="")failures.push("dose editor should preserve an in-progress decimal entry");
 
   if(!engineSource.includes('setActual(String(result.minDose||result.dose))'))failures.push("MedicationEngine no longer synchronizes the administration amount after a dose-changing patient edit");
 
