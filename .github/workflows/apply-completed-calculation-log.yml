@@ -1,0 +1,39 @@
+name: Apply completed calculation capture
+on:
+  push:
+    branches: [admin-log-all-completed-calculations]
+    paths:
+      - '.github/workflows/apply-completed-calculation-log.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Capture each finished calculation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/MedicationEngine.tsx')
+          s=p.read_text()
+          anchor='import type {CalculationPatient} from "./calculationPatient";'
+          imp='import {queueCompletedCalculation} from "./calculationReportLog";'
+          if imp not in s:
+              s=s.replace(anchor, anchor+'\n'+imp)
+          signature='export default function MedicationEngine({medication,activeHeader,close,record,openProtocol,onContextChange,initialPatient,initialMeasurements,onPatientChange}:Props){'
+          if 'const recordCompleted=(entry:RecordedAdministration)' not in s:
+              s=s.replace(signature, signature+'\n  const recordCompleted=(entry:RecordedAdministration)=>{record(entry);queueCompletedCalculation(entry)};')
+          s=s.replace('record({drug:', 'recordCompleted({drug:')
+          p.write_text(s)
+          if s.count('recordCompleted({drug:') < 2:
+              raise SystemExit('Expected medication administration capture points were not patched')
+          PY
+      - name: Commit capture hook
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/MedicationEngine.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Log every completed medication calculation"
+          git push
