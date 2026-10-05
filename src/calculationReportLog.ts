@@ -3,7 +3,7 @@ import {neonPublicClient,readReleaseMeta} from "./medicationRelease";
 
 const QUEUE_KEY="mmd-calculation-report-queue-v1";
 
-export type CalculationReportEvent="shared"|"printed_or_saved";
+export type CalculationReportEvent="completed"|"shared"|"printed_or_saved";
 type QueuedCalculationReport={
   report_id:string;
   event_type:CalculationReportEvent;
@@ -39,6 +39,10 @@ export function queueCalculationReport(eventType:CalculationReportEvent,entries:
   };
   writeQueue([...readQueue(),item]);
   void flushCalculationReportQueue();
+}
+
+export function queueCompletedCalculation(entry:RecordedAdministration){
+  queueCalculationReport("completed",[entry]);
 }
 
 export function flushCalculationReportQueue(){
