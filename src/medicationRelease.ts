@@ -59,7 +59,12 @@ export function medicationReleaseNeedsRepair(meta:ReleaseMeta,row:MedicationRele
   const catalog=readStoredObject(MEDICATION_CATALOG_KEY);
   const clinicalOverrides=readStoredObject(CLINICAL_OVERRIDE_KEY);
   if(!medicationState||!reviews||!catalog||!clinicalOverrides)return true;
-  return row.payload.medicationIds.some(id=>!objectRecord(medicationState[id])||!objectRecord(reviews[id]));
+  if(row.payload.medicationIds.some(id=>!objectRecord(medicationState[id])||!objectRecord(reviews[id])))return true;
+  // Detect stale images and other published data even when the release version matches.
+  return JSON.stringify(clinicalOverrides)!==JSON.stringify(row.payload.clinicalOverrides)
+    ||JSON.stringify(catalog)!==JSON.stringify(row.payload.catalog)
+    ||JSON.stringify(medicationState)!==JSON.stringify(row.payload.medicationState)
+    ||JSON.stringify(reviews)!==JSON.stringify(row.payload.reviews);
 }
 
 async function downloadFieldVisibility(){
