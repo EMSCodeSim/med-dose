@@ -1,8 +1,8 @@
-export const OFFLINE_BUNDLE_VERSION="67";
+export const OFFLINE_BUNDLE_VERSION="68";
 export const OFFLINE_READY_KEY="mmd-offline-ready-v1";
 
 export type OfflineReadyRecord={bundleVersion:string;releaseVersion:number|null;cachedFiles:number;verifiedAt:number;hiddenMedicationIds?:string[]};
-type WorkerReply={ok:boolean;cachedFiles?:number;missing?:string[];error?:string};
+type WorkerReply={ok:boolean;cachedFiles?:number;missing?:string[];error?:string;bundleVersion?:string};
 
 export function readOfflineReady():OfflineReadyRecord|null{
   try{
@@ -14,6 +14,8 @@ export function readOfflineReady():OfflineReadyRecord|null{
 export async function cacheAndVerifyOfflineFiles():Promise<number>{
   if(!("serviceWorker" in navigator))throw new Error("Offline installation is not supported by this browser.");
   const registration=await navigator.serviceWorker.ready;
+  // Ask iOS installed PWAs to discover a newly deployed worker before verification.
+  await registration.update();
   const worker=registration.active||navigator.serviceWorker.controller;
   if(!worker)throw new Error("The offline worker is not ready. Reload the page and try again.");
   const reply=await new Promise<WorkerReply>((resolve,reject)=>{
@@ -22,6 +24,7 @@ export async function cacheAndVerifyOfflineFiles():Promise<number>{
     channel.port1.onmessage=event=>{window.clearTimeout(timer);resolve(event.data as WorkerReply)};
     worker.postMessage({type:"CACHE_AND_VERIFY_OFFLINE"},[channel.port2]);
   });
+  if(reply.bundleVersion!==OFFLINE_BUNDLE_VERSION)throw new Error("An older offline app is still active. Close and reopen MyMedDose while online, then check updates again.");
   if(!reply.ok)throw new Error(reply.missing?.length?`Could not download: ${reply.missing.join(", ")}`:reply.error||"Offline verification failed.");
   return reply.cachedFiles||0;
 }
