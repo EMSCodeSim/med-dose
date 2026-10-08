@@ -1988,7 +1988,7 @@ function MedicationPhotoEditor({
       </div>
       <div className="admin-med-photo-controls">
         <b>Medication photo</b>
-        <span>Upload a clear photo of the vial, syringe, package, or device used by your department. The image is resized before it is saved.</span>
+        <span>Upload a clear photo of the vial, syringe, package, or device used by your department. The image is resized before it is saved. Saving here creates an admin draft only; to show the photo on other devices, save the medication section, complete the required medication review and approvals, then select Make release live.</span>
         <label className="admin-med-photo-upload">
           <input
             type="file"
