@@ -1,4 +1,4 @@
-const CACHE = "metro-med-dose-v67-release-image-sync";
+const CACHE = "metro-med-dose-v68-verified-release-images";
 const CORE = ["/", "/offline.html", "/manifest.webmanifest", "/protocols/txa-500-63.html", "/medications/adenosine-vial.webp", "/icons/metro-med-dose-192.png", "/icons/metro-med-dose-512.png", "/icons/apple-touch-icon.png", "/icons/favicon-32.png"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting())));
 self.addEventListener("activate", event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
@@ -34,7 +34,7 @@ async function cacheAndVerifyOffline() {
   }
   const verification = await Promise.all(required.map(path => cache.match(path)));
   required.forEach((path,index)=>{if(!verification[index]&&!missing.includes(path))missing.push(path)});
-  return missing.length ? {ok:false,missing} : {ok:true,cachedFiles:required.length,cache:CACHE};
+  return missing.length ? {ok:false,missing,bundleVersion:"68"} : {ok:true,cachedFiles:required.length,cache:CACHE,bundleVersion:"68"};
 }
 async function networkWithTimeout(request, milliseconds) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), milliseconds); try { const response = await fetch(request, { signal: controller.signal, cache: "no-store" }); if (response.ok) (await caches.open(CACHE)).put(request, response.clone()); return response; } finally { clearTimeout(timer); } }
 async function cacheFirst(request) { const cached = await caches.match(request); if (cached) return cached; const response = await fetch(request); if (response.ok) (await caches.open(CACHE)).put(request, response.clone()); return response; }
