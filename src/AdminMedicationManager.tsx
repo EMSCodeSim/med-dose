@@ -1993,7 +1993,6 @@ function MedicationPhotoEditor({
           <input
             type="file"
             accept="image/*"
-            capture="environment"
             disabled={processing}
             onChange={(event) => {
               void choosePhoto(event.currentTarget.files?.[0]);
