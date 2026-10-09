@@ -60,6 +60,7 @@ export default function FieldApp(){
     try{
       const result=await downloadLatestMedicationRelease();
       const meta=result.meta;
+      if(!meta)throw new Error("No published medication release was found. Offline files may be cached, but medication photos and approved records cannot be verified until an admin publishes a release.");
       setReleaseMeta(meta);if(result.updated)setReleaseRevision(value=>value+1);
       const cachedFiles=await cacheAndVerifyOfflineFiles();
       const visibility=readFieldVisibility(),hiddenMedicationIds=Object.entries(visibility).filter(([,hidden])=>hidden===true).map(([id])=>id).sort();
