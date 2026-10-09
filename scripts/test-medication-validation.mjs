@@ -99,7 +99,7 @@ try{
   localStorage.setItem(store.CLINICAL_OVERRIDE_KEY,JSON.stringify({fentanyl:{paths:[]},adenosine:{paths:[]}}));
   const partialHost=document.createElement("div");document.body.append(partialHost);const partialRoot=createRoot(partialHost);
   let publishedPayload;
-  function PartialHarness(){const [partialReviews,setPartialReviews]=useState({});return React.createElement(AdminMedicationManager,{medications:[medication,adenosineMedication],reviews:partialReviews,setReviews:partialReviews=>{publishedPayload=publishedPayload;setPartialReviews(partialReviews)},reviewerIdentity:"reviewer@example.com",onPublish:async payload=>{publishedPayload=payload},close:()=>{}})}
+  function PartialHarness(){const [partialReviews,setPartialReviews]=useState({});return React.createElement(AdminMedicationManager,{medications:[medication,adenosineMedication],reviews:partialReviews,setReviews:setPartialReviews,reviewerIdentity:"reviewer@example.com",onPublish:async payload=>{publishedPayload=payload},close:()=>{}})}
   await act(async()=>{partialRoot.render(React.createElement(PartialHarness));await new Promise(resolve=>setTimeout(resolve,30))});
   const partialPublish=partialHost.querySelector("button.admin-make-live");
   assert.ok(partialPublish&&!partialPublish.disabled,"A ready medication can be published while another medication is still unready");
