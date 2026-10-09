@@ -548,7 +548,7 @@ export default function AdminMedicationManager({
   const releaseMedicationIds = releaseCandidates
     .filter(
       (m) =>
-        (["approved", "due-soon"] as string[]).includes(medicationApprovalStatus(m.id,state).state) &&
+        medicationApprovalStatus(m.id,state).state === "approved" &&
         validationProgressFor(m).complete,
     )
     .map((m) => m.id);
