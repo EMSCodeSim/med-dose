@@ -538,14 +538,18 @@ export default function AdminMedicationManager({
   );
   const validationBlockers=reviewTargets.filter((m)=>!validationProgressFor(m).complete);
   const releaseBlockers=Array.from(new Set([...approvalBlockers,...validationBlockers]));
-  const releaseMedicationIds = catalog
+  const releaseCandidates = reviewTargets.filter(
+    (m) =>
+      !m.pending &&
+      (typeof m.visible === "boolean"
+        ? m.visible
+        : DEFAULT_VISIBLE_IDS.includes(m.id)),
+  );
+  const releaseMedicationIds = releaseCandidates
     .filter(
       (m) =>
-        !m.retired &&
-        !m.pending &&
-        (typeof m.visible === "boolean"
-          ? m.visible
-          : DEFAULT_VISIBLE_IDS.includes(m.id)),
+        (["approved", "due-soon"] as string[]).includes(medicationApprovalStatus(m.id,state).state) &&
+        validationProgressFor(m).complete,
     )
     .map((m) => m.id);
   const releaseMedicationCount = releaseMedicationIds.length;
@@ -1043,22 +1047,31 @@ export default function AdminMedicationManager({
     setError("");
   };
   const makeLive = async () => {
-    if (!onPublish || releaseBlockers.length) return;
+    if (!onPublish || !releaseMedicationCount) return;
     if (
       !window.confirm(
-        `Make release ${liveVersion + 1} live with ${releaseMedicationCount} field medications? User devices will download this approved medication library.`,
+        `Make release ${liveVersion + 1} live with ${releaseMedicationCount} validated, approved field medications? Only these medications will be available to field users; others remain unavailable until they meet release checks and a later release is published.`,
       )
     )
       return;
+    const releaseIds = new Set(releaseMedicationIds);
     await onPublish(
       {
         schemaVersion: 1,
         protocolRevision: CURRENT_DMP_PROTOCOL_REVISION,
         medicationIds: releaseMedicationIds,
-        medicationState: state,
-        reviews,
-        catalog: loadMedicationCatalogState(),
-        clinicalOverrides: loadClinicalOverrides(),
+        medicationState: Object.fromEntries(
+          Object.entries(state).filter(([id]) => releaseIds.has(id)),
+        ),
+        reviews: Object.fromEntries(
+          Object.entries(reviews).filter(([id]) => releaseIds.has(id)),
+        ),
+        catalog: Object.fromEntries(
+          Object.entries(loadMedicationCatalogState()).filter(([id]) => releaseIds.has(id)),
+        ),
+        clinicalOverrides: Object.fromEntries(
+          Object.entries(loadClinicalOverrides()).filter(([id]) => releaseIds.has(id)),
+        ),
       },
       releaseMedicationCount,
     );
@@ -1179,30 +1192,30 @@ export default function AdminMedicationManager({
               </button>
             </div>
             <section
-              className={`admin-publish-panel ${releaseBlockers.length ? "blocked" : "ready"}`}
+              className={`admin-publish-panel ${releaseMedicationCount ? "ready" : "blocked"}`}
             >
               <div>
                 <small>FIELD RELEASE</small>
                 <h3>
-                  {releaseBlockers.length
-                    ? `${releaseBlockers.length} medication${releaseBlockers.length === 1 ? "" : "s"} are not release-ready`
-                    : "All required reviews are complete"}
+                  {releaseMedicationCount
+                    ? `${releaseMedicationCount} medication${releaseMedicationCount === 1 ? "" : "s"} ready for release`
+                    : "No medications are release-ready"}
                 </h3>
                 <p>
-                  {releaseBlockers.length
-                    ? `${validationBlockers.length} need validation • ${approvalBlockers.length} need approval`
-                    : "Ready to publish to field devices."}
+                  {releaseMedicationCount
+                    ? `Only validated medications with two current approvals are included. ${releaseBlockers.length} active medications remain unavailable until release checks are complete.`
+                    : `${validationBlockers.length} need validation • ${approvalBlockers.length} need approval. Publish becomes available when at least one visible medication meets every release check.`}
                 </p>
                 <span>Current live release: {liveVersion || "None"}</span>
               </div>
               <button
                 className="admin-make-live"
-                disabled={!!releaseBlockers.length || publishing || !onPublish}
+                disabled={!releaseMedicationCount || publishing || !onPublish}
                 onClick={() => void makeLive()}
               >
                 {publishing
                   ? "Publishing…"
-                  : `Make release ${liveVersion + 1} live`}
+                  : `Publish ${releaseMedicationCount} ready medication${releaseMedicationCount === 1 ? "" : "s"}`}
               </button>
             </section>
             {adding && (
