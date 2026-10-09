@@ -53,8 +53,9 @@ try{
   assert.equal(host.querySelectorAll(".admin-new-med input").length,2,"Initial medication creation asks only for name and protocol ID");
   const cancelAdd=[...host.querySelectorAll(".admin-new-med button")].find(button=>button.textContent==="Cancel");
   await act(async()=>{cancelAdd.click();await new Promise(resolve=>setTimeout(resolve,20))});
-  const makeLive=[...host.querySelectorAll("button")].find(button=>button.textContent.includes("Make release"));
-  assert.equal(makeLive.disabled,true,"Make Live is blocked while formal validation is incomplete");
+  const makeLive=host.querySelector("button.admin-make-live");
+  assert.ok(makeLive,"Admin exposes the field release control");
+  assert.equal(makeLive.disabled,true,"Publishing is blocked when no medication meets approval and validation requirements");
   await act(async()=>{host.querySelector(".admin-med-row button").click();await new Promise(resolve=>setTimeout(resolve,20))});
   assert.ok(host.textContent.includes("Complete medication validation"));
   const startReview=[...host.querySelectorAll("button")].find(button=>button.textContent.includes("Start review & validation"));
@@ -65,6 +66,47 @@ try{
   assert.ok(markPassed,"A required validation check can be attested during review");
   await act(async()=>{markPassed.click();await new Promise(resolve=>setTimeout(resolve,20))});
   assert.ok(host.textContent.includes("Passed by reviewer@example.com"),"Validator identity is displayed in Admin");
-  await act(async()=>root.unmount());await win.happyDOM.close();
-  console.log("Medication validation tests passed: six-part checklist, revision invalidation, reviewer audit and applicability rules.");
+  await act(async()=>root.unmount());
+
+  const adenosineDefinition=releasedFieldMedicationDefinitions.find(item=>item.id==="adenosine");
+  const adenosineMedication={id:adenosineDefinition.id,name:adenosineDefinition.name,brand:"Adenosine",sub:"Antiarrhythmic",protocol:{id:adenosineDefinition.protocolId,name:adenosineDefinition.name,page:adenosineDefinition.page},visible:true};
+  const now=Date.now();
+  const readyRecord={
+    medicationId:"fentanyl",
+    clinicalRevision:1,
+    protocolRevision:"July 2026",
+    history:[{
+      id:"fentanyl-current-review",
+      startedAt:now-1000,
+      completedAt:now,
+      nextReviewAt:now+180*24*60*60*1000,
+      protocolRevision:"July 2026",
+      clinicalRevision:1,
+      result:"no-change",
+      signatures:{
+        owner:{reviewer:"reviewer-a",approvedAt:now},
+        lineSafety:{reviewer:"reviewer-b",approvedAt:now},
+      },
+    }],
+    validation:{
+      protocolRevision:"July 2026",
+      clinicalRevision:1,
+      checks:Object.fromEntries(store.MEDICATION_VALIDATION_KEYS.map(key=>[key,{validatedBy:"validator@example.org",validatedAt:now}])),
+    },
+  };
+  localStorage.setItem(store.ADMIN_MEDICATION_STATE_KEY,JSON.stringify({fentanyl:readyRecord,adenosine:{medicationId:"adenosine",clinicalRevision:1,protocolRevision:"July 2026",history:[]}}));
+  localStorage.setItem("metro-med-dose-medication-catalog-v1",JSON.stringify({fentanyl:medication,adenosine:adenosineMedication}));
+  localStorage.setItem(store.CLINICAL_OVERRIDE_KEY,JSON.stringify({fentanyl:{paths:[]},adenosine:{paths:[]}}));
+  const partialHost=document.createElement("div");document.body.append(partialHost);const partialRoot=createRoot(partialHost);
+  let publishedPayload;
+  function PartialHarness(){const [partialReviews,setPartialReviews]=useState({});return React.createElement(AdminMedicationManager,{medications:[medication,adenosineMedication],reviews:partialReviews,setReviews:partialReviews=>{publishedPayload=publishedPayload;setPartialReviews(partialReviews)},reviewerIdentity:"reviewer@example.com",onPublish:async payload=>{publishedPayload=payload},close:()=>{}})}
+  await act(async()=>{partialRoot.render(React.createElement(PartialHarness));await new Promise(resolve=>setTimeout(resolve,30))});
+  const partialPublish=partialHost.querySelector("button.admin-make-live");
+  assert.ok(partialPublish&&!partialPublish.disabled,"A ready medication can be published while another medication is still unready");
+  await act(async()=>{partialPublish.click();await new Promise(resolve=>setTimeout(resolve,20))});
+  assert.deepEqual(publishedPayload?.medicationIds,["fentanyl"],"The release includes only the ready medication");
+  assert.deepEqual(Object.keys(publishedPayload?.medicationState||{}),["fentanyl"],"Unready medication state is omitted from the release payload");
+  assert.deepEqual(Object.keys(publishedPayload?.clinicalOverrides||{}),["fentanyl"],"Unready clinical overrides are omitted from the release payload");
+  await act(async()=>partialRoot.unmount());await win.happyDOM.close();
+  console.log("Medication validation tests passed: six-part checklist, revision invalidation, reviewer audit, applicability rules and partial release filtering.");
 }finally{await server.close()}
