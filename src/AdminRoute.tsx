@@ -169,6 +169,14 @@ export default function AdminRoute(){
         const {data,error}=await withTimeout(neonAdminClient.from("admin_workspace").select("*").eq("id","primary").single());
         if(!active)return;
         if(error)throw error;
+        // RLS can return no visible workspace row for an authenticated but unauthorized user.
+        // Never dereference null or fall back to browser-local clinical data in that case.
+        if(!data){
+          const {data:access,error:accessError}=await withTimeout(neonAdminClient.from("admin_allowlist").select("email,active").eq("email",user.email?.trim().toLowerCase()||"").maybeSingle());
+          if(accessError)throw new Error("Your account cannot access the medication workspace. Confirm your invitation is active and your login email matches the invitation.");
+          if(!access||(access as {active:boolean}).active!==true)throw new Error("Access not approved: this account is not on the active administrator invitation list.");
+          throw new Error("Your account is invited, but the medication workspace is not accessible. Ask the primary administrator to verify database access permissions.");
+        }
         const row=data as AdminWorkspaceRow;
         const remotePayload=workspaceToPayload(row);
         const localPayload=readLocalWorkspace();
@@ -196,7 +204,7 @@ export default function AdminRoute(){
         if(!active)return;
         const text=errorMessage(error,"The secure workspace could not be loaded.");
         setMessage(text);
-        setLoadState(/permission|policy|row|jwt|authorized/i.test(text)?"denied":"error");
+        setLoadState(/permission|policy|row|jwt|authorized|not approved|not accessible|invitation/i.test(text)?"denied":"error");
       }
     })();
     return()=>{active=false};
