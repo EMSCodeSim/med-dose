@@ -86,14 +86,32 @@ function saveReleaseVisibility(meta:ReleaseMeta,visibility:FieldVisibilityState)
 }
 
 export function installMedicationRelease(row:MedicationReleaseRow,visibility:FieldVisibilityState=readFieldVisibility()){
-  if(!validateReleasePayload(row.payload))throw new Error("The downloaded medication release failed validation.");
+  if(!validateReleasePayload(row.payload)){
+    const payload=row.payload as unknown as Record<string,unknown>|null;
+    const required=["medicationState","reviews","catalog","clinicalOverrides"];
+    const missing=required.filter(key=>!payload?.[key]||typeof payload[key]!=="object"||Array.isArray(payload[key]));
+    const reason=payload?.schemaVersion!==1?"unsupported schema version":!Array.isArray(payload?.medicationIds)||!(payload.medicationIds as unknown[]).length?"missing medication IDs":missing.length?`missing or invalid fields: ${missing.join(", ")}`:"invalid clinical override paths";
+    throw new Error(`Medication release validation failed (${reason}). No new release was installed.`);
+  }
   if(row.payload.medicationIds.length!==Number(row.medication_count))throw new Error("The downloaded medication count failed validation.");
-  localStorage.setItem(ADMIN_MEDICATION_STATE_KEY,JSON.stringify(row.payload.medicationState));
-  localStorage.setItem(REVIEW_KEY,JSON.stringify(row.payload.reviews));
-  localStorage.setItem(MEDICATION_CATALOG_KEY,JSON.stringify(row.payload.catalog));
-  localStorage.setItem(CLINICAL_OVERRIDE_KEY,JSON.stringify(row.payload.clinicalOverrides));
+  // Snapshot the previous verified data so an interrupted storage write cannot leave a mixed release.
+  const updates:[string,string][]=[
+    [ADMIN_MEDICATION_STATE_KEY,JSON.stringify(row.payload.medicationState)],
+    [REVIEW_KEY,JSON.stringify(row.payload.reviews)],
+    [MEDICATION_CATALOG_KEY,JSON.stringify(row.payload.catalog)],
+    [CLINICAL_OVERRIDE_KEY,JSON.stringify(row.payload.clinicalOverrides)]
+  ];
   const meta:ReleaseMeta={version:Number(row.release_version),publishedAt:row.published_at,protocolRevision:row.protocol_revision,medicationCount:Number(row.medication_count),medicationIds:row.payload.medicationIds,hiddenMedicationIds:hiddenMedicationIds(visibility)};
-  localStorage.setItem(RELEASE_META_KEY,JSON.stringify(meta));
+  updates.push([RELEASE_META_KEY,JSON.stringify(meta)]);
+  const previous=updates.map(([key])=>[key,localStorage.getItem(key)] as const);
+  try{
+    for(const [key,value] of updates)localStorage.setItem(key,value);
+  }catch(error){
+    for(const [key,value] of previous){
+      try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value)}catch{/* Storage may be unavailable; do not claim verification. */}
+    }
+    throw new Error("Could not safely store the medication release. Previous data restoration was attempted.",{cause:error});
+  }
   return meta;
 }
 
