@@ -103,7 +103,7 @@
   border-color:#5f7d8d!important;
 }
 .field-mode-shell .vial-art.has-photo{
-  background:#f7fafb!important;
+  background:#fff!important;
   box-shadow:inset 0 0 0 1px #b9c7ce,0 5px 12px #0005!important;
   overflow:hidden;
 }
@@ -117,6 +117,7 @@
   display:block;
   padding:3px;
   box-sizing:border-box;
+  background:#fff;
 }
 
 /* Phone final-dose view: More Details must remain visible and tappable. */
