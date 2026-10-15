@@ -25,6 +25,24 @@ ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><
 
 if ("serviceWorker" in navigator) {
   let refreshingForUpdate = false;
+  let registration: ServiceWorkerRegistration | null = null;
+  let lastUpdateCheck = 0;
+  let updateCheck: Promise<void> | null = null;
+
+  const checkForServiceWorkerUpdate = () => {
+    if (!navigator.onLine || updateCheck || Date.now() - lastUpdateCheck < 30_000) return;
+    lastUpdateCheck = Date.now();
+    updateCheck = (async () => {
+      try {
+        registration ??= await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+        await registration.update();
+      } catch {
+        // Keep the current app usable if the update check cannot reach the server.
+      } finally {
+        updateCheck = null;
+      }
+    })();
+  };
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshingForUpdate) return;
@@ -33,9 +51,14 @@ if ("serviceWorker" in navigator) {
   });
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js", { updateViaCache: "none" })
-      .then((registration) => registration.update())
-      .catch(() => undefined);
+    checkForServiceWorkerUpdate();
+  });
+
+  // An installed iPhone PWA can resume from suspension without another load.
+  // Check when it becomes visible so it can activate a newly deployed worker.
+  window.addEventListener("pageshow", checkForServiceWorkerUpdate);
+  window.addEventListener("focus", checkForServiceWorkerUpdate);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") checkForServiceWorkerUpdate();
   });
 }
