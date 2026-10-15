@@ -40,7 +40,7 @@ const formatReviewedDate=(completedAt?:number)=>completedAt
 export default function FieldApp(){
   const     [query,setQuery]=useState(""),[filter,setFilter]=useState(""),[view,setView]=useState<View>("meds"),[selectedId,setSelectedId]=useState<string|null>(null),[online,setOnline]=useState(navigator.onLine),
     [favorites,setFavorites]=useState<string[]>(()=>readList("mmd-favorites")),[recent,setRecent]=useState<string[]>(()=>readList("mmd-recent")),[reportOpen,setReportOpen]=useState(false),[administrations,setAdministrations]=useState<RecordedAdministration[]>([]),[calculationSession,setCalculationSession]=useState(0),
-    [releaseMeta,setReleaseMeta]=useState<ReleaseMeta|null>(readReleaseMeta),[releaseRevision,setReleaseRevision]=useState(0),[syncState,setSyncState]=useState<"idle"|"checking"|"updated"|"failed">("idle"),
+    [releaseMeta,setReleaseMeta]=useState<ReleaseMeta|null>(readReleaseMeta),[releaseRevision,setReleaseRevision]=useState(0),[syncState,setSyncState]=useState<"idle"|"checking"|"updated"|"failed">("idle"),[syncError,setSyncError]=useState(""),
     [offlineRecord,setOfflineRecord]=useState<OfflineReadyRecord|null>(readOfflineReady),[offlineState,setOfflineState]=useState<"needed"|"downloading"|"ready"|"failed">(()=>readOfflineReady()?"ready":"needed"),[offlineError,setOfflineError]=useState("");
   useEffect(()=>{sessionStorage.removeItem("mmd-patient")},[]);
   useEffect(()=>{const on=()=>setOnline(true),off=()=>setOnline(false);addEventListener("online",on);addEventListener("offline",off);return()=>{removeEventListener("online",on);removeEventListener("offline",off)}},[]);
@@ -48,8 +48,8 @@ export default function FieldApp(){
   useEffect(()=>localStorage.setItem("mmd-recent",JSON.stringify(recent)),[recent]);
   const syncRelease=useCallback(async()=>{
     if(!navigator.onLine){setSyncState("idle");return}
-    setSyncState("checking");
-    try{const result=await downloadLatestMedicationRelease();setReleaseMeta(result.meta);setSyncState(result.updated?"updated":"idle");if(result.updated)setReleaseRevision(value=>value+1)}catch{setSyncState("failed")}
+    setSyncState("checking");setSyncError("");
+    try{const result=await downloadLatestMedicationRelease();setReleaseMeta(result.meta);setSyncState(result.updated?"updated":"idle");if(result.updated)setReleaseRevision(value=>value+1)}catch(error){setSyncState("failed");setSyncError(error instanceof Error?error.message:"Medication release update failed. Check your connection and retry.")}
   },[]);
   useEffect(()=>{void syncRelease()},[syncRelease]);
   useEffect(()=>{if(online)void syncRelease()},[online,syncRelease]);
@@ -106,7 +106,7 @@ export default function FieldApp(){
       <OfflineSetup status={offlineState} record={offlineRecord} error={offlineError} onDownload={()=>void prepareOffline()}/>
       {!online&&<div className="offline-home-banner"><b>OFFLINE</b> — Using downloaded release {releaseMeta?`v${releaseMeta.version}`:"stored on this device"}.</div>}
       {releaseMeta&&<div className="field-release-status"><b>LIVE MEDICATION LIBRARY • RELEASE {releaseMeta.version}</b><span>{releaseMeta.medicationCount} medications • Published {new Date(releaseMeta.publishedAt).toLocaleString()}</span></div>}
-      {syncState==="failed"&&<div className="field-release-error"><b>Update check failed.</b><span>The downloaded medication library remains available. Use “Check updates, download &amp; verify” when connected.</span></div>}
+      {syncState==="failed"&&<div className="field-release-error"><b>Medication library update failed.</b><span>{syncError||"Check your connection and retry. The saved library remains available."}</span></div>}
 
       {view==="meds"&&favorites.filter(id=>approvedIds.has(id)).length>0&&<section className="quick-row"><div className="section-head"><b>FAVORITES</b><button onClick={()=>selectView("favorites")}>View all</button></div><div>{favorites.filter(id=>approvedIds.has(id)).map(id=><button key={id} onClick={()=>openMed(id)}>{fieldMedicationDefinition(id)?.name||id}</button>)}</div></section>}
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.fast-field.config.ts",
-    "test": "npm run test:clinical && npm run test:state && npm run test:validation && npm run test:dose",
+    "test": "npm run test:clinical && npm run test:state && npm run test:validation && npm run test:dose && npm run test:release",
     "test:clinical": "node scripts/validate-released-medications.mjs",
     "release:check": "npm run build",
     "db:generate": "drizzle-kit generate",
@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "test:state": "node scripts/test-calculation-state.mjs",
     "test:validation": "node scripts/test-medication-validation.mjs",
-    "test:dose": "node scripts/test-dose-adjustments.mjs"
+    "test:dose": "node scripts/test-dose-adjustments.mjs",
+    "test:release": "node scripts/test-medication-release.mjs"
   },
   "dependencies": {
     "@neondatabase/neon-js": "^0.7.0-beta",
