@@ -1967,6 +1967,10 @@ async function resizeMedicationPhoto(file: File): Promise<string> {
   canvas.height = height;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Photo processing is unavailable on this device.");
+  // JPEG cannot preserve transparency. Paint an opaque white background first
+  // so isolated PNG/WebP medication images never flatten to black.
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
   context.drawImage(image, 0, 0, width, height);
   return canvas.toDataURL("image/jpeg", 0.76);
 }
