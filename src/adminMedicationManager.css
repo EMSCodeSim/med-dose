@@ -821,7 +821,7 @@
 
 
 .admin-med-photo-editor{display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;align-items:center;margin:0 0 18px;padding:14px;border:1px solid #2d4a5b;border-radius:12px;background:#0b1821}
-.admin-med-photo-preview{display:flex;align-items:center;justify-content:center;width:120px;height:120px;border:1px dashed #496575;border-radius:10px;background:#07131a;overflow:hidden;color:#7f96a3;font-size:11px;font-weight:900;letter-spacing:.08em;text-align:center}
+.admin-med-photo-preview{display:flex;align-items:center;justify-content:center;width:120px;height:120px;border:1px dashed #496575;border-radius:10px;background:#fff;overflow:hidden;color:#526c7a;font-size:11px;font-weight:900;letter-spacing:.08em;text-align:center}
 .admin-med-photo-preview img,.admin-clinical-photo img{width:100%;height:100%;object-fit:contain;background:#fff}
 .admin-med-photo-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
 .admin-med-photo-controls>b,.admin-med-photo-controls>span{flex:1 0 100%}
