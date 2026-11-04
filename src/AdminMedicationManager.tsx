@@ -1400,14 +1400,6 @@ export default function AdminMedicationManager({
             ) : (
               <ClinicalRecord data={currentData} />
             )}
-            {selectedValidation&&<section id="medication-validation" className={`admin-med-validation ${selectedValidation.complete?"complete":"incomplete"}`}>
-              <header><div><small>STEP 2 • FORMAL VALIDATION • REVISION {validationTarget(record).clinicalRevision}</small><h3>{selectedValidation.complete?"All required tests passed":"Complete medication validation"}</h3><p>Review the medication record above, then record each required check. Clinical changes reset validation.</p></div><b>{selectedValidation.completed.length}/{selectedValidation.total} PASSED</b></header>
-              {!record.reviewStartedAt&&<div className="admin-validation-start-note">Select “Start review & validation” above to enable these checks.</div>}
-              <div className="admin-validation-checks">{MEDICATION_VALIDATION_KEYS.map(key=>{
-                const required=selectedValidation.required.includes(key),check=selectedValidation.current?record.validation?.checks[key]:undefined,item=MEDICATION_VALIDATION_LABELS[key];
-                return <article key={key} className={!required?"na":check?"passed":"pending"}><i>{!required?"—":check?"✓":"!"}</i><span><b>{item.label}</b><small>{item.description}</small>{check&&<em>Passed by {check.validatedBy}{check.title?` • ${check.title}`:""} • {new Date(check.validatedAt).toLocaleString()}</em>}</span>{required&&!check&&<button type="button" disabled={!record.reviewStartedAt||editing} onClick={()=>validateMedicationCheck(key)}>Mark passed</button>}</article>;
-              })}</div>
-            </section>}
             <section id="medication-approval" className="admin-med-signatures admin-approval-panel">
               <header>
                 <div>
@@ -1427,6 +1419,14 @@ export default function AdminMedicationManager({
                 </div>
                 <b>{Math.min(signatureCount(reviews[selected.id] || {}), REQUIRED_REVIEW_SIGNATURES)}/{REQUIRED_REVIEW_SIGNATURES} APPROVED</b>
               </header>
+            {selectedValidation&&<section id="medication-validation" className={`admin-med-validation ${selectedValidation.complete?"complete":"incomplete"}`}>
+              <header><div><small>STEP 2 • FORMAL VALIDATION • REVISION {validationTarget(record).clinicalRevision}</small><h3>{selectedValidation.complete?"All required tests passed":"Complete medication validation"}</h3><p>Pass every applicable check before either approval can be recorded.</p></div><b>{selectedValidation.completed.length}/{selectedValidation.total} PASSED</b></header>
+              {!record.reviewStartedAt&&<div className="admin-validation-start-note">Select “Start review & validation” above to enable these checks.</div>}
+              <div className="admin-validation-checks">{MEDICATION_VALIDATION_KEYS.map(key=>{
+                const required=selectedValidation.required.includes(key),check=selectedValidation.current?record.validation?.checks[key]:undefined,item=MEDICATION_VALIDATION_LABELS[key];
+                return <article key={key} className={!required?"na":check?"passed":"pending"}><i>{!required?"—":check?"✓":"!"}</i><span><b>{item.label}</b><small>{item.description}</small>{check&&<em>Passed by {check.validatedBy}{check.title?` • ${check.title}`:""} • {new Date(check.validatedAt).toLocaleString()}</em>}</span>{required&&!check&&<button type="button" disabled={!record.reviewStartedAt||editing} onClick={()=>validateMedicationCheck(key)}>Mark passed</button>}</article>;
+              })}</div>
+            </section>}
               {ACTIVE_REVIEW_STAGES.map((stage, index) => {
                 const approval = reviews[selected.id]?.[stage];
                 const stages = ACTIVE_REVIEW_STAGES,
@@ -1434,7 +1434,8 @@ export default function AdminMedicationManager({
                 const previousComplete =
                   index === 0 || !!reviews[selected.id]?.[stages[index - 1]];
                 const ready =
-                  !!record.reviewStartedAt && !approval && previousComplete;
+                  !!record.reviewStartedAt && !approval && previousComplete && selectedValidation?.complete === true;
+                const validationOutstanding=selectedValidation?selectedValidation.total-selectedValidation.completed.length:0;
                 const currentReviewer=(reviewerIdentity||reviewerName).trim().toLowerCase();
                 const requiresDifferentReviewer=ready&&!!currentReviewer&&Object.values(reviews[selected.id]||{}).some(item=>item?.reviewer.trim().toLowerCase()===currentReviewer);
                 return (
@@ -1456,12 +1457,15 @@ export default function AdminMedicationManager({
                         <small>{requiresDifferentReviewer?"A different signed-in reviewer must complete this approval":"Ready for this reviewer’s approval"}</small>
                       ) : (
                         <small>
-                          {record.reviewStartedAt
-                            ? "Waiting for previous approval"
-                            : "Review not started"}
+                          {!record.reviewStartedAt
+                            ? "Review not started"
+                            : validationOutstanding>0
+                              ? `${validationOutstanding} required safety/validation check${validationOutstanding===1?"":"s"} must pass before approval`
+                              : "Waiting for previous approval"}
                         </small>
                       )}
                     </span>
+                    {!approval&&record.reviewStartedAt&&validationOutstanding>0&&previousComplete&&<a className="admin-approval-validation-link" href="#medication-validation" onClick={event=>{event.preventDefault();document.querySelector("#medication-validation")?.scrollIntoView({behavior:"smooth",block:"start"})}}>Review required checks above ↓</a>}
                     {ready && !requiresDifferentReviewer && (
                       <div className="admin-approve-action">
                         <label>
